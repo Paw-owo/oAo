@@ -80,24 +80,24 @@
     presetGroup.appendChild(presetGrid);
     content.appendChild(presetGroup);
 
-    // 拉取模型事件
-    setTimeout(() => {
-      const btn = document.getElementById("cfg-fetch-models");
-      const hint = document.getElementById("cfg-fetch-hint");
-      const wrap = document.getElementById("cfg-model-list-wrap");
-      if (!btn || !hint || !wrap) return;
-      btn.addEventListener("click", async () => {
-        btn.setAttribute("disabled", "1");
-        btn.textContent = "拉取中...";
-        hint.textContent = "我去问一下接口有哪些模型可用";
+    // 拉取模型事件（同步绑定，避免 setTimeout 时序导致首次点击无响应）
+    const fetchBtn = fetchRow.querySelector("#cfg-fetch-models");
+    const fetchHint = fetchRow.querySelector("#cfg-fetch-hint");
+    if (fetchBtn && fetchHint) {
+      fetchBtn.addEventListener("click", async () => {
+        fetchBtn.setAttribute("disabled", "1");
+        fetchBtn.textContent = "拉取中...";
+        fetchHint.textContent = "我去问一下接口有哪些模型可用";
         try {
           const e = document.getElementById("cfg-endpoint").value.trim();
           const k = document.getElementById("cfg-apikey").value.trim();
           const r = await global.Phone.AIClient.fetchModels({ endpoint: e, apiKey: k });
-          if (!r.ok) { hint.textContent = r.error || "拉取失败"; return; }
-          if (!r.models || !r.models.length) { hint.textContent = "接口没返回模型列表"; return; }
-          hint.textContent = "我拉到 " + r.models.length + " 个模型，点一下就能填入";
+          if (!r.ok) { fetchHint.textContent = r.error || "拉取失败"; return; }
+          if (!r.models || !r.models.length) { fetchHint.textContent = "接口没返回模型列表"; return; }
+          fetchHint.textContent = "我拉到 " + r.models.length + " 个模型，点一下就能填入";
           // 渲染成可滚动 chip 列表
+          const wrap = document.getElementById("cfg-model-list-wrap");
+          if (!wrap) return;
           U.empty(wrap);
           wrap.style.display = "block";
           wrap.appendChild(U.el("div", { class: "form-label", text: "可用模型（" + r.models.length + "）" }));
@@ -115,13 +115,13 @@
           });
           wrap.appendChild(grid);
         } catch (e) {
-          hint.textContent = "拉取出错：" + (e.message || e);
+          fetchHint.textContent = "拉取出错：" + (e.message || e);
         } finally {
-          btn.removeAttribute("disabled");
-          btn.textContent = "重新拉取模型列表";
+          fetchBtn.removeAttribute("disabled");
+          fetchBtn.textContent = "重新拉取模型列表";
         }
       });
-    }, 0);
+    }
 
     // ---------- AI 说话方式（可折叠） ----------
     content.appendChild(U.el("div", { class: "settings-section-title", text: "AI 说话方式", style: { marginTop: "16px" } }));
@@ -347,12 +347,19 @@
     ]);
     const ttsEnabledSw = U.el("div", { class: "switch" + (ttsEnabled ? " on" : "") });
     ttsEnabledSw.addEventListener("click", async () => {
+      if (!global.Phone.TTS) {
+        global.Phone.Notify.push({ appId: "settings", title: "TTS 模块没加载好，先刷新页面试试" });
+        return;
+      }
       const v = !ttsEnabledSw.classList.contains("on");
       ttsEnabledSw.classList.toggle("on", v);
       await State.set("ttsEnabled", v);
     });
     ttsEnabledRow.appendChild(ttsEnabledSw);
     ttsBody.appendChild(ttsEnabledRow);
+    if (!global.Phone.TTS) {
+      ttsBody.appendChild(U.el("div", { class: "form-hint", text: "TTS 模块没加载好，刷新页面看看", style: { padding: "8px 16px" } }));
+    }
 
     // 自动朗读
     const ttsAutoRow = U.el("div", { class: "list-item" }, [
@@ -441,6 +448,10 @@
     ]);
     const mcpEnableSw = U.el("div", { class: "switch" + (mcpEnabled ? " on" : "") });
     mcpEnableSw.addEventListener("click", async () => {
+      if (!global.Phone.McpClient) {
+        global.Phone.Notify.push({ appId: "settings", title: "MCP 模块没加载好，先刷新页面试试" });
+        return;
+      }
       const v = !mcpEnableSw.classList.contains("on");
       mcpEnableSw.classList.toggle("on", v);
       await State.set("mcpEnabled", v);

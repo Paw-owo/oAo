@@ -63,11 +63,13 @@
   --color-success: #8BC28A;
   --color-warning: #F5B945;
   --color-danger: #E8826B;
+  --color-danger-deep: #C25A45;
 
   --text-primary: #4A3C28;
   --text-secondary: #8A7656;
   --text-placeholder: #B6A482;
   --text-on-primary: #5A4A2E;
+  --text-on-danger: #FFFBF0;
 
   --border-soft: rgba(216, 151, 30, 0.16);
   --border-strong: rgba(216, 151, 30, 0.32);
@@ -83,6 +85,7 @@
   --grad-primary: linear-gradient(135deg, #FFD66E 0%, #F5B945 100%);
   --grad-accent: linear-gradient(135deg, #FFC4D2 0%, #F38BA0 100%);
   --grad-bg-soft: linear-gradient(180deg, #FFFDFA 0%, #FFF6E2 100%);
+  --grad-danger: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);
 }
 
 /* ---------- 主题：pink 粉色 ---------- */
@@ -107,11 +110,13 @@
   --color-success: #8BC28A;
   --color-warning: #F5B945;
   --color-danger: #E8826B;
+  --color-danger-deep: #C25A45;
 
   --text-primary: #4A2830;
   --text-secondary: #8A5660;
   --text-placeholder: #B6828E;
   --text-on-primary: #5A2E38;
+  --text-on-danger: #FFF5F8;
 
   --border-soft: rgba(216, 95, 120, 0.16);
   --border-strong: rgba(216, 95, 120, 0.32);
@@ -127,6 +132,7 @@
   --grad-primary: linear-gradient(135deg, #FFA8B9 0%, #F38BA0 100%);
   --grad-accent: linear-gradient(135deg, #E0B7F2 0%, #C792EA 100%);
   --grad-bg-soft: linear-gradient(180deg, #FFFCFD 0%, #FFE7EC 100%);
+  --grad-danger: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);
 }
 
 /* ---------- 主题：sky 蓝色 ---------- */
@@ -151,11 +157,13 @@
   --color-success: #8BC28A;
   --color-warning: #F5B945;
   --color-danger: #E8826B;
+  --color-danger-deep: #C25A45;
 
   --text-primary: #283A4A;
   --text-secondary: #56708A;
   --text-placeholder: #82A0B6;
   --text-on-primary: #2E4A5A;
+  --text-on-danger: #F5FAFF;
 
   --border-soft: rgba(59, 138, 214, 0.16);
   --border-strong: rgba(59, 138, 214, 0.32);
@@ -171,6 +179,7 @@
   --grad-primary: linear-gradient(135deg, #94C8F5 0%, #6FB5F0 100%);
   --grad-accent: linear-gradient(135deg, #B4DEC9 0%, #8AC9B4 100%);
   --grad-bg-soft: linear-gradient(180deg, #FDFFFF 0%, #E2EEFF 100%);
+  --grad-danger: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);
 }
 
 /* ---------- 全局 reset ---------- */

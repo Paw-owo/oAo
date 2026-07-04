@@ -139,7 +139,7 @@
   background: var(--grad-primary);
   margin: 0 auto 12px;
   display: flex; align-items: center; justify-content: center;
-  color: #fff;
+  color: var(--text-on-primary);
   box-shadow: var(--shadow-card);
 }
 .about-name { font-size: var(--font-lg); font-weight: 600; color: var(--text-primary); }
@@ -174,7 +174,7 @@
   width: 18px; height: 18px;
   border-radius: var(--radius-full);
   background: var(--color-danger);
-  color: #fff;
+  color: var(--text-on-danger);
   font-size: 10px;
   display: flex; align-items: center; justify-content: center;
 }

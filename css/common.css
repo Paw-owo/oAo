@@ -77,8 +77,8 @@
 .btn-text:active { opacity: 0.6; transform: scale(0.97); }
 
 .btn-danger {
-  background: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);
-  color: #FFF;
+  background: var(--grad-danger);
+  color: var(--text-on-danger);
 }
 
 .btn-sm { padding: 6px 12px; font-size: var(--font-sm); }
@@ -495,7 +495,7 @@
   padding: 0 4px;
   border-radius: var(--radius-full);
   background: var(--color-danger);
-  color: #fff;
+  color: var(--text-on-danger);
   font-size: 10px;
   font-weight: 600;
   display: flex;
@@ -651,11 +651,11 @@
 .phone-modal-input {
   width: 100%;
   padding: 12px 14px;
-  border: 1.5px solid var(--border-soft, rgba(0, 0, 0, 0.08));
+  border: 1.5px solid var(--border-soft);
   border-radius: var(--radius-md);
   font-size: var(--font-sm);
   color: var(--text-primary);
-  background: var(--bg-surface-2, rgba(0, 0, 0, 0.02));
+  background: var(--bg-surface-2);
   outline: none;
   transition: border-color var(--dur-fast) var(--ease-soft),
               background var(--dur-fast) var(--ease-soft);
@@ -687,20 +687,20 @@
               opacity var(--dur-fast) var(--ease-soft);
 }
 .phone-modal-btn-cancel {
-  background: var(--bg-surface-2, rgba(0, 0, 0, 0.05));
+  background: var(--bg-surface-2);
   color: var(--text-secondary);
 }
 .phone-modal-btn-cancel:active { transform: scale(0.96); }
 .phone-modal-btn-ok {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-deep));
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-soft);
 }
 .phone-modal-btn-ok:active { transform: scale(0.96); }
 .phone-modal-btn-danger {
-  background: linear-gradient(135deg, var(--color-danger), #c25a45);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(232, 130, 107, 0.3);
+  background: linear-gradient(135deg, var(--color-danger), var(--color-danger-deep));
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-soft);
 }
 .phone-modal-btn-danger:active { transform: scale(0.96); }
 

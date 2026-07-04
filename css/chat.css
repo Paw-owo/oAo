@@ -54,7 +54,7 @@
   align-items: center;
   justify-content: center;
   font-size: var(--font-sm);
-  color: #fff;
+  color: var(--text-on-danger);
   background: var(--color-primary);
 }
 .chat-list-item .cli-actions .cli-act:nth-child(2) { background: var(--color-accent); }
@@ -70,7 +70,7 @@
   padding: 0 5px;
   border-radius: var(--radius-full);
   background: var(--color-danger);
-  color: #fff;
+  color: var(--text-on-danger);
   font-size: 11px;
   font-weight: 600;
   display: flex;
@@ -197,7 +197,7 @@
 
 .msg-quote {
   font-size: var(--font-xs);
-  background: rgba(0,0,0,0.04);
+  background: var(--color-primary-ultralight);
   border-radius: var(--radius-sm);
   padding: 6px 10px;
   margin-bottom: 4px;
@@ -297,7 +297,7 @@
   transition: transform var(--dur-fast) var(--ease-soft), background var(--dur-fast) var(--ease-soft);
 }
 .ib-btn:active { transform: scale(0.92); background: var(--bg-hover); }
-.ib-btn.recording { background: var(--color-danger); color: #fff; animation: pulse 1s ease-in-out infinite; }
+.ib-btn.recording { background: var(--color-danger); color: var(--text-on-danger); animation: pulse 1s ease-in-out infinite; }
 .ib-send {
   background: var(--grad-primary);
   color: var(--text-on-primary);

@@ -25,11 +25,12 @@
     const U = global.Phone.Utils;
     const State = global.Phone.State;
 
-    const [password, wallpaper, avatar, lockText] = await Promise.all([
+    const [password, wallpaper, avatar, lockText, bootShown] = await Promise.all([
       S.getSetting("lockPassword"),
       S.getSetting("lockWallpaper"),
       S.getSetting("lockAvatar"),
       S.getSetting("lockText"),
+      S.getSetting("bootShown"),
     ]);
 
     // 移除旧锁屏
@@ -52,7 +53,8 @@
         U.el("img", { src: avatar, alt: "" })
       ]));
     } else {
-      top.appendChild(U.el("div", { class: "lock-avatar lock-avatar-default" }, {
+      top.appendChild(U.el("div", {
+        class: "lock-avatar lock-avatar-default",
         html: global.Phone.IconLibrary.get("sb-cat", { size: 40 })
       }));
     }
@@ -80,6 +82,10 @@
 
     const tip = U.el("div", { class: "lock-tip", text: "输入密码解锁" });
     bottom.appendChild(tip);
+    // 首次启动给新用户一点提示，避免不知道默认密码
+    if (!bootShown) {
+      bottom.appendChild(U.el("div", { class: "lock-hint", text: "初始密码 0326，进设置后可以改哦" }));
+    }
 
     // 数字键盘 1-9, 0, 删除
     const pad = U.el("div", { class: "lock-pad" });

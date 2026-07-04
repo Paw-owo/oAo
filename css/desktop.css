@@ -234,7 +234,7 @@
   padding: 0 4px;
   border-radius: var(--radius-full);
   background: var(--color-danger);
-  color: #fff;
+  color: var(--text-on-danger);
   font-size: 10px;
   font-weight: 600;
   display: flex;
@@ -377,7 +377,7 @@
   padding: 0 4px;
   border-radius: var(--radius-full);
   background: var(--color-danger);
-  color: #fff;
+  color: var(--text-on-danger);
   font-size: 10px;
   font-weight: 600;
   display: flex;
@@ -444,4 +444,14 @@
   font-size: var(--font-sm);
   color: var(--text-secondary);
   z-index: 5;
+}
+
+/* ---------- 装饰性 SVG 不挡点击 ---------- */
+/* 状态栏、小组件里的纯装饰图标设为点击穿透，避免盖住下层 APP 图标 */
+.status-bar svg,
+.widget .wt-deco svg,
+.widget-weather .ww-icon svg,
+.boot-logo svg,
+.lock-avatar-default svg {
+  pointer-events: none;
 }

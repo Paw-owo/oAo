@@ -45,7 +45,8 @@
     const timeDate = U.el("div", { class: "wt-date" });
     wTime.appendChild(timeMain);
     wTime.appendChild(timeDate);
-    wTime.appendChild(U.el("div", { class: "wt-deco" }, {
+    wTime.appendChild(U.el("div", {
+      class: "wt-deco",
       html: global.Phone.IconLibrary.get("clock", { size: 36, strokeWidth: 1.2 })
     }));
 

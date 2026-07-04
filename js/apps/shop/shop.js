@@ -73,10 +73,12 @@
     const content = U.el("div", { class: "scroll page-content", style: { padding: "16px" } });
 
     // ---------- 余额提示 ----------
+    // 我把余额数字单独标 id，购买/赠送后能就地刷新，不用整个重挂
+    const balanceNum = U.el("div", { id: "shop-balance-num", text: balance.toLocaleString() + " " + currency, style: { fontWeight: "600", fontSize: "var(--font-md)" } });
     content.appendChild(U.el("div", { class: "card-soft row", style: { justifyContent: "space-between", marginBottom: "12px" } }, [
       U.el("div", {}, [
         U.el("div", { class: "muted", text: "我的小金库", style: { fontSize: "var(--font-xs)" } }),
-        U.el("div", { text: balance.toLocaleString() + " " + currency, style: { fontWeight: "600", fontSize: "var(--font-md)" } }),
+        balanceNum,
       ]),
       U.el("div", { class: "muted", text: current ? ("要送给 " + current.name) : "选个礼物吧", style: { fontSize: "var(--font-xs)" } }),
     ]));
@@ -388,7 +390,7 @@
       U.el("div", { class: "sc-name", text: it.name }),
       U.el("div", { class: "sc-desc", text: it.description || "" }),
       U.el("div", { class: "sc-bottom" }, [
-        showPrices ? U.el("div", { class: "sc-price", html: "<span class='unit'>" + currency + "</span>" + (it.price || 0) }) : U.el("div", {}),
+        showPrices ? U.el("div", { class: "sc-price", html: (it.price || 0) + "<span class='unit'>" + currency + "</span>" }) : U.el("div", {}),
         U.el("div", { class: "row gap-4" }, [
           (() => {
             const b = U.el("button", { class: "icon-btn" });
@@ -516,6 +518,13 @@
       type: "purchase", createdAt: Date.now(),
     });
     global.Phone.Notify.push({ appId: "shop", title: "购买成功，已加入背包" });
+    // 我就地刷新顶部余额数字，避免整个重挂导致列表滚动位置丢失
+    try {
+      const w = await global.Phone.Storage.get("wallet", "main");
+      const b = w ? (w.userBalance || 0) : 0;
+      const node = document.getElementById("shop-balance-num");
+      if (node) node.textContent = b.toLocaleString() + " " + (global.Phone.State.get("walletCurrency") || "元");
+    } catch (e) { console.warn("[Shop] 刷新余额失败", e); }
     onDone();
   }
 

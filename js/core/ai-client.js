@@ -31,6 +31,8 @@
   function friendlyError(err) {
     if (!err) return "我好像出错了，等一下再试～";
     if (err.name === "AbortError") return "我把话收回去啦";
+    // 我把"未配置接口"这种带明确引导的提示原样透传，不吞掉
+    if (err.message && /接口配置|接口地址|API Key/.test(err.message)) return err.message;
     if (err.message && /Failed to fetch|NetworkError/i.test(err.message)) {
       return "我的网络好像断掉了，检查一下再试";
     }

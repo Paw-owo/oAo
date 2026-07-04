@@ -28,7 +28,8 @@
       const spec = allApps.find((a) => a.id === id);
       if (!spec) return;
       const item = U.el("div", { class: "dock-item", dataset: { id: id } });
-      const box = U.el("div", { class: "di-box" }, {
+      const box = U.el("div", {
+        class: "di-box",
         html: global.Phone.IconLibrary.get(spec.icon || "app-memo", { size: 26 })
       });
       const cnt = badges[id] || 0;
