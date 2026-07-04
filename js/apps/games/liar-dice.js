@@ -510,11 +510,18 @@
       const b = parseInt(bet, 10);
       if (isNaN(b) || b <= 0) return { ok: false, error: "下注金额不对" };
       const m = mode === "bo3" ? "bo3" : "single";
-      // BO3 模式初始化进度
-      if (m === "bo3") {
-        _apiBo3State = { playerWins: 0, aiWins: 0, bet: b, roundLog: [] };
-      } else {
+      // 我按模式和下注决定是否重置 BO3 累计状态：
+      //   - 切换到非 bo3 模式：清空，避免残留污染新局
+      //   - 同 bo3 模式但下注变了：清空，新下注开始新局
+      //   - 同 bo3 模式同下注且已有状态：保留，让连续 settle 继续累计
+      //   - 同 bo3 模式但没有状态：初始化新一局
+      if (m !== "bo3") {
         _apiBo3State = null;
+      } else if (_apiBo3State && _apiBo3State.bet !== b) {
+        _apiBo3State = null;
+      }
+      if (m === "bo3" && !_apiBo3State) {
+        _apiBo3State = { playerWins: 0, aiWins: 0, bet: b, roundLog: [] };
       }
       return {
         bet: b,
@@ -641,6 +648,8 @@
       });
       return { ok: true, settled: true, mode: "single", won: outcome === "win", outcome: settled, profit: profit, rec: rec };
     },
+    /** 我重置 BO3 累计状态 */
+    resetBo3() { _apiBo3State = null; },
     /** 我生成 5 个随机骰子 */
     getDice() {
       return _rollDice();

@@ -461,7 +461,7 @@
         U.el("div", { class: "muted", text: "获得于 " + global.Phone.Utils.relTime(inv.createdAt), style: { fontSize: "var(--font-xs)" } }),
         (() => {
           const b = U.el("button", { class: "btn btn-sm", text: "送给" + (current ? current.name : "AI") });
-          b.addEventListener("click", () => _giftFromBag(U, inv, current, currency, onDone));
+          b.addEventListener("click", () => _giftFromBag(U, inv, current, onDone));
           return b;
         })(),
       ]),
@@ -532,11 +532,11 @@
       global.Phone.Notify.push({ appId: "shop", title: "背包里没有这个，先买一个吧" });
       return;
     }
-    await _giftFromBag(U, inv, current, Storage, onDone);
+    await _giftFromBag(U, inv, current, onDone);
   }
 
   // ---------- 从背包赠送 ----------
-  async function _giftFromBag(U, inv, current, currency, onDone) {
+  async function _giftFromBag(U, inv, current, onDone) {
     if (!current) {
       global.Phone.Notify.push({ appId: "shop", title: "还没有角色，没法送哦" });
       return;

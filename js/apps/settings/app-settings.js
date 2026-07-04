@@ -137,6 +137,118 @@
       },
       // 自定义节点直接追加
       raw(node) { content.appendChild(node); },
+
+      // 我做一个可折叠分组，点击标题展开/收起内容
+      collapsible(title, opts, buildFn) {
+        opts = opts || {};
+        const Icon = global.Phone.IconLibrary;
+        const expanded = !!opts.expanded;
+        const chevron = U.el("span", {
+          class: "ch-chevron" + (expanded ? " open" : ""),
+          html: Icon.get("chevron-down", { size: 18 }),
+        });
+        const header = U.el("div", { class: "collapsible-header" }, [
+          U.el("span", { class: "ch-icon", html: opts.icon ? Icon.get(opts.icon, { size: 16 }) : "" }),
+          U.el("span", { class: "ch-title", text: title }),
+          chevron,
+        ]);
+        const bodyEl = U.el("div", {
+          class: "collapsible-body",
+          style: { display: expanded ? "block" : "none" },
+        });
+        const wrap = U.el("div", { class: "collapsible" }, [header, bodyEl]);
+        // 我让 buildFn 拿到子 tools，子 tools 会把外层 tools 追加到 content 的节点搬到 body 里
+        if (typeof buildFn === "function") {
+          const subTools = _scopedTools(content, bodyEl, tools);
+          try { buildFn(subTools); } catch (e) { console.warn("[AppSettings] collapsible build 报错", e); }
+        }
+        function setExpanded(v) {
+          bodyEl.style.display = v ? "block" : "none";
+          chevron.classList.toggle("open", v);
+        }
+        header.addEventListener("click", () => {
+          const isOpen = bodyEl.style.display !== "none";
+          setExpanded(!isOpen);
+        });
+        content.appendChild(wrap);
+        return {
+          el: wrap,
+          expand() { setExpanded(true); },
+          collapse() { setExpanded(false); },
+          toggle() { setExpanded(bodyEl.style.display === "none"); },
+        };
+      },
+
+      // 我做一个手风琴，多组互斥展开，同一时间只能开一个
+      accordion(sections) {
+        const container = U.el("div", {});
+        const items = [];
+        (sections || []).forEach((sec) => {
+          const c = tools.collapsible(sec.title, { icon: sec.icon, expanded: sec.expanded }, sec.build);
+          items.push(c);
+          container.appendChild(c.el);
+        });
+        // 我给每个 header 加监听：展开当前节时收起其他节
+        items.forEach((c, i) => {
+          const header = c.el.querySelector(".collapsible-header");
+          if (!header) return;
+          header.addEventListener("click", () => {
+            items.forEach((other, j) => {
+              if (i !== j) other.collapse();
+            });
+          });
+        });
+        content.appendChild(container);
+        return container;
+      },
+
+      // 我做一个数据操作快捷组：导出 + 清空（危险），二合一放在一个 group 里
+      dataActions(opts2) {
+        const Icon = global.Phone.IconLibrary;
+        const exportLabel = (opts2 && opts2.exportLabel) || "导出数据";
+        const clearLabel = (opts2 && opts2.clearLabel) || "清空数据";
+        // 导出行
+        const exportRow = _row(U, "download", exportLabel, null, async () => {
+          if (opts2 && typeof opts2.export === "function") {
+            try { await opts2.export(); } catch (e) { console.warn("[AppSettings] dataActions export 报错", e); }
+          }
+        });
+        // 清空行（危险色）
+        const clearRow = U.el("div", { class: "settings-row", style: { cursor: "pointer" } });
+        clearRow.appendChild(U.el("div", {
+          class: "sr-icon",
+          html: Icon.get("trash", { size: 18 }),
+          style: { background: "rgba(232, 130, 107, 0.16)", color: "var(--color-danger)" },
+        }));
+        clearRow.appendChild(U.el("div", { class: "sr-main" }, [
+          U.el("div", { class: "sr-title", text: clearLabel, style: { color: "var(--color-danger)" } }),
+        ]));
+        clearRow.appendChild(U.el("div", { class: "sr-right" }, [
+          U.el("span", { class: "chevron", html: Icon.get("chevron-right", { size: 18 }) }),
+        ]));
+        clearRow.addEventListener("click", async () => {
+          if (!opts2 || !opts2.clear || typeof opts2.clear.fn !== "function") return;
+          const msg = opts2.clear.msg || "确认清空？此操作不可恢复。";
+          const ok = await global.Phone.Modal.confirm({ message: msg, danger: true });
+          if (!ok) return;
+          try { await opts2.clear.fn(); } catch (e) { console.warn("[AppSettings] dataActions clear 报错", e); }
+          global.Phone.Notify.push({ appId: "settings", title: "已清空" });
+        });
+        const g = U.el("div", { class: "settings-group" }, [exportRow, clearRow]);
+        content.appendChild(g);
+        return g;
+      },
+
+      // 我做一个关于提示卡，带 info 图标的可爱色提示
+      aboutHint(text) {
+        const Icon = global.Phone.IconLibrary;
+        const node = U.el("div", { class: "about-hint" }, [
+          U.el("span", { class: "ah-icon", html: Icon.get("info", { size: 16 }) }),
+          U.el("span", { class: "ah-text", text: text }),
+        ]);
+        content.appendChild(node);
+        return node;
+      },
     };
 
     if (typeof opts.build === "function") {
@@ -187,6 +299,26 @@
     });
     row.appendChild(sw);
     return { el: row, getSwitch: () => sw };
+  }
+
+  // 我做一个子 tools：调用外层 tools 的方法后，把追加到 content 的节点搬到 target 里
+  // 这样 collapsible 的 buildFn 就能往 body 里构建内容了，支持嵌套
+  function _scopedTools(content, target, outerTools) {
+    const sub = {};
+    for (const k in outerTools) {
+      if (typeof outerTools[k] !== "function") continue;
+      sub[k] = function () {
+        const args = Array.prototype.slice.call(arguments);
+        const before = content.children.length;
+        const result = outerTools[k].apply(outerTools, args);
+        // 外层 tools 方法都会把最终节点追加到 content，我把它搬到 target
+        if (content.children.length > before) {
+          target.appendChild(content.children[before]);
+        }
+        return result;
+      };
+    }
+    return sub;
   }
 
   // ---------- 暴露 ----------

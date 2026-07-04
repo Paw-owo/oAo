@@ -45,6 +45,7 @@
     "liarDiceDefaultBet", "liarDiceMode", "liarDiceShowStats",
     "tarotDefaultSpread", "tarotShowHistory", "tarotShowStats",
     "galleryAutoPlay", "gallerySlideInterval",
+    "mcpEnabled",
   ];
 
   // 启动时从 Storage 一次性加载到缓存

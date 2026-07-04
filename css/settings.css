@@ -184,3 +184,64 @@
   margin: 24px 16px;
 }
 .danger-zone .btn { margin-bottom: 8px; }
+
+/* ---------- 可折叠分组 ---------- */
+.collapsible {
+  margin: 0 12px 8px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-soft);
+}
+.collapsible-header:active { background: var(--bg-hover); }
+.collapsible-header .ch-icon {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.collapsible-header .ch-title {
+  flex: 1;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.collapsible-header .ch-chevron {
+  color: var(--text-secondary);
+  transition: transform var(--dur-base) var(--ease-soft);
+}
+.collapsible-header .ch-chevron.open { transform: rotate(180deg); }
+.collapsible-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* ---------- 关于提示卡 ---------- */
+.about-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 12px 12px;
+  padding: 12px 14px;
+  background: var(--color-primary-ultralight);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  line-height: 1.6;
+}
+.about-hint .ah-icon {
+  flex-shrink: 0;
+  color: var(--color-primary-deep);
+  margin-top: 1px;
+}
+.about-hint .ah-text { flex: 1; }

@@ -301,19 +301,19 @@
 
   /** 我列出收藏的游戏 */
   global.Phone.Games.listFavorites = function () {
-    const favs = global.Phone.State.get("gamesFavoriteList") || [];
+    const favs = global.Phone.State.get("gamesPinFavorites") || [];
     return GAMES.filter((g) => favs.indexOf(g.id) >= 0);
   };
 
   /** 我切换某个游戏的收藏状态 */
   global.Phone.Games.toggleFavorite = async function (gameId) {
     if (!gameId) return { ok: false, error: "缺少 gameId" };
-    const cur = global.Phone.State.get("gamesFavoriteList") || [];
+    const cur = global.Phone.State.get("gamesPinFavorites") || [];
     const idx = cur.indexOf(gameId);
     let added;
     if (idx >= 0) { cur.splice(idx, 1); added = false; }
     else { cur.push(gameId); added = true; }
-    await global.Phone.State.set("gamesFavoriteList", cur);
+    await global.Phone.State.set("gamesPinFavorites", cur);
     const g = GAMES.find((x) => x.id === gameId);
     global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
       sourceApp: "games",
