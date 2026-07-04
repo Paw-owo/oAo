@@ -46,7 +46,8 @@
   // ---------- 流式聊天 ----------
   /**
    * 我（AI）的流式聊天接口
-   * @param {object} params { messages, onDelta, onDone, onError, signal, onThinking }
+   * @param {object} params { messages, onDelta, onDone, onError, signal, onThinking, onRetry }
+   *   onRetry(count, reason) 网络错误自动重试时回调，count 从 1 开始，最多 2 次
    * @returns {Promise<string>} 完整回复文本
    */
   async function streamChat(params) {
@@ -56,6 +57,7 @@
     const onDone = params.onDone || function () {};
     const onError = params.onError || function () {};
     const onThinking = params.onThinking || function () {};
+    const onRetry = params.onRetry || function () {};
     const signal = params.signal;
     // 我读取递归深度（MCP 工具调用递归用），外部不传时默认 0
     const depth = params._depth || 0;
@@ -85,17 +87,41 @@
       }
     }
 
+    // 我发起请求：网络错误（Failed to fetch / NetworkError）时自动重试 2 次
+    // - 间隔 1s / 2s，通过 onRetry(count, reason) 让 UI 提示"网络不好，我重试一下"
+    // - AbortError（用户取消）直接 onError，不重试
+    // - 非 AbortError 但不是网络错误（比如 TypeError 之外的）也不重试，直接 onError
+    const MAX_RETRY = 2;
+    const RETRY_DELAYS = [1000, 2000];
     let resp;
     try {
-      resp = await fetch(cfg.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + cfg.apiKey,
-        },
-        body: JSON.stringify(body),
-        signal: signal,
-      });
+      let attempt = 0;
+      while (true) {
+        try {
+          resp = await fetch(cfg.endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + cfg.apiKey,
+            },
+            body: JSON.stringify(body),
+            signal: signal,
+          });
+          break; // 拿到响应就跳出
+        } catch (e) {
+          // 用户取消：直接抛出，不重试
+          if (e && e.name === "AbortError") throw e;
+          // 判断是不是网络错误（fetch 抛 TypeError，message 通常是 Failed to fetch / NetworkError）
+          const msg = (e && e.message) ? e.message : String(e);
+          const isNetwork = /Failed to fetch|NetworkError|networkerror/i.test(msg)
+            || (e && e.name === "TypeError");
+          if (!isNetwork || attempt >= MAX_RETRY) throw e;
+          attempt++;
+          try { onRetry(attempt, msg); } catch (_) {}
+          // 等一会儿再试（1s / 2s）
+          await new Promise(function (r) { setTimeout(r, RETRY_DELAYS[attempt - 1]); });
+        }
+      }
     } catch (e) {
       onError(e);
       return "";
@@ -184,7 +210,7 @@
         }
         // 我把工具结果送回去，递归调用让模型继续生成
         const newMessages = messages.concat([assistantMsg], toolResults);
-        return await streamChat({ messages: newMessages, onDelta, onDone, onError, signal, onThinking, _depth: depth + 1 });
+        return await streamChat({ messages: newMessages, onDelta, onDone, onError, signal, onThinking, onRetry, _depth: depth + 1 });
       }
       onDone(fullText);
       return fullText;

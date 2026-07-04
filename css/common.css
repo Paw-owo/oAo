@@ -721,3 +721,275 @@
   from { opacity: 1; transform: scale(1); }
   to { opacity: 0; transform: scale(0.92); }
 }
+
+/* ---------- 可折叠卡片 (CollapsibleCard) ----------
+   通用组件：标题栏可点击折叠/展开，max-height 平滑过渡
+------------------------------------------------- */
+.card-section {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  margin: 0 16px 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+}
+.card-section + .card-section { margin-top: 0; }
+
+.card-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--dur-fast) var(--ease-soft);
+  outline: none;
+}
+.card-section-header:active { background: var(--bg-hover); }
+.card-section-header:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-primary-ultralight);
+}
+
+.card-section-header .csh-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.card-section-header .csh-icon svg { width: 18px; height: 18px; }
+
+.card-section-header .csh-titles {
+  flex: 1;
+  min-width: 0;
+}
+.card-section-header .csh-title {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.card-section-header .csh-subtitle {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-section-header .csh-chevron {
+  color: var(--text-placeholder);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform var(--dur-base) var(--ease-soft),
+              color var(--dur-fast) var(--ease-soft);
+}
+.card-section-header .csh-chevron svg { width: 18px; height: 18px; }
+.card-section.open .card-section-header .csh-chevron {
+  transform: rotate(90deg);
+  color: var(--color-primary);
+}
+
+.card-section-body-wrap {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--dur-base) var(--ease-soft);
+}
+.card-section-body {
+  padding: 4px 16px 16px;
+  border-top: 1px solid var(--border-soft);
+}
+/* 嵌套时缩小内边距 */
+.card-section-body .card-section {
+  margin: 8px 0;
+}
+
+/* ---------- 可爱 toast（CuteModal） ---------- */
+.cute-toast-host {
+  position: fixed;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  width: 90%;
+  max-width: 360px;
+}
+.cute-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-float);
+  border: 1px solid var(--border-soft);
+  animation: cuteToastIn var(--dur-base) var(--ease-soft);
+  pointer-events: auto;
+}
+.cute-toast.cute-toast-leave {
+  animation: cuteToastOut var(--dur-base) var(--ease-soft) forwards;
+}
+.cute-toast .ct-icon {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-full);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.cute-toast .ct-icon svg { width: 18px; height: 18px; }
+.cute-toast.info .ct-icon    { background: var(--color-primary-ultralight); color: var(--color-primary-deep); }
+.cute-toast.success .ct-icon { background: var(--color-success-ultralight, var(--color-primary-ultralight)); color: var(--color-success, var(--color-primary)); }
+.cute-toast.warning .ct-icon { background: var(--color-warning-ultralight, #FFE9B0); color: var(--color-warning, #E08A1E); }
+.cute-toast .ct-text {
+  flex: 1;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+@keyframes cuteToastIn {
+  0% { opacity: 0; transform: translateY(-12px); }
+  60% { opacity: 1; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes cuteToastOut {
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+/* ---------- 可爱 Action Sheet（CuteModal.actionSheet） ---------- */
+.cute-sheet-mask {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-mask);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 9100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  animation: modal-fade-in var(--dur-fast) var(--ease-soft) forwards;
+}
+.cute-sheet-mask.closing {
+  animation: phoneModalFadeOut var(--dur-fast) var(--ease-out) forwards;
+}
+.cute-sheet {
+  width: 100%;
+  max-width: var(--app-max-width);
+  background: var(--bg-surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 12px 16px calc(20px + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-float);
+  transform: translateY(100%);
+  animation: cuteSheetUp var(--dur-base) var(--ease-soft) forwards;
+  border-top: 1px solid var(--border-soft);
+}
+.cute-sheet.closing {
+  animation: cuteSheetDown var(--dur-fast) var(--ease-soft) forwards;
+}
+@keyframes cuteSheetUp {
+  to { transform: translateY(0); }
+}
+@keyframes cuteSheetDown {
+  to { transform: translateY(100%); }
+}
+.cute-sheet-title {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 8px;
+}
+.cute-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-base);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-soft);
+}
+.cute-sheet-item:active { background: var(--bg-hover); }
+.cute-sheet-item.danger { color: var(--color-danger); }
+.cute-sheet-item .csi-icon {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.cute-sheet-item.danger .csi-icon {
+  background: var(--color-danger-ultralight, #FFD8D8);
+  color: var(--color-danger);
+}
+.cute-sheet-item .csi-icon svg { width: 16px; height: 16px; }
+.cute-sheet-cancel {
+  margin-top: 10px;
+  text-align: center;
+  font-size: var(--font-base);
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  cursor: pointer;
+}
+
+/* ---------- CuteModal：图标 + 主次按钮 ---------- */
+.phone-modal-icon {
+  width: 52px; height: 52px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  animation: modal-pop var(--dur-base) var(--ease-soft);
+}
+.phone-modal-icon svg { width: 28px; height: 28px; }
+.phone-modal-icon.info     { background: var(--color-primary-ultralight); color: var(--color-primary-deep); }
+.phone-modal-icon.success  { background: var(--color-success-ultralight, var(--color-primary-ultralight)); color: var(--color-success, var(--color-primary)); }
+.phone-modal-icon.warning  { background: var(--color-warning-ultralight, #FFE9B0); color: var(--color-warning, #E08A1E); }
+.phone-modal-icon.danger   { background: var(--color-danger-ultralight, #FFD8D8); color: var(--color-danger); }
+.phone-modal-card.with-icon { padding-top: 20px; }
+.phone-modal-card.with-icon .phone-modal-title { margin-top: 0; }
+
+.phone-modal-input.rounded {
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--border-soft);
+  background: var(--bg-surface-2);
+  padding: 12px 16px;
+  transition: border-color var(--dur-fast) var(--ease-soft),
+              box-shadow var(--dur-fast) var(--ease-soft),
+              background var(--dur-fast) var(--ease-soft);
+}
+.phone-modal-input.rounded:focus {
+  border-color: var(--color-primary);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 4px var(--color-primary-ultralight);
+}
+
+/* 主按钮（强）和次按钮（弱） */
+.phone-modal-btn-primary {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-deep));
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-soft);
+}
+.phone-modal-btn-secondary {
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+}
+.phone-modal-btn-secondary:active { transform: scale(0.96); }

@@ -443,6 +443,110 @@
   color: var(--text-secondary);
   z-index: 5;
 }
+.desktop-edit-done {
+  background: var(--color-primary);
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-soft);
+}
+
+/* ---------- 拖拽排序视觉反馈 ---------- */
+.app-icon.dragging {
+  opacity: 0.85;
+  transform: scale(1.06);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  z-index: 1000;
+}
+.app-icon.dragging .ai-box { animation: none; }
+.app-icon.drag-placeholder {
+  opacity: 0.35;
+  border-radius: var(--icon-radius-base, var(--radius-lg));
+  background: var(--color-primary-ultralight);
+  border: 2px dashed var(--color-primary);
+  box-shadow: none;
+}
+.app-icon.drag-placeholder .ai-box,
+.app-icon.drag-placeholder .ai-name,
+.app-icon.drag-placeholder::before { display: none; }
+
+/* ---------- 小组件编辑模式 ---------- */
+.widget-area.widget-editing {
+  outline: 2px dashed var(--color-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-lg);
+}
+.widget.editing {
+  animation: jiggle 0.7s ease-in-out infinite alternate;
+  cursor: grab;
+}
+.widget.editing:active { cursor: grabbing; }
+.widget.dragging {
+  opacity: 0.9;
+  transform: scale(1.04);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  z-index: 1000;
+}
+.widget.dragging .widget-del,
+.widget.dragging .widget-resize { display: none; }
+.drag-widget-placeholder {
+  opacity: 0.4;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-ultralight);
+  border: 2px dashed var(--color-primary);
+  box-shadow: none;
+}
+.drag-widget-placeholder > * { display: none; }
+
+/* 删除角标 */
+.widget-del {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  color: var(--text-on-danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px var(--bg-surface), var(--shadow-soft);
+  z-index: 4;
+  cursor: pointer;
+}
+.widget-del:active { transform: scale(0.9); }
+
+/* 调整大小手柄 */
+.widget-resize {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--text-on-primary);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-soft);
+  z-index: 4;
+  cursor: pointer;
+}
+.widget-resize:active { transform: scale(0.92); }
+
+/* 小组件编辑横幅 */
+.widget-edit-banner {
+  position: absolute;
+  top: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
 
 /* ---------- 装饰性 SVG 不挡点击 ---------- */
 /* 状态栏、小组件里的纯装饰图标设为点击穿透，避免盖住下层 APP 图标 */

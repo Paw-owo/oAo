@@ -19,6 +19,7 @@
     "systemName", "theme", "wallpaper", "wallpaperMode", "fontSize",
     "iconColumns", "iconSpacing", "dockApps", "hiddenApps", "appOrder",
     "appBackgrounds", "bubbleStyle", "chatBackground",
+    "widgetOrder", "widgetSizes", "widgetHidden",
     "widgetBackground", "dockBackground", "appIconStyles",
     "accentColor", "iconRadius", "bubbleRadius",
     "aiEndpoint", "aiApiKey", "aiModel", "aiSpeakingStyle", "showThinking",

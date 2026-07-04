@@ -10,6 +10,7 @@
 
   let _destroyers = [];
   let _editing = false;
+  let _justDragged = false;   // 拖拽刚结束，抑制随之而来的 click
 
   /**
    * 我（APP 网格）渲染到容器
@@ -18,6 +19,12 @@
   async function mount(container) {
     const U = global.Phone.Utils;
     const State = global.Phone.State;
+
+    // 网格重新挂载时重置编辑态——
+    // 否则 hiddenApps/appOrder 变化触发 refreshGrid 后，
+    // _editing 仍为 true 但编辑 UI 已随旧网格销毁，
+    // 会导致点图标变成"隐藏"而不是"打开"。
+    _editing = false;
 
     const [cols, hidden, appOrder] = await Promise.all([
       State.get("iconColumns") || 4,
@@ -49,7 +56,7 @@
 
     // 横向分页容器
     const pager = U.el("div", { class: "app-grid-pager" });
-    pages.forEach((pageApps, pageIdx) => {
+    pages.forEach((pageApps) => {
       const pageEl = U.el("div", { class: "app-grid-page" });
       const grid = U.el("div", { class: "app-grid" });
       grid.style.setProperty("--cols", cols);
@@ -108,12 +115,12 @@
 
     // 长按进入编辑模式
     let pressTimer = null;
-    let pressTarget = null;
-    function clearPress() { pressTimer = null; pressTarget = null; }
+    function clearPress() {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    }
     wrap.addEventListener("touchstart", (e) => {
       const target = e.target.closest(".app-icon");
       if (!target) return;
-      pressTarget = target;
       pressTimer = setTimeout(() => _enterEdit(wrap, pager, dots), 600);
     });
     wrap.addEventListener("touchend", clearPress);
@@ -121,7 +128,6 @@
     wrap.addEventListener("mousedown", (e) => {
       const target = e.target.closest(".app-icon");
       if (!target) return;
-      pressTarget = target;
       pressTimer = setTimeout(() => _enterEdit(wrap, pager, dots), 700);
     });
     wrap.addEventListener("mouseup", clearPress);
@@ -157,6 +163,8 @@
     icon.appendChild(name);
 
     icon.addEventListener("click", (e) => {
+      // 拖拽刚结束，抑制这次 click（避免误触隐藏）
+      if (_justDragged) { _justDragged = false; e.stopPropagation(); e.preventDefault(); return; }
       if (_editing) {
         e.stopPropagation();
         _toggleHide(spec.id);
@@ -180,54 +188,65 @@
   function _enterEdit(wrap, pager, dots) {
     if (_editing) return;
     _editing = true;
+    wrap.classList.add("editing-mode");
     wrap.querySelectorAll(".app-icon").forEach((n) => n.classList.add("editing"));
-    const banner = global.Phone.Utils.el("div", { class: "desktop-edit-banner anim-slide-up", text: "长按图标拖动排序，点图标隐藏，点完成退出" });
+
+    const banner = global.Phone.Utils.el("div", { class: "desktop-edit-banner anim-slide-up", text: "长按图标拖动排序，点图标隐藏，点完成或空白处退出" });
     wrap.appendChild(banner);
 
     const doneBtn = global.Phone.Utils.el("button", { class: "btn btn-ghost btn-sm desktop-edit-done", text: "完成" });
     doneBtn.style.cssText = "position:absolute;top:12px;right:16px;z-index:6;";
-    doneBtn.addEventListener("click", () => _exitEdit(wrap));
+    doneBtn.addEventListener("click", (e) => { e.stopPropagation(); _exitEdit(wrap); });
     wrap.appendChild(doneBtn);
+
+    // 空白处点击退出编辑（点 banner 自身也退出）
+    const onBlankClick = (e) => {
+      if (e.target.closest(".app-icon") || e.target === doneBtn) return;
+      _exitEdit(wrap);
+    };
+    wrap.addEventListener("click", onBlankClick);
+    _destroyers.push(() => wrap.removeEventListener("click", onBlankClick));
+
+    // 返回键优先退出编辑模式（而非离开桌面）
+    global.Phone.Router.setBackGuard(() => {
+      if (_editing) { _exitEdit(wrap); return true; }
+      return false;
+    });
 
     _enableDragSort(wrap, pager, dots);
   }
 
-  // 拖拽排序：编辑模式下，长按图标可拖动到任意位置（跨页也可）
+  // 拖拽排序：编辑模式下，按住图标拖动到任意位置（跨页也可）
+  // 用"移动阈值"判断开始拖拽，避免和点击（隐藏）混淆
   function _enableDragSort(wrap, pager, dots) {
     const U = global.Phone.Utils;
-    let dragTimer = null;
     let draggedIcon = null;
     let placeholder = null;
+    let startX = 0, startY = 0;
+    let started = false;
+    let pointerType = null;     // 'mouse' | 'touch'
+    let scrollTimer = null;     // 跨页自动滚动定时器
 
-    function onStart(target, clientX, clientY) {
-      if (!target || !target.classList.contains("app-icon")) return;
-      dragTimer = setTimeout(() => {
-        draggedIcon = target;
-        const rect = target.getBoundingClientRect();
-        placeholder = U.el("div", { class: "app-icon drag-placeholder" });
-        placeholder.style.width = rect.width + "px";
-        placeholder.style.height = rect.height + "px";
-        target.classList.add("dragging");
-        target.style.position = "fixed";
-        target.style.zIndex = "1000";
-        target.style.left = rect.left + "px";
-        target.style.top = rect.top + "px";
-        target.style.width = rect.width + "px";
-        target.style.height = rect.height + "px";
-        target.style.pointerEvents = "none";
-      }, 300);
+    function beginDrag(clientX, clientY) {
+      const rect = draggedIcon.getBoundingClientRect();
+      placeholder = U.el("div", { class: "app-icon drag-placeholder" });
+      placeholder.style.width = rect.width + "px";
+      placeholder.style.height = rect.height + "px";
+      // placeholder 先占住原位
+      if (draggedIcon.parentNode) draggedIcon.parentNode.insertBefore(placeholder, draggedIcon);
+      draggedIcon.classList.add("dragging");
+      draggedIcon.style.position = "fixed";
+      draggedIcon.style.zIndex = "1000";
+      draggedIcon.style.width = rect.width + "px";
+      draggedIcon.style.height = rect.height + "px";
+      draggedIcon.style.left = (clientX - rect.width / 2) + "px";
+      draggedIcon.style.top = (clientY - rect.height / 2) + "px";
+      draggedIcon.style.pointerEvents = "none";
+      try { navigator.vibrate && navigator.vibrate(12); } catch {}
     }
 
-    function onMove(clientX, clientY) {
-      if (dragTimer && !draggedIcon) {
-        // 还没开始拖，先不处理
-      }
-      if (!draggedIcon) return;
-      draggedIcon.style.left = (clientX - draggedIcon.offsetWidth / 2) + "px";
-      draggedIcon.style.top = (clientY - draggedIcon.offsetHeight / 2) + "px";
-
-      // 找到最近的图标作为插入点
-      const allIcons = Array.from(wrap.querySelectorAll(".app-icon:not(.dragging):not(.drag-placeholder)"));
+    function findNearest(clientX, clientY) {
+      const allIcons = Array.from(wrap.querySelectorAll(".app-icon:not(.dragging):not(.drag-placeholder):not(.hidden)"));
       let nearest = null;
       let minDist = Infinity;
       allIcons.forEach((icon) => {
@@ -237,9 +256,32 @@
         const d = Math.hypot(clientX - cx, clientY - cy);
         if (d < minDist) { minDist = d; nearest = icon; }
       });
+      return nearest;
+    }
+
+    function updateDrag(clientX, clientY) {
+      if (!draggedIcon) return;
+      draggedIcon.style.left = (clientX - draggedIcon.offsetWidth / 2) + "px";
+      draggedIcon.style.top = (clientY - draggedIcon.offsetHeight / 2) + "px";
+
+      // 边缘自动翻页
+      const pr = pager.getBoundingClientRect();
+      const edge = 44;
+      let dir = 0;
+      if (clientX < pr.left + edge) dir = -1;
+      else if (clientX > pr.right - edge) dir = 1;
+      if (dir !== 0) startAutoScroll(dir);
+      else stopAutoScroll();
+
+      // 找到最近图标作为插入点（支持跨页：placeholder 跟着最近图标走）
+      const nearest = findNearest(clientX, clientY);
       if (nearest && placeholder) {
         const r = nearest.getBoundingClientRect();
         const insertBefore = (clientX < r.left + r.width / 2);
+        if (nearest.parentNode !== placeholder.parentNode) {
+          // 跨页：placeholder 搬到目标页的 grid
+          nearest.parentNode.appendChild(placeholder);
+        }
         if (insertBefore && placeholder.nextElementSibling !== nearest) {
           nearest.parentNode.insertBefore(placeholder, nearest);
         } else if (!insertBefore && placeholder.previousElementSibling !== nearest) {
@@ -248,51 +290,104 @@
       }
     }
 
-    function onEnd() {
-      if (dragTimer) { clearTimeout(dragTimer); dragTimer = null; }
+    function startAutoScroll(dir) {
+      if (scrollTimer) return;
+      const step = function () {
+        pager.scrollBy({ left: dir * 12, behavior: "auto" });
+      };
+      scrollTimer = setInterval(step, 16);
+    }
+    function stopAutoScroll() {
+      if (scrollTimer) { clearInterval(scrollTimer); scrollTimer = null; }
+    }
+
+    function endDrag() {
+      stopAutoScroll();
       if (!draggedIcon) return;
-      // 把拖动的图标放到 placeholder 位置
       if (placeholder && placeholder.parentNode) {
         placeholder.parentNode.insertBefore(draggedIcon, placeholder);
         placeholder.remove();
       }
       draggedIcon.classList.remove("dragging");
       draggedIcon.style.cssText = "";
-      _saveOrder(wrap);
-      draggedIcon = null;
       placeholder = null;
+      _saveOrder(wrap);
+      // 抑制拖拽结束后的 click（避免误触发隐藏）
+      _justDragged = true;
+      setTimeout(() => { _justDragged = false; }, 60);
+      draggedIcon = null;
+      started = false;
+      pointerType = null;
     }
 
+    function onDown(target, clientX, clientY, type) {
+      if (!_editing) return;
+      if (!target || !target.classList.contains("app-icon")) return;
+      if (draggedIcon) return;
+      draggedIcon = target;
+      startX = clientX; startY = clientY;
+      started = false;
+      pointerType = type;
+    }
+    function onMove(clientX, clientY) {
+      if (!draggedIcon) return;
+      if (!started) {
+        const dx = clientX - startX, dy = clientY - startY;
+        if (Math.hypot(dx, dy) < 8) return;
+        started = true;
+        beginDrag(startX, startY);
+      }
+      if (started) {
+        if (pointerType === "touch") {
+          // 阻止页面滚动，让图标跟手
+        }
+        updateDrag(clientX, clientY);
+      }
+    }
+    function onUp() {
+      if (!draggedIcon) return;
+      if (!started) {
+        // 没拖动 → 当作点击，由 click 处理
+        draggedIcon = null;
+        pointerType = null;
+        return;
+      }
+      endDrag();
+    }
+
+    // touch
     wrap.addEventListener("touchstart", (e) => {
       if (!_editing) return;
       const t = e.target.closest(".app-icon");
-      if (t) onStart(t, e.touches[0].clientX, e.touches[0].clientY);
+      if (!t) return;
+      onDown(t, e.touches[0].clientX, e.touches[0].clientY, "touch");
     }, { passive: true });
     wrap.addEventListener("touchmove", (e) => {
-      if (!_editing || !draggedIcon) return;
+      if (!_editing || !draggedIcon || !started) return;
       e.preventDefault();
       onMove(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: false });
-    wrap.addEventListener("touchend", onEnd);
+    wrap.addEventListener("touchend", onUp);
+    wrap.addEventListener("touchcancel", onUp);
 
-    // 鼠标拖拽：mousedown 在 wrap 上触发，mousemove/mouseup 绑到 document
-    // 否则图标变 position:fixed 后鼠标移出 wrap 就收不到事件
+    // mouse
     wrap.addEventListener("mousedown", (e) => {
       if (!_editing) return;
       const t = e.target.closest(".app-icon");
-      if (t) onStart(t, e.clientX, e.clientY);
+      if (!t) return;
+      onDown(t, e.clientX, e.clientY, "mouse");
     });
     const _onMousemove = (e) => {
       if (!_editing || !draggedIcon) return;
       onMove(e.clientX, e.clientY);
     };
-    const _onMouseup = () => onEnd();
+    const _onMouseup = () => onUp();
     document.addEventListener("mousemove", _onMousemove);
     document.addEventListener("mouseup", _onMouseup);
-    // 退出编辑模式时清理 document 监听器
     _destroyers.push(() => {
       document.removeEventListener("mousemove", _onMousemove);
       document.removeEventListener("mouseup", _onMouseup);
+      stopAutoScroll();
     });
   }
 
@@ -306,11 +401,16 @@
   async function _exitEdit(wrap) {
     if (!_editing) return;
     _editing = false;
+    wrap.classList.remove("editing-mode");
     wrap.querySelectorAll(".app-icon").forEach((n) => n.classList.remove("editing"));
     const banner = wrap.querySelector(".desktop-edit-banner");
     if (banner) banner.remove();
     const doneBtn = wrap.querySelector(".desktop-edit-done");
     if (doneBtn) doneBtn.remove();
+    // 清掉返回拦截器
+    if (global.Phone.Router && global.Phone.Router.setBackGuard) {
+      global.Phone.Router.setBackGuard(null);
+    }
   }
 
   // ---------- 暴露 ----------
