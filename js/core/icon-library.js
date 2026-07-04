@@ -91,6 +91,8 @@
     "grid":          '<rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/>',
     "tag":           '<path d="M4 4h7l9 9-7 7-9-9z"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/>',
     "pin":           '<path d="M12 3l5 5-2 2-1 5-4 4-1-4-3-1 4-4 1-5z"/>',
+    "pin-fill":      '<path d="M12 3l5 5-2 2-1 5-4 4-1-4-3-1 4-4 1-5z" fill="currentColor" stroke="none"/>',
+    "circle":        '<circle cx="12" cy="12" r="8"/>',
     "moon":          '<path d="M20 13.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 13.5z"/>',
     "palette":       '<path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1-.5-1.5.5-1 1.5-1H18a3 3 0 0 0 3-3c0-5-4-9-9-9z"/><circle cx="7" cy="11" r="1" fill="currentColor"/><circle cx="10" cy="7" r="1" fill="currentColor"/><circle cx="15" cy="8" r="1" fill="currentColor"/>',
     "user":          '<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>',

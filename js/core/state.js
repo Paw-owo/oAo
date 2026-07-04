@@ -19,9 +19,11 @@
     "systemName", "theme", "wallpaper", "wallpaperMode", "fontSize",
     "iconColumns", "iconSpacing", "dockApps", "hiddenApps", "appOrder",
     "appBackgrounds", "bubbleStyle", "chatBackground",
-    "aiEndpoint", "aiModel", "aiSpeakingStyle", "showThinking",
+    "aiEndpoint", "aiApiKey", "aiModel", "aiSpeakingStyle", "showThinking",
+    "aiTemperature", "aiMaxTokens",
     "lockPassword", "lockWallpaper", "lockAvatar", "lockText",
-    "currentCharacterId", "badgeEnabled", "notifyEnabled", "dndEnabled",
+    "currentCharacterId", "badgeEnabled", "notifyEnabled", "notifyPerApp",
+    "dndEnabled", "dndStart", "dndEnd",
   ];
 
   // 启动时从 Storage 一次性加载到缓存
