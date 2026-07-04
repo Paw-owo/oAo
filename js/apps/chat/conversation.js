@@ -55,13 +55,7 @@
     const menuBtn = U.el("button", { class: "icon-btn", html: global.Phone.IconLibrary.get("more-vertical", { size: 22 }) });
     menuBtn.addEventListener("click", () => _showMenu(conversation, character, () => _refresh(page)));
     const modeBtn = U.el("button", { class: "icon-btn", html: global.Phone.IconLibrary.get(mode === "bubble" ? "list" : "app-chat", { size: 20 }) });
-    modeBtn.addEventListener("click", async () => {
-      mode = mode === "bubble" ? "dialog" : "bubble";
-      conversation.mode = mode;
-      await Storage.put("conversations", conversation);
-      modeBtn.innerHTML = global.Phone.IconLibrary.get(mode === "bubble" ? "list" : "app-chat", { size: 20 });
-      _rerenderMessages();
-    });
+    modeBtn.addEventListener("click", () => _toggleMode());
     nav.appendChild(backBtn);
     nav.appendChild(titleWrap);
     nav.appendChild(modeBtn);
@@ -127,6 +121,7 @@
       quote: null,
       onCancelQuote: () => { currentQuote = null; },
       onSend: (msg) => _onSend(msg),
+      onCommand: (cmd) => _handleCommand(cmd),
     });
     page.appendChild(inputBar.el);
 
@@ -147,6 +142,12 @@
         status: "sent",
         quote: currentQuote ? { author: character.name, content: currentQuote.content } : null,
       };
+      // 文件 / 图片附件带上的元数据
+      if (msg.type === "file" || msg.type === "image") {
+        if (msg.name) userMsg.name = msg.name;
+        if (msg.mime) userMsg.mime = msg.mime;
+        if (msg.size != null) userMsg.size = msg.size;
+      }
       conversation.messages.push(userMsg);
       conversation.updatedAt = Date.now();
       currentQuote = null;
@@ -159,7 +160,21 @@
       }));
       _scrollToBottom(true);
 
-      // 2. AI 占位消息（pending）
+      // 2. AI 占位消息（pending）+ 流式回复（仅文本消息触发 AI 回复，附件消息不触发）
+      if (msg.type === "text") {
+        await _streamAiReply();
+      }
+
+      // 触发发送事件
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MESSAGE_SENT, {
+        sourceApp: "chat",
+        data: { conversationId: conversationId, content: userMsg.content },
+        summary: "用户发了一条消息",
+      });
+    }
+
+    // 我（AI）流式回复一条消息：建占位 → 调 ChatAI.reply → 更新节点
+    async function _streamAiReply() {
       sending = true;
       const aiMsg = {
         id: U.uid("msg"),
@@ -171,12 +186,11 @@
       };
       conversation.messages.push(aiMsg);
       const aiNode = global.Phone.MessageRenderer.render(aiMsg, {
-        mode: mode, character: character, onAction: () => {}
+        mode: mode, character: character, onAction: (a, m) => _handleAction(a, m)
       });
       list.appendChild(aiNode);
       _scrollToBottom(true);
 
-      // 3. 调用 AI 流式回复
       abortCtrl = new AbortController();
       try {
         const fullText = await global.Phone.ChatAI.reply({
@@ -214,13 +228,6 @@
             sending = false;
           },
         });
-
-        // 触发发送事件
-        global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MESSAGE_SENT, {
-          sourceApp: "chat",
-          data: { conversationId: conversationId, content: userMsg.content },
-          summary: "用户发了一条消息",
-        });
       } catch (e) {
         aiMsg.pending = false;
         aiMsg.content = global.Phone.AIClient.friendlyError(e);
@@ -228,6 +235,36 @@
         _updateNode(aiNode, aiMsg);
         sending = false;
       }
+    }
+
+    // 重新生成指定的 AI 消息（不传 msg 则重新生成最后一条 AI 消息）
+    async function _regenerate(targetMsg) {
+      if (sending) {
+        global.Phone.Notify.push({ appId: "chat", title: "我还在想上一句呢，等一下哦" });
+        return;
+      }
+      // 找到要重新生成的 AI 消息
+      let idx = -1;
+      if (targetMsg && targetMsg.id) {
+        idx = conversation.messages.findIndex((m) => m.id === targetMsg.id && m.role === "assistant");
+      }
+      if (idx < 0) {
+        // 退而求其次：找最后一条 AI 消息
+        for (let i = conversation.messages.length - 1; i >= 0; i--) {
+          if (conversation.messages[i].role === "assistant") { idx = i; break; }
+        }
+      }
+      if (idx < 0) {
+        global.Phone.Notify.push({ appId: "chat", title: "暂时没有可以重新生成的回复哦" });
+        return;
+      }
+      // 删掉这条 AI 消息（保留它前面的用户消息作为 prompt）
+      conversation.messages.splice(idx, 1);
+      conversation.updatedAt = Date.now();
+      await Storage.put("conversations", conversation);
+      _rerenderMessages();
+      // 重新生成
+      await _streamAiReply();
     }
 
     function _updateNode(node, msg) {
@@ -240,7 +277,8 @@
     // ---------- 消息操作 ----------
     async function _handleAction(action, msg) {
       const idx = conversation.messages.findIndex((m) => m.id === msg.id);
-      if (idx < 0) return;
+      // regenerate 不依赖 idx（消息可能已经被 _regenerate 处理过）
+      if (action !== "regenerate" && idx < 0) return;
 
       if (action === "delete") {
         conversation.messages.splice(idx, 1);
@@ -272,7 +310,64 @@
         const favorites = (await Storage.getSetting("chatFavorites")) || [];
         favorites.push({ id: U.uid("fav"), content: msg.content, from: character.name, createdAt: Date.now() });
         await Storage.setSetting("chatFavorites", favorites);
+      } else if (action === "regenerate") {
+        await _regenerate(msg);
       }
+    }
+
+    // ---------- 斜杠命令 ----------
+    async function _handleCommand(cmd) {
+      if (cmd === "clear") {
+        const ok = await global.Phone.Modal.confirm({
+          title: "清空会话", message: "确定清空当前会话的所有消息吗？不可恢复哦", danger: true, okText: "清空",
+        });
+        if (!ok) return;
+        conversation.messages = [];
+        conversation.updatedAt = Date.now();
+        await Storage.put("conversations", conversation);
+        _rerenderMessages();
+        global.Phone.Notify.push({ appId: "chat", title: "已清空当前会话" });
+      } else if (cmd === "export") {
+        _exportChat(conversation, character);
+        global.Phone.Notify.push({ appId: "chat", title: "已导出聊天记录" });
+      } else if (cmd === "regenerate") {
+        await _regenerate(null);
+      } else if (cmd === "mode") {
+        _toggleMode();
+      } else if (cmd === "help") {
+        _showHelp();
+      } else {
+        global.Phone.Notify.push({ appId: "chat", title: "不认识的命令：" + cmd });
+      }
+    }
+
+    // 切换气泡 / 对话模式
+    async function _toggleMode() {
+      mode = mode === "bubble" ? "dialog" : "bubble";
+      conversation.mode = mode;
+      await Storage.put("conversations", conversation);
+      modeBtn.innerHTML = global.Phone.IconLibrary.get(mode === "bubble" ? "list" : "app-chat", { size: 20 });
+      _rerenderMessages();
+      global.Phone.Notify.push({
+        appId: "chat",
+        title: mode === "bubble" ? "已切换到气泡模式" : "已切换到对话模式"
+      });
+    }
+
+    // 显示帮助说明（可爱文案，AI 第一人称）
+    function _showHelp() {
+      global.Phone.Modal.alert({
+        title: "我能听懂的命令",
+        icon: "info",
+        message: [
+          "/clear  清空当前会话",
+          "/export  导出本次对话",
+          "/regenerate  让我重新说一遍上一句",
+          "/mode  切换气泡 / 对话模式",
+          "/help  看看这条说明",
+        ].join("\n"),
+        okText: "知道啦",
+      });
     }
 
     // ---------- 菜单 ----------
