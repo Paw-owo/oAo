@@ -10,7 +10,7 @@
   "use strict";
 
   const DB_NAME = "PhoneDB";
-  const DB_VERSION = 3;
+  const DB_VERSION = 4;
 
   // Store 定义：name -> { keyPath, indexes }
   const STORE_DEFS = {
@@ -40,6 +40,8 @@
     game_undercover: { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
     game_liar_dice:  { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
     game_tarot:      { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
+    game_truth_dare_custom: { keyPath: "id", indexes: [["createdAt", "createdAt"]] },
+    game_undercover_custom: { keyPath: "id", indexes: [["createdAt", "createdAt"]] },
   };
 
   let _db = null;

@@ -695,5 +695,160 @@
         topics: list.filter((m) => m.topic).reduce((acc, m) => { acc[m.topic] = (acc[m.topic] || 0) + 1; return acc; }, {}),
       };
     },
+    // 我编辑动态：合并 patch，刷新 updatedAt，告诉大家我改了一条
+    async update(id, patch) {
+      const Storage = global.Phone.Storage;
+      const m = await Storage.get("moments", id);
+      if (!m) return { ok: false, error: "找不到这条动态呀" };
+      Object.assign(m, patch || {});
+      m.updatedAt = Date.now();
+      await Storage.put("moments", m);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MOMENT_POSTED, {
+        sourceApp: "moments",
+        data: m,
+        summary: "我改了一条动态",
+      });
+      return { ok: true, moment: m };
+    },
+    // 我删动态：连评论一起清掉，告诉大家我删了一条
+    async remove(id) {
+      const Storage = global.Phone.Storage;
+      const m = await Storage.get("moments", id);
+      if (!m) return { ok: false, error: "找不到这条动态呀" };
+      await Storage.del("moments", id);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MOMENT_POSTED, {
+        sourceApp: "moments",
+        data: { id, deleted: true },
+        summary: "我删了一条动态",
+      });
+      return { ok: true };
+    },
+    // 我点赞：默认当前角色，已点过就不重复
+    async like(momentId, characterId) {
+      const Storage = global.Phone.Storage;
+      const m = await Storage.get("moments", momentId);
+      if (!m) return { ok: false, error: "找不到这条动态呀" };
+      if (!characterId) {
+        characterId = (await global.Phone.State.get("currentCharacterId")) || "user";
+      }
+      m.likes = m.likes || [];
+      if (m.likes.includes(characterId)) {
+        return { ok: false, error: "已经点过赞啦" };
+      }
+      m.likes.push(characterId);
+      m.updatedAt = Date.now();
+      await Storage.put("moments", m);
+      let likerName = "我";
+      if (characterId !== "user") {
+        const char = await Storage.get("characters", characterId);
+        likerName = char ? char.name : "TA";
+      }
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MOMENT_LIKED, {
+        sourceApp: "moments",
+        data: { momentId, characterId, authorId: m.authorId },
+        summary: likerName + " 给朋友圈点了个赞",
+      });
+      return { ok: true };
+    },
+    // 我取消点赞
+    async unlike(momentId, characterId) {
+      const Storage = global.Phone.Storage;
+      const m = await Storage.get("moments", momentId);
+      if (!m) return { ok: false, error: "找不到这条动态呀" };
+      if (!characterId) {
+        characterId = (await global.Phone.State.get("currentCharacterId")) || "user";
+      }
+      m.likes = m.likes || [];
+      const idx = m.likes.indexOf(characterId);
+      if (idx < 0) return { ok: false, error: "本来就没点赞呀" };
+      m.likes.splice(idx, 1);
+      m.updatedAt = Date.now();
+      await Storage.put("moments", m);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MOMENT_LIKED, {
+        sourceApp: "moments",
+        data: { momentId, characterId, unlike: true },
+        summary: "我取消了一个赞",
+      });
+      return { ok: true };
+    },
+    // 我评论：opts={characterId?, text}
+    async comment(momentId, opts) {
+      const Storage = global.Phone.Storage;
+      const m = await Storage.get("moments", momentId);
+      if (!m) return { ok: false, error: "找不到这条动态呀" };
+      if (!opts || !opts.text) return { ok: false, error: "评论内容不能为空" };
+      const characterId = opts.characterId || (await global.Phone.State.get("currentCharacterId")) || "user";
+      let authorName = "我";
+      if (characterId !== "user") {
+        const char = await Storage.get("characters", characterId);
+        authorName = char ? char.name : "AI";
+      }
+      m.comments = m.comments || [];
+      const cmt = {
+        id: global.Phone.Utils.uid("cmt"),
+        authorId: characterId,
+        authorName: authorName,
+        text: opts.text,
+        createdAt: Date.now(),
+      };
+      m.comments.push(cmt);
+      m.updatedAt = Date.now();
+      await Storage.put("moments", m);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MOMENT_COMMENTED, {
+        sourceApp: "moments",
+        data: { momentId, characterId, commentId: cmt.id, text: opts.text },
+        summary: authorName + " 评论了朋友圈：" + opts.text.slice(0, 20),
+      });
+      return { ok: true, comment: cmt };
+    },
+    // 我删除评论
+    async removeComment(momentId, commentId) {
+      const Storage = global.Phone.Storage;
+      const m = await Storage.get("moments", momentId);
+      if (!m) return { ok: false, error: "找不到这条动态呀" };
+      const before = (m.comments || []).length;
+      m.comments = (m.comments || []).filter((c) => c.id !== commentId);
+      if (m.comments.length === before) return { ok: false, error: "找不到这条评论" };
+      m.updatedAt = Date.now();
+      await Storage.put("moments", m);
+      return { ok: true };
+    },
+    // 我置顶/取消置顶
+    async pin(id, pinned) {
+      const Storage = global.Phone.Storage;
+      const m = await Storage.get("moments", id);
+      if (!m) return { ok: false, error: "找不到这条动态呀" };
+      m.pinned = !!pinned;
+      m.updatedAt = Date.now();
+      await Storage.put("moments", m);
+      return { ok: true, pinned: m.pinned };
+    },
+    // 我列评论
+    async listComments(momentId) {
+      const m = await global.Phone.Storage.get("moments", momentId);
+      if (!m) return [];
+      return m.comments || [];
+    },
+    // 我读设置（key 不带 moments 前缀）
+    getSetting(key) {
+      const full = "moments" + key.charAt(0).toUpperCase() + key.slice(1);
+      return global.Phone.State.get(full);
+    },
+    // 我写设置
+    async setSetting(key, value) {
+      const full = "moments" + key.charAt(0).toUpperCase() + key.slice(1);
+      await global.Phone.State.set(full, value);
+    },
+    // 我列出全部设置
+    listSettings() {
+      const S = global.Phone.State;
+      return {
+        feedDensity: S.get("momentsFeedDensity"),
+        hideLiked: S.get("momentsHideLiked"),
+        defaultVisibility: S.get("momentsDefaultVisibility") || "public",
+        showStats: S.get("momentsShowStats"),
+        autoLoadImages: S.get("momentsAutoLoadImages"),
+      };
+    },
   };
 })(window);

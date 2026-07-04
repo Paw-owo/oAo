@@ -345,6 +345,103 @@
     console.log("[AIClient] 归档了 " + toArchive.length + " 条低重要度记忆");
   }
 
+  // ---------- 我删除单条记忆 ----------
+  // 注意：我不动其他记忆，也不调 _archiveMemories，只把这一条抹掉
+  async function forget(memoryId) {
+    const S = global.Phone.Storage;
+    const mem = await S.get("memories", memoryId);
+    await S.del("memories", memoryId);
+    global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MEMORY_ADDED, {
+      sourceApp: "ai",
+      data: { id: memoryId, deleted: true, memory: mem },
+      summary: "我忘了一件事",
+    });
+    return true;
+  }
+
+  // ---------- 我查询某角色的记忆（按条件筛选） ----------
+  // opts = { type?, importanceMin?, archived?, limit? }
+  // 默认我只返回未归档的记忆，跟 buildContext 的口径一致
+  async function queryMemory(characterId, opts) {
+    opts = opts || {};
+    const S = global.Phone.Storage;
+    let list = await S.getByIndex("memories", "characterId", characterId);
+    if (opts.type) list = list.filter((m) => m.type === opts.type);
+    if (typeof opts.importanceMin === "number") {
+      list = list.filter((m) => (m.importance || 0) >= opts.importanceMin);
+    }
+    const archivedFilter = typeof opts.archived === "boolean" ? opts.archived : false;
+    list = list.filter((m) => !!m.archived === archivedFilter);
+    list.sort((a, b) => (b.importance || 0) - (a.importance || 0));
+    if (opts.limit) list = list.slice(0, opts.limit);
+    return list;
+  }
+
+  // ---------- 我手动归档/取消归档一条记忆 ----------
+  async function archiveMemory(memoryId, archived) {
+    const S = global.Phone.Storage;
+    const mem = await S.get("memories", memoryId);
+    if (!mem) return null;
+    mem.archived = !!archived;
+    mem.archivedAt = archived ? Date.now() : null;
+    mem.updatedAt = Date.now();
+    await S.put("memories", mem);
+    global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MEMORY_ADDED, {
+      sourceApp: "ai",
+      data: mem,
+      summary: archived ? "我把一条记忆收起来了" : "我又想起了一件事",
+    });
+    return mem;
+  }
+
+  // ---------- 我列出所有角色 ----------
+  async function listCharacters() {
+    return await global.Phone.Storage.getAll("characters");
+  }
+
+  // ---------- 我切换当前角色 ----------
+  async function switchCharacter(characterId) {
+    await global.Phone.State.set("currentCharacterId", characterId);
+    global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.CHARACTER_SWITCHED, {
+      sourceApp: "ai",
+      data: { characterId: characterId },
+      summary: "我换了一个我",
+    });
+    return characterId;
+  }
+
+  // ---------- 我获取单个角色（不传 id 时默认读当前角色） ----------
+  async function getCharacter(characterId) {
+    const S = global.Phone.Storage;
+    const id = characterId || await S.getSetting("currentCharacterId");
+    if (!id) return null;
+    return await S.get("characters", id);
+  }
+
+  // ---------- 我显式创建一条记忆（不查重，直接落库） ----------
+  // 和 remember 的区别：remember 会查重并合并，createMemory 不查重，每次都新增一条
+  async function createMemory(opts) {
+    opts = opts || {};
+    const S = global.Phone.Storage;
+    const mem = {
+      id: global.Phone.Utils.uid("mem"),
+      characterId: opts.characterId,
+      content: opts.content,
+      type: opts.type || "conversation",
+      importance: opts.importance || 5,
+      createdAt: Date.now(),
+    };
+    await S.put("memories", mem);
+    // 写入后我同样检查记忆数量，保留 _archiveMemories 自动归档机制不被破坏
+    try { await _archiveMemories(opts.characterId); } catch (e) {}
+    global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MEMORY_ADDED, {
+      sourceApp: "ai",
+      data: mem,
+      summary: "我又多记了一件事",
+    });
+    return mem;
+  }
+
   // ---------- 暴露 ----------
   global.Phone = global.Phone || {};
   global.Phone.AIClient = {
@@ -356,5 +453,14 @@
     buildContext,
     remember,
     FALLBACK_REPLIES,
+    // 记忆管理
+    forget,
+    queryMemory,
+    archiveMemory,
+    createMemory,
+    // 角色管理
+    listCharacters,
+    switchCharacter,
+    getCharacter,
   };
 })(window);

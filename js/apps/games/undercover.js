@@ -424,6 +424,12 @@
     mount(container);
   }
 
+  // ---------- 自定义词对的存储（IndexedDB，零 localStorage） ----------
+  // 我把自定义词对存到 game_undercover_custom 表，和真心话大冒险的 game_truth_dare_custom 表对齐
+
+  // API 模式下的当前回合（仅 start/submitDesc/guess 链路使用，不影响 UI 的 _round）
+  let _apiRound = null;
+
   // ---------- 暴露 API ----------
   global.Phone.Games["undercover"] = {
     open, mount,
@@ -452,5 +458,163 @@
     },
     /** 让 AI 描述一个词（供外部调用） */
     async aiDescribe(word, round) { return await _aiDescribe(word, round || 1, []); },
+    /** 我开一局新游戏（API 形式，不写入历史） */
+    async start(opts) {
+      opts = opts || {};
+      const diff = opts.difficulty || global.Phone.State.get("gamesDifficulty") || "normal";
+      const rounds = opts.rounds || parseInt(global.Phone.State.get("undercoverRounds"), 10) || 2;
+      const bank = (WORD_BANK[diff] || WORD_BANK.normal).slice();
+      // 合并自定义词对（从 IndexedDB 读）
+      let customs = [];
+      try { customs = await global.Phone.Storage.getAll("game_undercover_custom"); } catch (e) {}
+      customs.filter((c) => !c.difficulty || c.difficulty === diff).forEach((c) => bank.push([c.civil, c.under]));
+      const pair = bank.length > 0 ? bank[Math.floor(Math.random() * bank.length)] : WORD_BANK.normal[0];
+      const playerIsUnder = Math.random() < 0.5;
+      _apiRound = {
+        civilWord: pair[0],
+        undercoverWord: pair[1],
+        playerWord: playerIsUnder ? pair[1] : pair[0],
+        aiWord: playerIsUnder ? pair[0] : pair[1],
+        playerIsUnder: playerIsUnder,
+        history: [],
+        round: 1,
+        maxRounds: rounds,
+        difficulty: diff,
+        phase: "desc-player",
+      };
+      return {
+        civilWord: _apiRound.civilWord,
+        undercoverWord: _apiRound.undercoverWord,
+        playerWord: _apiRound.playerWord,
+        playerIsUnder: _apiRound.playerIsUnder,
+        rounds: rounds,
+        history: [],
+      };
+    },
+    /** 我提交一句描述（追加到当前局 history，返回当前局状态） */
+    async submitDesc(text) {
+      if (!_apiRound) return { ok: false, error: "还没开始游戏，先调 start()" };
+      const t = String(text || "").trim();
+      if (!t) return { ok: false, error: "说点啥吧" };
+      _apiRound.history.push({ who: "player", text: t, round: _apiRound.round });
+      // 让 AI 也描述一句
+      const aiDesc = await _aiDescribe(_apiRound.aiWord, _apiRound.round, _apiRound.history);
+      _apiRound.history.push({ who: "ai", text: aiDesc, round: _apiRound.round });
+      // 进入下一轮 or 等猜身份
+      if (_apiRound.round >= _apiRound.maxRounds) {
+        _apiRound.phase = "guess";
+      } else {
+        _apiRound.round++;
+        _apiRound.phase = "desc-player";
+      }
+      return {
+        ok: true,
+        round: _apiRound.round,
+        maxRounds: _apiRound.maxRounds,
+        history: _apiRound.history.slice(),
+        phase: _apiRound.phase,
+        needGuess: _apiRound.phase === "guess",
+        aiDesc: aiDesc,
+      };
+    },
+    /** 我来猜身份（判定胜负 + 写入历史 + emit 事件） */
+    async guess(playerGuessUnder) {
+      if (!_apiRound) return { ok: false, error: "还没开始游戏" };
+      const guessUnder = !!playerGuessUnder;
+      const won = guessUnder === _apiRound.playerIsUnder;
+      const playerDesc = _apiRound.history.filter((h) => h.who === "player").map((h) => h.text);
+      const aiDescs = _apiRound.history.filter((h) => h.who === "ai").map((h) => h.text);
+      const rec = {
+        id: global.Phone.Utils.uid("uc"),
+        civilWord: _apiRound.civilWord,
+        undercoverWord: _apiRound.undercoverWord,
+        playerWord: _apiRound.playerWord,
+        aiWord: _apiRound.aiWord,
+        playerIsUnder: _apiRound.playerIsUnder,
+        history: _apiRound.history.slice(),
+        guess: guessUnder,
+        won: won,
+        win: won, // 兼容现有 UI（UI 读 r.win）
+        rounds: _apiRound.maxRounds,
+        difficulty: _apiRound.difficulty,
+        playerDesc: playerDesc,
+        aiDescs: aiDescs,
+        createdAt: Date.now(),
+      };
+      await global.Phone.Storage.put("game_undercover", rec);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
+        sourceApp: "games",
+        data: { game: "undercover", win: won, difficulty: _apiRound.difficulty },
+        summary: won ? "谁是卧底：我猜对啦" : "谁是卧底：我猜错啦",
+      });
+      const result = {
+        ok: true,
+        won: won,
+        civilWord: _apiRound.civilWord,
+        undercoverWord: _apiRound.undercoverWord,
+        playerWord: _apiRound.playerWord,
+        playerIsUnder: _apiRound.playerIsUnder,
+        playerDesc: playerDesc,
+        aiDescs: aiDescs,
+      };
+      _apiRound = null;
+      return result;
+    },
+    /** 我把词对库列出来（含内置 + 自定义） */
+    async listWordBank(difficulty) {
+      const out = {};
+      const diffs = difficulty ? [difficulty] : Object.keys(WORD_BANK);
+      for (const d of diffs) {
+        out[d] = (WORD_BANK[d] || []).map((pair) => ({ civil: pair[0], under: pair[1], source: "builtin" }));
+      }
+      // 合并自定义（从 IndexedDB 读）
+      let customs = [];
+      try { customs = await global.Phone.Storage.getAll("game_undercover_custom"); } catch (e) {}
+      customs.forEach((c) => {
+        const d = c.difficulty || "normal";
+        if (difficulty && d !== difficulty) return;
+        if (!out[d]) out[d] = [];
+        out[d].push({ id: c.id, civil: c.civil, under: c.under, difficulty: d, source: "custom" });
+      });
+      return out;
+    },
+    /** 我加一对自定义词（存 IndexedDB） */
+    async addWordPair(civil, under, difficulty) {
+      const civ = String(civil || "").trim();
+      const und = String(under || "").trim();
+      if (!civ || !und) return { ok: false, error: "词不能为空" };
+      const diff = difficulty || "normal";
+      const rec = { id: global.Phone.Utils.uid("ucw"), civil: civ, under: und, difficulty: diff, createdAt: Date.now() };
+      await global.Phone.Storage.put("game_undercover_custom", rec);
+      return { ok: true, rec };
+    },
+    /** 我清空历史记录 */
+    async clearHistory() {
+      const list = await global.Phone.Storage.getAll("game_undercover");
+      for (const r of list) await global.Phone.Storage.del("game_undercover", r.id);
+      return { ok: true, cleared: list.length };
+    },
+    /** 我读一下某个设置（key 不带 undercover 前缀） */
+    getSetting(key) {
+      const map = { aiOpponent: "undercoverAiOpponent", rounds: "undercoverRounds", showStats: "undercoverShowStats" };
+      const realKey = map[key] || ("undercover" + (key ? key.charAt(0).toUpperCase() + key.slice(1) : ""));
+      return global.Phone.State.get(realKey);
+    },
+    /** 我改一下某个设置（key 不带 undercover 前缀） */
+    async setSetting(key, value) {
+      const map = { aiOpponent: "undercoverAiOpponent", rounds: "undercoverRounds", showStats: "undercoverShowStats" };
+      const realKey = map[key] || ("undercover" + (key ? key.charAt(0).toUpperCase() + key.slice(1) : ""));
+      await global.Phone.State.set(realKey, value);
+      return value;
+    },
+    /** 我把所有设置列出来 */
+    listSettings() {
+      const State = global.Phone.State;
+      return {
+        aiOpponent: State.get("undercoverAiOpponent"),
+        rounds: State.get("undercoverRounds"),
+        showStats: State.get("undercoverShowStats"),
+      };
+    },
   };
 })(window);

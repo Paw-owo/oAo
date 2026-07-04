@@ -282,4 +282,108 @@
   global.Phone.Games.applyBg = _applyBg; // 供子游戏复用
   global.Phone.Games.GAMES = GAMES;       // 供子游戏查询同胞信息
   global.Phone.Games.gatherStats = _gatherStats;
+
+  // ---------- 对外 API（新增，不改现有方法和 UI 逻辑） ----------
+  // 设置 key 映射：API 用的 key 不带 "games" 前缀
+  const _SETTING_KEY_MAP = {
+    difficulty: "gamesDifficulty",
+    sound: "gamesSound",
+    showHint: "gamesShowHint",
+    showStats: "gamesShowStats",
+    defaultTab: "gamesDefaultTab",
+    pinFavorites: "gamesPinFavorites",
+  };
+  function _resolveSettingKey(key) {
+    if (_SETTING_KEY_MAP[key]) return _SETTING_KEY_MAP[key];
+    if (!key) return "games";
+    return "games" + key.charAt(0).toUpperCase() + key.slice(1);
+  }
+
+  /** 我列出收藏的游戏 */
+  global.Phone.Games.listFavorites = function () {
+    const favs = global.Phone.State.get("gamesFavoriteList") || [];
+    return GAMES.filter((g) => favs.indexOf(g.id) >= 0);
+  };
+
+  /** 我切换某个游戏的收藏状态 */
+  global.Phone.Games.toggleFavorite = async function (gameId) {
+    if (!gameId) return { ok: false, error: "缺少 gameId" };
+    const cur = global.Phone.State.get("gamesFavoriteList") || [];
+    const idx = cur.indexOf(gameId);
+    let added;
+    if (idx >= 0) { cur.splice(idx, 1); added = false; }
+    else { cur.push(gameId); added = true; }
+    await global.Phone.State.set("gamesFavoriteList", cur);
+    const g = GAMES.find((x) => x.id === gameId);
+    global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
+      sourceApp: "games",
+      data: { game: gameId, action: "toggleFavorite", favorite: added },
+      summary: added ? "我收藏了" + (g ? "「" + g.name + "」" : "一个游戏") : "我取消了一个游戏收藏",
+    });
+    return { ok: true, favorite: added, list: cur };
+  };
+
+  /** 我把单个游戏的统计拉出来（委托给子游戏） */
+  global.Phone.Games.stats = async function (gameId) {
+    const sub = global.Phone.Games[gameId];
+    if (sub && typeof sub.stats === "function") {
+      return await sub.stats();
+    }
+    return null;
+  };
+
+  /** 我清空某个游戏的历史 */
+  global.Phone.Games.clearHistory = async function (gameId) {
+    const sub = global.Phone.Games[gameId];
+    if (sub && typeof sub.clearHistory === "function") {
+      return await sub.clearHistory();
+    }
+    const g = GAMES.find((x) => x.id === gameId);
+    if (g) {
+      const list = await global.Phone.Storage.getAll(g.storeKey);
+      for (const r of list) await global.Phone.Storage.del(g.storeKey, r.id);
+      return { ok: true, cleared: list.length };
+    }
+    return { ok: false, error: "未找到游戏" };
+  };
+
+  /** 我把所有游戏的历史都清空 */
+  global.Phone.Games.clearAll = async function () {
+    let total = 0;
+    for (const g of GAMES) {
+      const sub = global.Phone.Games[g.id];
+      if (sub && typeof sub.clearHistory === "function") {
+        try { await sub.clearHistory(); } catch (e) {}
+      } else {
+        const list = await global.Phone.Storage.getAll(g.storeKey);
+        for (const r of list) await global.Phone.Storage.del(g.storeKey, r.id);
+        total += list.length;
+      }
+    }
+    return { ok: true, cleared: total };
+  };
+
+  /** 我读一下某个设置（key 不带 games 前缀） */
+  global.Phone.Games.getSetting = function (key) {
+    return global.Phone.State.get(_resolveSettingKey(key));
+  };
+
+  /** 我改一下某个设置（key 不带 games 前缀） */
+  global.Phone.Games.setSetting = async function (key, value) {
+    await global.Phone.State.set(_resolveSettingKey(key), value);
+    return value;
+  };
+
+  /** 我把所有设置列出来 */
+  global.Phone.Games.listSettings = function () {
+    const State = global.Phone.State;
+    return {
+      difficulty: State.get("gamesDifficulty"),
+      sound: State.get("gamesSound"),
+      showHint: State.get("gamesShowHint"),
+      showStats: State.get("gamesShowStats"),
+      defaultTab: State.get("gamesDefaultTab"),
+      pinFavorites: State.get("gamesPinFavorites"),
+    };
+  };
 })(window);

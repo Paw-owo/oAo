@@ -913,5 +913,109 @@
       await Storage.put("wallet", w);
       return { ok: true, tx };
     },
+    /** 我编辑交易记录（合并 patch，必要时回滚余额再应用新值） */
+    async updateTx(id, patch) {
+      const Storage = global.Phone.Storage;
+      const w = await Storage.get("wallet", "main");
+      if (!w) return { ok: false, error: "钱包未初始化" };
+      w.transactions = w.transactions || [];
+      const tx = w.transactions.find((t) => t.id === id);
+      if (!tx) return { ok: false, error: "找不到这笔交易呀" };
+      const oldAmount = tx.amount || 0;
+      const oldBalanceType = tx.balanceType || "user";
+      // 我先合并 patch 字段
+      Object.keys(patch).forEach((k) => { tx[k] = patch[k]; });
+      tx.updatedAt = Date.now();
+      // 如果金额 / 分类 / 账户变了，我先回滚旧值再应用新值
+      const needRecalc = "amount" in patch || "category" in patch || "balanceType" in patch;
+      if (needRecalc) {
+        if (oldBalanceType === "user") w.userBalance = (w.userBalance || 0) - oldAmount;
+        else if (oldBalanceType === "ai") w.aiBalance = (w.aiBalance || 0) - oldAmount;
+        const newAmount = tx.amount || 0;
+        const newBalanceType = tx.balanceType || "user";
+        if (newBalanceType === "user") w.userBalance = (w.userBalance || 0) + newAmount;
+        else if (newBalanceType === "ai") w.aiBalance = (w.aiBalance || 0) + newAmount;
+      }
+      await Storage.put("wallet", w);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.WALLET_CHANGED, {
+        sourceApp: "wallet",
+        data: { tx, action: "update" },
+        summary: "我更新了一笔交易：" + (tx.note || "无备注"),
+      });
+      return { ok: true, tx };
+    },
+    /** 我删除交易（先回滚余额影响，再移除记录） */
+    async removeTx(id) {
+      const Storage = global.Phone.Storage;
+      const w = await Storage.get("wallet", "main");
+      if (!w) return { ok: false, error: "钱包未初始化" };
+      w.transactions = w.transactions || [];
+      const idx = w.transactions.findIndex((t) => t.id === id);
+      if (idx < 0) return { ok: false, error: "找不到这笔交易呀" };
+      const tx = w.transactions[idx];
+      // 我先回滚这笔交易对余额的影响
+      const oldAmount = tx.amount || 0;
+      const oldBalanceType = tx.balanceType || "user";
+      if (oldBalanceType === "user") w.userBalance = (w.userBalance || 0) - oldAmount;
+      else if (oldBalanceType === "ai") w.aiBalance = (w.aiBalance || 0) - oldAmount;
+      w.transactions.splice(idx, 1);
+      await Storage.put("wallet", w);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.WALLET_CHANGED, {
+        sourceApp: "wallet",
+        data: { tx, action: "remove" },
+        summary: "我删掉了一笔交易：" + (tx.note || "无备注"),
+      });
+      return { ok: true };
+    },
+    /** 我统计整体收支（按 filter 过滤后汇总） */
+    async stats(filter) {
+      const list = await this.listTxs(filter);
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const todayEnd = todayStart + 24 * 3600 * 1000;
+      let totalIn = 0, totalOut = 0, todayIn = 0, todayOut = 0;
+      let userNet = 0, aiNet = 0;
+      list.forEach((t) => {
+        const amt = t.amount || 0;
+        if (amt > 0) totalIn += amt;
+        else totalOut += Math.abs(amt);
+        if (t.createdAt >= todayStart && t.createdAt < todayEnd) {
+          if (amt > 0) todayIn += amt;
+          else todayOut += Math.abs(amt);
+        }
+        if ((t.balanceType || "user") === "user") userNet += amt;
+        else if (t.balanceType === "ai") aiNet += amt;
+      });
+      return {
+        totalIn, totalOut, net: totalIn - totalOut,
+        count: list.length,
+        byBalanceType: { user: userNet, ai: aiNet },
+        todayIn, todayOut,
+      };
+    },
+    /** 我做一笔通用转账（direction: ai-to-user / user-to-ai） */
+    async transfer(amount, direction, note, category) {
+      if (direction === "ai-to-user") return await this.aiToUser(amount, note, category);
+      if (direction === "user-to-ai") return await this.userToAi(amount, note, category);
+      return { ok: false, error: "不认识的转账方向呀：" + direction };
+    },
+    /** 我读钱包设置（key 不带 wallet 前缀，如 HideBalance） */
+    getSetting(key) {
+      return global.Phone.State.get("wallet" + key);
+    },
+    /** 我写钱包设置（key 不带 wallet 前缀） */
+    async setSetting(key, value) {
+      return await global.Phone.State.set("wallet" + key, value);
+    },
+    /** 我列出钱包当前全部设置 */
+    listSettings() {
+      const State = global.Phone.State;
+      return {
+        hideBalance: !!State.get("walletHideBalance"),
+        currency: State.get("walletCurrency") || "元",
+        lowThreshold: parseInt(State.get("walletLowThreshold"), 10) || 0,
+        defaultCategory: State.get("walletDefaultCategory") || "other",
+      };
+    },
   };
 })(window);

@@ -470,6 +470,9 @@
     mount(container);
   }
 
+  // API 模式下的 BO3 状态（仅 play/settle 链路使用，不影响 UI 内的 bo3State）
+  let _apiBo3State = null;
+
   // ---------- 暴露 API ----------
   global.Phone.Games["liar-dice"] = {
     open, mount,
@@ -500,6 +503,181 @@
         winRate: list.length > 0 ? Math.round(wins * 100 / list.length) : 0,
         netProfit,
         today: list.filter((r) => (r.createdAt || 0) >= t0.getTime()).length,
+      };
+    },
+    /** 我开一局（API 形式，不结算，不写入历史） */
+    async play(bet, mode) {
+      const b = parseInt(bet, 10);
+      if (isNaN(b) || b <= 0) return { ok: false, error: "下注金额不对" };
+      const m = mode === "bo3" ? "bo3" : "single";
+      // BO3 模式初始化进度
+      if (m === "bo3") {
+        _apiBo3State = { playerWins: 0, aiWins: 0, bet: b, roundLog: [] };
+      } else {
+        _apiBo3State = null;
+      }
+      return {
+        bet: b,
+        mode: m,
+        playerDice: [],
+        aiDice: [],
+        history: [],
+      };
+    },
+    /** 我摇一下骰子（生成 5 个 1-6 给玩家和对手） */
+    async roll() {
+      return {
+        playerDice: _rollDice(),
+        aiDice: _rollDice(),
+      };
+    },
+    /** 我来结算（比较骰子总和，大的赢；BO3 达到 2 胜才统一结算） */
+    async settle(myDice, aiDice, bet, mode) {
+      const m = mode === "bo3" ? "bo3" : "single";
+      const myArr = Array.isArray(myDice) ? myDice : [];
+      const aiArr = Array.isArray(aiDice) ? aiDice : [];
+      const myTotal = myArr.reduce((a, b) => a + (parseInt(b, 10) || 0), 0);
+      const aiTotal = aiArr.reduce((a, b) => a + (parseInt(b, 10) || 0), 0);
+      let outcome = "draw";
+      if (myTotal > aiTotal) outcome = "win";
+      else if (myTotal < aiTotal) outcome = "lose";
+      const Wallet = global.Phone.Wallet;
+
+      // BO3 模式：本局不结算钱包，达到 2 胜才统一结算
+      if (m === "bo3") {
+        if (!_apiBo3State) _apiBo3State = { playerWins: 0, aiWins: 0, bet: bet, roundLog: [] };
+        _apiBo3State.roundLog.push({ myTotal, aiTotal, outcome });
+        if (outcome === "win") _apiBo3State.playerWins++;
+        else if (outcome === "lose") _apiBo3State.aiWins++;
+
+        const bo3Over = _apiBo3State.playerWins >= 2 || _apiBo3State.aiWins >= 2;
+        if (!bo3Over) {
+          return {
+            ok: true,
+            settled: false,
+            mode: "bo3",
+            roundOutcome: outcome,
+            myTotal: myTotal,
+            aiTotal: aiTotal,
+            playerWins: _apiBo3State.playerWins,
+            aiWins: _apiBo3State.aiWins,
+            needMore: true,
+          };
+        }
+        // BO3 结束，统一结算
+        const finalWin = _apiBo3State.playerWins >= 2;
+        const finalBet = _apiBo3State.bet;
+        let profit = 0;
+        let settled = finalWin ? "win" : "lose";
+        if (finalWin) {
+          const r = await Wallet.aiToUser(finalBet, "骗子酒馆 BO3 赢了");
+          if (!r || !r.ok) { settled = "fail"; }
+          else profit = finalBet;
+        } else {
+          const r = await Wallet.deduct(finalBet, "骗子酒馆 BO3 输了");
+          if (!r || !r.ok) { settled = "fail"; }
+          else profit = -finalBet;
+        }
+        const rec = {
+          id: global.Phone.Utils.uid("ld"),
+          bet: finalBet,
+          mode: "bo3",
+          myDice: myArr,
+          aiDice: aiArr,
+          myTotal: myTotal,
+          aiTotal: aiTotal,
+          won: finalWin,
+          win: finalWin, // 兼容
+          outcome: settled,
+          rawOutcome: finalWin ? "win" : "lose",
+          profit: profit,
+          roundLog: _apiBo3State.roundLog,
+          playerWins: _apiBo3State.playerWins,
+          aiWins: _apiBo3State.aiWins,
+          createdAt: Date.now(),
+        };
+        await global.Phone.Storage.put("game_liar_dice", rec);
+        global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
+          sourceApp: "games",
+          data: { game: "liar-dice", outcome: settled, bet: finalBet, mode: "bo3" },
+          summary: "骗子酒馆 BO3：" + (settled === "win" ? "我赢啦 +" + finalBet : settled === "lose" ? "我输啦 -" + finalBet : "未结算"),
+        });
+        _apiBo3State = null;
+        return { ok: true, settled: true, mode: "bo3", won: finalWin, outcome: settled, profit: profit, rec: rec };
+      }
+
+      // 单局模式：直接结算
+      let profit = 0;
+      let settled = outcome;
+      if (outcome === "win") {
+        const r = await Wallet.aiToUser(bet, "骗子酒馆赢了");
+        if (r && r.ok) profit = bet;
+        else settled = "fail";
+      } else if (outcome === "lose") {
+        const r = await Wallet.deduct(bet, "骗子酒馆输了");
+        if (r && r.ok) profit = -bet;
+        else settled = "fail";
+      }
+      const rec = {
+        id: global.Phone.Utils.uid("ld"),
+        bet: bet,
+        mode: "single",
+        myDice: myArr,
+        aiDice: aiArr,
+        myTotal: myTotal,
+        aiTotal: aiTotal,
+        won: outcome === "win",
+        win: outcome === "win", // 兼容
+        outcome: settled,
+        rawOutcome: outcome,
+        profit: profit,
+        createdAt: Date.now(),
+      };
+      await global.Phone.Storage.put("game_liar_dice", rec);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
+        sourceApp: "games",
+        data: { game: "liar-dice", outcome: settled, bet: bet, mode: "single" },
+        summary: "骗子酒馆：" + (outcome === "win" ? "我赢啦 +" + bet : outcome === "lose" ? "我输啦 -" + bet : "打平啦"),
+      });
+      return { ok: true, settled: true, mode: "single", won: outcome === "win", outcome: settled, profit: profit, rec: rec };
+    },
+    /** 我生成 5 个随机骰子 */
+    getDice() {
+      return _rollDice();
+    },
+    /** 我把支持的模式列出来 */
+    listModes() {
+      return [
+        { val: "single", label: "单局" },
+        { val: "bo3", label: "三局两胜" },
+      ];
+    },
+    /** 我清空历史记录 */
+    async clearHistory() {
+      const list = await global.Phone.Storage.getAll("game_liar_dice");
+      for (const r of list) await global.Phone.Storage.del("game_liar_dice", r.id);
+      return { ok: true, cleared: list.length };
+    },
+    /** 我读一下某个设置（key 不带 liarDice 前缀） */
+    getSetting(key) {
+      const map = { defaultBet: "liarDiceDefaultBet", mode: "liarDiceMode", showStats: "liarDiceShowStats" };
+      const realKey = map[key] || ("liarDice" + (key ? key.charAt(0).toUpperCase() + key.slice(1) : ""));
+      return global.Phone.State.get(realKey);
+    },
+    /** 我改一下某个设置（key 不带 liarDice 前缀） */
+    async setSetting(key, value) {
+      const map = { defaultBet: "liarDiceDefaultBet", mode: "liarDiceMode", showStats: "liarDiceShowStats" };
+      const realKey = map[key] || ("liarDice" + (key ? key.charAt(0).toUpperCase() + key.slice(1) : ""));
+      await global.Phone.State.set(realKey, value);
+      return value;
+    },
+    /** 我把所有设置列出来 */
+    listSettings() {
+      const State = global.Phone.State;
+      return {
+        defaultBet: State.get("liarDiceDefaultBet"),
+        mode: State.get("liarDiceMode"),
+        showStats: State.get("liarDiceShowStats"),
       };
     },
   };

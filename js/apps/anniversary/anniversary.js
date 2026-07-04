@@ -711,5 +711,60 @@
         }).length,
       };
     },
+    /** 我编辑纪念日（合并 patch，更新 updatedAt） */
+    async update(id, patch) {
+      const a = await global.Phone.Storage.get("anniversaries", id);
+      if (!a) return { ok: false, error: "找不到这个纪念日呀" };
+      Object.keys(patch).forEach((k) => { a[k] = patch[k]; });
+      a.updatedAt = Date.now();
+      await global.Phone.Storage.put("anniversaries", a);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.ANNIVERSARY_CREATED || "anniversary_created", {
+        sourceApp: "anniversary", data: a,
+        summary: "我更新了一个纪念日",
+      });
+      return { ok: true, anniversary: a };
+    },
+    /** 我删掉一个纪念日 */
+    async remove(id) {
+      await global.Phone.Storage.del("anniversaries", id);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.ANNIVERSARY_CREATED || "anniversary_created", {
+        sourceApp: "anniversary", data: { id, action: "remove" },
+        summary: "我删掉了一个纪念日",
+      });
+      return { ok: true };
+    },
+    /** 我置顶 / 取消置顶纪念日 */
+    async pin(id, pinned) {
+      const a = await global.Phone.Storage.get("anniversaries", id);
+      if (!a) return { ok: false, error: "找不到" };
+      a.pinned = pinned !== false;
+      a.updatedAt = Date.now();
+      await global.Phone.Storage.put("anniversaries", a);
+      return { ok: true };
+    },
+    /** 我列出所有纪念日类型（[{val,label}...] 格式） */
+    listTypes() {
+      return TYPES.map((t) => ({ val: t.v, label: t.l }));
+    },
+    /** 我读纪念日设置（key 不带 anniversary 前缀，如 UpcomingDays） */
+    getSetting(key) {
+      return global.Phone.State.get("anniversary" + key);
+    },
+    /** 我写纪念日设置（key 不带 anniversary 前缀） */
+    async setSetting(key, value) {
+      return await global.Phone.State.set("anniversary" + key, value);
+    },
+    /** 我列出纪念日当前全部设置 */
+    listSettings() {
+      const State = global.Phone.State;
+      return {
+        upcomingDays: State.get("anniversaryUpcomingDays"),
+        defaultRepeat: State.get("anniversaryDefaultRepeat") || "yearly",
+        defaultSort: State.get("anniversaryDefaultSort") || "soon",
+        showPassed: State.get("anniversaryShowPassed") !== false,
+        defaultRemindDays: State.get("anniversaryDefaultRemindDays") != null ? State.get("anniversaryDefaultRemindDays") : 1,
+        defaultType: State.get("anniversaryDefaultType") || "other",
+      };
+    },
   };
 })(window);

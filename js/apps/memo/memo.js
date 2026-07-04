@@ -686,5 +686,89 @@
         todayDue: list.filter((m) => !m.completed && !m.archived && m.remindAt && _isToday(m.remindAt)).length,
       };
     },
+    /** 我编辑备忘（合并 patch，提醒时间变了就重新检查） */
+    async update(id, patch) {
+      const m = await global.Phone.Storage.get("memos", id);
+      if (!m) return { ok: false, error: "找不到这条备忘呀" };
+      Object.keys(patch).forEach((k) => { m[k] = patch[k]; });
+      m.updatedAt = Date.now();
+      await global.Phone.Storage.put("memos", m);
+      // 如果改了提醒时间，我重新检查一下提醒
+      if ("remindAt" in patch || "dueDate" in patch) {
+        try { await checkReminders(); } catch (e) { /* 忽略提醒检查错误 */ }
+      }
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MEMO_CREATED, {
+        sourceApp: "memo", data: m,
+        summary: "我更新了一条备忘",
+      });
+      return { ok: true, memo: m };
+    },
+    /** 我删掉一条备忘 */
+    async remove(id) {
+      await global.Phone.Storage.del("memos", id);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MEMO_CREATED, {
+        sourceApp: "memo", data: { id, action: "remove" },
+        summary: "我删掉了一条备忘",
+      });
+      return { ok: true };
+    },
+    /** 我归档 / 取消归档备忘 */
+    async archive(id, archived) {
+      const m = await global.Phone.Storage.get("memos", id);
+      if (!m) return { ok: false, error: "找不到" };
+      m.archived = archived !== false;
+      m.updatedAt = Date.now();
+      await global.Phone.Storage.put("memos", m);
+      return { ok: true };
+    },
+    /** 我置顶 / 取消置顶备忘 */
+    async pin(id, pinned) {
+      const m = await global.Phone.Storage.get("memos", id);
+      if (!m) return { ok: false, error: "找不到" };
+      m.pinned = pinned !== false;
+      m.updatedAt = Date.now();
+      await global.Phone.Storage.put("memos", m);
+      return { ok: true };
+    },
+    /** 我给备忘加一个子任务 */
+    async addSubtask(memoId, text) {
+      const m = await global.Phone.Storage.get("memos", memoId);
+      if (!m) return { ok: false, error: "找不到" };
+      m.subtasks = m.subtasks || [];
+      const sub = { id: global.Phone.Utils.uid("sub"), text: text || "", done: false };
+      m.subtasks.push(sub);
+      m.updatedAt = Date.now();
+      await global.Phone.Storage.put("memos", m);
+      return { ok: true, subtask: sub };
+    },
+    /** 我切换子任务的完成状态 */
+    async toggleSubtask(memoId, subtaskId) {
+      const m = await global.Phone.Storage.get("memos", memoId);
+      if (!m) return { ok: false, error: "找不到" };
+      m.subtasks = m.subtasks || [];
+      const sub = m.subtasks.find((s) => s.id === subtaskId);
+      if (!sub) return { ok: false, error: "找不到子任务呀" };
+      sub.done = !sub.done;
+      m.updatedAt = Date.now();
+      await global.Phone.Storage.put("memos", m);
+      return { ok: true, subtask: sub };
+    },
+    /** 我读备忘设置（key 不带 memo 前缀，如 DefaultSort） */
+    getSetting(key) {
+      return global.Phone.State.get("memo" + key);
+    },
+    /** 我写备忘设置（key 不带 memo 前缀） */
+    async setSetting(key, value) {
+      return await global.Phone.State.set("memo" + key, value);
+    },
+    /** 我列出备忘当前全部设置 */
+    listSettings() {
+      const State = global.Phone.State;
+      return {
+        defaultSort: State.get("memoDefaultSort") || "updated",
+        defaultCategory: State.get("memoDefaultCategory") || "",
+        autoRemind: State.get("memoAutoRemind") !== false,
+      };
+    },
   };
 })(window);

@@ -876,5 +876,129 @@
         totalPlays: songs.reduce((acc, s) => acc + (s.playCount || 0), 0),
       };
     },
+    // 我加一首歌：opts={title, artist, duration, cover, url, source}
+    async addSong(opts) {
+      const o = opts || {};
+      const song = {
+        id: global.Phone.Utils.uid("song"),
+        name: o.title || "未知歌曲",
+        artist: o.artist || "未知歌手",
+        src: o.url || "",
+        url: o.url || "",
+        cover: o.cover || "",
+        duration: o.duration || 0,
+        source: o.source || "",
+        favorited: false,
+        playCount: 0,
+        createdAt: Date.now(),
+      };
+      await global.Phone.Storage.put("music", song);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MUSIC_PLAYING, {
+        sourceApp: "music",
+        data: song,
+        summary: "我加了一首歌",
+      });
+      return song;
+    },
+    // 我编辑歌曲元数据
+    async updateSong(id, patch) {
+      const Storage = global.Phone.Storage;
+      const s = await Storage.get("music", id);
+      if (!s) return { ok: false, error: "找不到这首歌呀" };
+      Object.assign(s, patch || {});
+      s.updatedAt = Date.now();
+      await Storage.put("music", s);
+      return { ok: true, song: s };
+    },
+    // 我删歌：同时从所有歌单里清掉
+    async removeSong(id) {
+      const Storage = global.Phone.Storage;
+      const s = await Storage.get("music", id);
+      if (!s) return { ok: false, error: "找不到这首歌呀" };
+      await Storage.del("music", id);
+      const playlists = await Storage.getAll("playlists");
+      for (const pl of playlists) {
+        if (pl.songIds && pl.songIds.indexOf(id) >= 0) {
+          pl.songIds = pl.songIds.filter((sid) => sid !== id);
+          pl.updatedAt = Date.now();
+          await Storage.put("playlists", pl);
+        }
+      }
+      return { ok: true };
+    },
+    // 我把歌加入歌单（去重）
+    async addToPlaylist(playlistId, songId) {
+      const Storage = global.Phone.Storage;
+      const pl = await Storage.get("playlists", playlistId);
+      if (!pl) return { ok: false, error: "找不到歌单呀" };
+      pl.songIds = pl.songIds || [];
+      if (pl.songIds.includes(songId)) {
+        return { ok: false, error: "歌单里已经有这首歌啦" };
+      }
+      pl.songIds.push(songId);
+      pl.updatedAt = Date.now();
+      await Storage.put("playlists", pl);
+      return { ok: true };
+    },
+    // 我从歌单移除歌曲
+    async removeFromPlaylist(playlistId, songId) {
+      const Storage = global.Phone.Storage;
+      const pl = await Storage.get("playlists", playlistId);
+      if (!pl) return { ok: false, error: "找不到歌单呀" };
+      pl.songIds = (pl.songIds || []).filter((sid) => sid !== songId);
+      pl.updatedAt = Date.now();
+      await Storage.put("playlists", pl);
+      return { ok: true };
+    },
+    // 我删歌单（歌不动）
+    async removePlaylist(id) {
+      await global.Phone.Storage.del("playlists", id);
+      return { ok: true };
+    },
+    // 我播放：委托给 MusicPlayer，顺便计一次播放
+    async play(songId) {
+      const Storage = global.Phone.Storage;
+      const song = await Storage.get("music", songId);
+      if (!song) return { ok: false, error: "找不到这首歌呀" };
+      global.Phone.MusicPlayer.playQueue([song], 0);
+      song.playCount = (song.playCount || 0) + 1;
+      song.lastPlayedAt = Date.now();
+      try { await Storage.put("music", song); } catch (e) {}
+      return { ok: true };
+    },
+    // 我暂停
+    pause() {
+      global.Phone.MusicPlayer.pause();
+    },
+    // 我播下一首
+    next() {
+      global.Phone.MusicPlayer.next();
+    },
+    // 我播上一首
+    prev() {
+      global.Phone.MusicPlayer.prev();
+    },
+    // 我读设置（key 不带 music 前缀）
+    getSetting(key) {
+      const full = "music" + key.charAt(0).toUpperCase() + key.slice(1);
+      return global.Phone.State.get(full);
+    },
+    // 我写设置
+    async setSetting(key, value) {
+      const full = "music" + key.charAt(0).toUpperCase() + key.slice(1);
+      await global.Phone.State.set(full, value);
+    },
+    // 我列出全部设置
+    listSettings() {
+      const S = global.Phone.State;
+      return {
+        defaultVolume: S.get("musicDefaultVolume"),
+        crossfade: S.get("musicCrossfade"),
+        sleepTimer: S.get("musicSleepTimer"),
+        defaultSort: S.get("musicDefaultSort") || "recent",
+        showStats: S.get("musicShowStats"),
+        autoPlayNext: S.get("musicAutoPlayNext"),
+      };
+    },
   };
 })(window);

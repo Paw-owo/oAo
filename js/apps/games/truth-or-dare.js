@@ -552,5 +552,109 @@
         },
       };
     },
+    /** 我抽一道题（不写入历史） */
+    async draw(difficulty, type) {
+      const diff = difficulty || global.Phone.State.get("gamesDifficulty") || "normal";
+      let t = type || "random";
+      if (t !== "truth" && t !== "dare") t = Math.random() < 0.5 ? "truth" : "dare";
+      const pool = await _allQuestions(diff);
+      const arr = t === "truth" ? pool.truth : pool.dare;
+      if (!arr || arr.length === 0) return null;
+      const text = arr[Math.floor(Math.random() * arr.length)];
+      // 我判断一下是内置还是自定义题
+      let source = "builtin";
+      try {
+        const customs = await global.Phone.Storage.getAll("game_truth_dare_custom");
+        if (customs && customs.some((c) => c.text === text)) source = "custom";
+      } catch (e) {}
+      return { question: text, type: t, difficulty: diff, source: source };
+    },
+    /** 我提交一道题的结果（写入历史 + emit 事件） */
+    async finish(question, done) {
+      let q = question;
+      if (typeof q === "string") q = { text: q };
+      q = q || {};
+      const text = String(q.question || q.text || "").trim();
+      if (!text) return { ok: false, error: "题目不能为空" };
+      const rec = {
+        id: global.Phone.Utils.uid("td"),
+        question: text,
+        text: text, // 兼容现有 UI（UI 读 r.text）
+        type: q.type === "dare" ? "dare" : (q.type === "truth" ? "truth" : "truth"),
+        difficulty: q.difficulty || "normal",
+        done: !!done,
+        createdAt: Date.now(),
+      };
+      await global.Phone.Storage.put("game_truth_dare", rec);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
+        sourceApp: "games",
+        data: { game: "truth-or-dare", type: rec.type, done: rec.done, difficulty: rec.difficulty },
+        summary: rec.done ? "我完成了一道题" : "我跳过了一道题",
+      });
+      return { ok: true, rec };
+    },
+    /** 我删除一道自定义题 */
+    async removeCustom(id) {
+      if (!id) return { ok: false, error: "缺少 id" };
+      await global.Phone.Storage.del("game_truth_dare_custom", id);
+      return { ok: true };
+    },
+    /** 我把题库列出来（内置 + 自定义，按难度和类型筛选） */
+    async listQuestions(difficulty, type) {
+      const out = [];
+      const diffs = difficulty ? [difficulty] : Object.keys(BANK);
+      for (const d of diffs) {
+        const bank = BANK[d] || BANK.normal;
+        const types = type ? [type] : ["truth", "dare"];
+        for (const t of types) {
+          (bank[t] || []).forEach((text) => {
+            out.push({ question: text, type: t, difficulty: d, source: "builtin" });
+          });
+        }
+      }
+      // 合并自定义
+      let customs = [];
+      try { customs = await global.Phone.Storage.getAll("game_truth_dare_custom"); } catch (e) {}
+      customs.forEach((c) => {
+        if (difficulty && c.difficulty && c.difficulty !== difficulty) return;
+        if (type && c.type !== type) return;
+        out.push({
+          id: c.id,
+          question: c.text,
+          type: c.type || "truth",
+          difficulty: c.difficulty || "normal",
+          source: "custom",
+        });
+      });
+      return out;
+    },
+    /** 我清空历史记录 */
+    async clearHistory() {
+      const list = await global.Phone.Storage.getAll("game_truth_dare");
+      for (const r of list) await global.Phone.Storage.del("game_truth_dare", r.id);
+      return { ok: true, cleared: list.length };
+    },
+    /** 我读一下某个设置（key 不带 truthDare 前缀） */
+    getSetting(key) {
+      const map = { defaultType: "truthDareDefaultType", showHistory: "truthDareShowHistory", showStats: "truthDareShowStats" };
+      const realKey = map[key] || ("truthDare" + (key ? key.charAt(0).toUpperCase() + key.slice(1) : ""));
+      return global.Phone.State.get(realKey);
+    },
+    /** 我改一下某个设置（key 不带 truthDare 前缀） */
+    async setSetting(key, value) {
+      const map = { defaultType: "truthDareDefaultType", showHistory: "truthDareShowHistory", showStats: "truthDareShowStats" };
+      const realKey = map[key] || ("truthDare" + (key ? key.charAt(0).toUpperCase() + key.slice(1) : ""));
+      await global.Phone.State.set(realKey, value);
+      return value;
+    },
+    /** 我把所有设置列出来 */
+    listSettings() {
+      const State = global.Phone.State;
+      return {
+        defaultType: State.get("truthDareDefaultType"),
+        showHistory: State.get("truthDareShowHistory"),
+        showStats: State.get("truthDareShowStats"),
+      };
+    },
   };
 })(window);

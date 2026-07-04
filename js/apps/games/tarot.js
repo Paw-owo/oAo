@@ -472,5 +472,49 @@
         uniqueCards: Object.keys(cardCount).length,
       };
     },
+    /** 我删除一条占卜记录 */
+    async remove(id) {
+      if (!id) return { ok: false, error: "缺少 id" };
+      await global.Phone.Storage.del("game_tarot", id);
+      return { ok: true };
+    },
+    /** 我手动存档一次占卜（rec 结构 {spread, question, cards, reading}） */
+    async saveReading(rec) {
+      if (!rec || !rec.cards) return { ok: false, error: "记录不完整" };
+      const r = Object.assign({
+        id: global.Phone.Utils.uid("tarot"),
+        createdAt: Date.now(),
+      }, rec);
+      await global.Phone.Storage.put("game_tarot", r);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
+        sourceApp: "games",
+        data: r,
+        summary: "我存了一次占卜",
+      });
+      return { ok: true, rec: r };
+    },
+    /** 我清空所有占卜记录 */
+    async clearHistory() {
+      const list = await global.Phone.Storage.getAll("game_tarot");
+      for (const r of list) await global.Phone.Storage.del("game_tarot", r.id);
+    },
+    /** 我读取塔罗的某个设置项（key 不带 tarot 前缀） */
+    getSetting(key) {
+      const k = "tarot" + (key ? key.charAt(0).toUpperCase() + key.slice(1) : "");
+      return global.Phone.State.get(k);
+    },
+    /** 我写入塔罗的某个设置项 */
+    async setSetting(key, value) {
+      const k = "tarot" + (key ? key.charAt(0).toUpperCase() + key.slice(1) : "");
+      return await global.Phone.State.set(k, value);
+    },
+    /** 我列出塔罗的全部设置项当前值 */
+    listSettings() {
+      return {
+        defaultSpread: global.Phone.State.get("tarotDefaultSpread"),
+        showHistory: global.Phone.State.get("tarotShowHistory"),
+        showStats: global.Phone.State.get("tarotShowStats"),
+      };
+    },
   };
 })(window);

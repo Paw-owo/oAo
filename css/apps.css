@@ -690,6 +690,16 @@
 .music-full .mf-name { font-size: var(--font-lg); font-weight: 600; color: var(--text-primary); }
 .music-full .mf-artist { font-size: var(--font-sm); color: var(--text-secondary); margin-top: 4px; }
 
+/* ---------- 游戏 - 统计概览 ---------- */
+.gm-stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+.gm-stats-bar .msb-card { padding: 10px 6px; background: var(--bg-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); text-align: center; }
+.gm-stats-bar .msb-card .msb-num { font-size: var(--font-md); font-weight: 600; color: var(--text-primary); }
+.gm-stats-bar .msb-card .msb-label { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
+.gm-stats-bar .msb-card.highlight { background: var(--color-primary-ultralight); }
+.gm-stats-bar .msb-card.highlight .msb-num { color: var(--color-primary-deep); }
+.gm-stats-bar .msb-card.danger { background: rgba(232,130,107,0.12); }
+.gm-stats-bar .msb-card.danger .msb-num { color: var(--color-danger); }
+
 /* ---------- 游戏 ---------- */
 .game-card {
   display: flex;

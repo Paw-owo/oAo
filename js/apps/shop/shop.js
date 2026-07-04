@@ -892,5 +892,110 @@
       });
       return { ok: true };
     },
+    // 我上架新商品：opts={name, desc, price, icon, category, rarity}
+    async addItem(opts) {
+      const o = opts || {};
+      const it = {
+        id: global.Phone.Utils.uid("shop"),
+        name: o.name || "未命名商品",
+        description: o.desc != null ? o.desc : (o.description || ""),
+        price: o.price || 0,
+        icon: o.icon || "gift",
+        image: o.image || "",
+        category: o.category || "其他",
+        rarity: o.rarity || "",
+        createdAt: Date.now(),
+      };
+      await global.Phone.Storage.put("shop", it);
+      return it;
+    },
+    // 我编辑商品（兼容 desc -> description）
+    async updateItem(id, patch) {
+      const Storage = global.Phone.Storage;
+      const it = await Storage.get("shop", id);
+      if (!it) return { ok: false, error: "找不到商品呀" };
+      const p = Object.assign({}, patch || {});
+      if (p.desc !== undefined) { p.description = p.desc; delete p.desc; }
+      Object.assign(it, p);
+      it.updatedAt = Date.now();
+      await Storage.put("shop", it);
+      return { ok: true, item: it };
+    },
+    // 我下架商品：顺手清掉购物车和收藏里的引用
+    async removeItem(id) {
+      const Storage = global.Phone.Storage;
+      const it = await Storage.get("shop", id);
+      if (!it) return { ok: false, error: "找不到商品呀" };
+      await Storage.del("shop", id);
+      const cart = await Storage.getAll("cart");
+      for (const c of cart) {
+        if (c.itemId === id) await Storage.del("cart", c.id);
+      }
+      const favs = await Storage.getAll("favorites");
+      for (const f of favs) {
+        if (f.itemId === id) await Storage.del("favorites", f.id);
+      }
+      return { ok: true };
+    },
+    // 我列购物车
+    async listCart() {
+      return await global.Phone.Storage.getAll("cart");
+    },
+    // 我从购物车移除商品
+    async removeFromCart(itemId) {
+      const Storage = global.Phone.Storage;
+      const cart = await Storage.getAll("cart");
+      for (const c of cart) {
+        if (c.itemId === itemId) await Storage.del("cart", c.id);
+      }
+      return { ok: true };
+    },
+    // 我清空购物车
+    async clearCart() {
+      const Storage = global.Phone.Storage;
+      const cart = await Storage.getAll("cart");
+      for (const c of cart) await Storage.del("cart", c.id);
+      return { ok: true };
+    },
+    // 我切换收藏：返回当前是否已收藏
+    async toggleFavorite(itemId) {
+      const Storage = global.Phone.Storage;
+      const favs = await Storage.getAll("favorites");
+      const exist = favs.find((f) => f.itemId === itemId);
+      if (exist) {
+        await Storage.del("favorites", exist.id);
+        return false;
+      }
+      await Storage.put("favorites", {
+        id: global.Phone.Utils.uid("fav"), itemId, createdAt: Date.now(),
+      });
+      return true;
+    },
+    // 我清空订单记录
+    async clearOrders() {
+      const Storage = global.Phone.Storage;
+      const orders = await Storage.getAll("orders");
+      for (const o of orders) await Storage.del("orders", o.id);
+      return { ok: true };
+    },
+    // 我读设置（key 不带 shop 前缀）
+    getSetting(key) {
+      const full = "shop" + key.charAt(0).toUpperCase() + key.slice(1);
+      return global.Phone.State.get(full);
+    },
+    // 我写设置
+    async setSetting(key, value) {
+      const full = "shop" + key.charAt(0).toUpperCase() + key.slice(1);
+      await global.Phone.State.set(full, value);
+    },
+    // 我列出全部设置
+    listSettings() {
+      const S = global.Phone.State;
+      return {
+        defaultSort: S.get("shopDefaultSort") || "recent",
+        showPrices: S.get("shopShowPrices"),
+        autoGift: S.get("shopAutoGift"),
+      };
+    },
   };
 })(window);

@@ -170,11 +170,67 @@
     if (container) container.setAttribute("data-app", appId);
   }
 
+  // ---------- 我重置某范围外观到默认值时用到的对照表 ----------
+  // 默认值参考 Storage.DEFAULT_SETTINGS 和 State.PERSISTED_KEYS
+  const RESET_DEFAULTS = {
+    wallpaper: "",
+    chatBackground: "",
+    widgetBackground: null,
+    dockBackground: null,
+    appBackgrounds: {},
+    appIconStyles: {},
+    accentColor: null,
+    bubbleRadius: null,
+    iconRadius: null,
+  };
+
+  // ---------- 我读取当前已应用的外观状态汇总 ----------
+  function getApplied() {
+    const all = global.Phone.State.getAll();
+    const keys = [
+      "theme", "wallpaper", "wallpaperMode",
+      "widgetBackground", "dockBackground", "chatBackground",
+      "appBackgrounds", "appIconStyles", "accentColor",
+      "bubbleRadius", "iconRadius", "fontSize", "systemName",
+    ];
+    const out = {};
+    keys.forEach((k) => { out[k] = all[k]; });
+    return out;
+  }
+
+  // ---------- 我把某范围的外观重置回默认值 ----------
+  // 调用 State.set 会触发我之前订阅的 applier，自动重新应用到 DOM
+  async function reset(scope) {
+    if (!(scope in RESET_DEFAULTS)) {
+      console.warn("[ThemeEngine] 我不认识这个重置范围：" + scope);
+      return null;
+    }
+    const val = RESET_DEFAULTS[scope];
+    await global.Phone.State.set(scope, val);
+    return val;
+  }
+
   // ---------- 暴露 ----------
   global.Phone = global.Phone || {};
   global.Phone.ThemeEngine = {
     init,
     tagApp,
     applyAll: init,
+    // 12 个 applier，我直接挂出来，外部可以命令式重应用某项外观
+    applyTheme,
+    applyFontSize,
+    applySystemName,
+    applyWallpaper,
+    applyWidgetBackground,
+    applyDockBackground,
+    applyChatBackground,
+    applyAppBackgrounds,
+    applyAppIconStyles,
+    applyAccentColor,
+    applyBubbleRadius,
+    applyIconRadius,
+    // 外观状态读取 / 范围重置
+    getApplied,
+    reset,
   };
 })(window);
