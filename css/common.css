@@ -590,105 +590,128 @@
   position: fixed;
   inset: 0;
   background: var(--bg-mask);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9000; /* JS 会自增以支持嵌套 */
-  padding: 28px 24px;
-  animation: phoneModalFadeIn var(--dur-fast, 160ms) var(--ease-out, ease-out);
+  padding: 24px;
+  opacity: 0;
+  animation: modal-fade-in var(--dur-fast) var(--ease-soft) forwards;
   box-sizing: border-box;
 }
 .phone-modal-mask.phone-modal-closing {
-  animation: phoneModalFadeOut var(--dur-fast, 160ms) var(--ease-out, ease-out) forwards;
+  animation: phoneModalFadeOut var(--dur-fast) var(--ease-out) forwards;
 }
 .phone-modal-card {
   width: 100%;
-  max-width: 360px;
+  max-width: 340px;
   background: var(--bg-surface);
   border-radius: var(--radius-xl);
-  padding: 22px 22px 18px;
-  box-shadow: var(--shadow-float);
-  box-sizing: border-box;
+  box-shadow: var(--shadow-card), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+  padding: 24px 20px 16px;
+  transform: scale(0.85) translateY(12px);
+  opacity: 0;
+  animation: modal-pop var(--dur-base) var(--ease-soft) forwards;
   position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.phone-modal-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--color-primary-light), var(--color-primary), var(--color-primary-deep));
+  opacity: 0.7;
 }
 .phone-modal-card.phone-modal-closing {
-  animation: phoneModalPopOut var(--dur-fast, 160ms) var(--ease-soft, ease) forwards;
+  animation: phoneModalPopOut var(--dur-fast) var(--ease-soft) forwards;
 }
 .phone-modal-title {
-  font-size: var(--font-md, 16px);
+  font-size: var(--font-md);
   font-weight: 600;
+  color: var(--text-primary);
   text-align: center;
   margin-bottom: 8px;
-  color: var(--text-primary);
   line-height: 1.3;
 }
 .phone-modal-message {
-  font-size: var(--font-base, 14px);
+  font-size: var(--font-sm);
   color: var(--text-secondary);
   text-align: center;
-  margin-bottom: 18px;
   line-height: 1.6;
+  margin-bottom: 18px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 .phone-modal-input {
   width: 100%;
-  box-sizing: border-box;
   padding: 12px 14px;
-  border-radius: var(--radius-md, 16px);
-  border: 1.5px solid var(--border-soft, #F0E4CC);
-  background: var(--bg-surface-2, #FFF6E2);
-  font-size: var(--font-base, 14px);
+  border: 1.5px solid var(--border-soft, rgba(0, 0, 0, 0.08));
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
   color: var(--text-primary);
-  margin-bottom: 18px;
+  background: var(--bg-surface-2, rgba(0, 0, 0, 0.02));
   outline: none;
-  transition: border-color var(--dur-fast, 120ms) var(--ease-soft, ease),
-              box-shadow var(--dur-fast, 120ms) var(--ease-soft, ease);
+  transition: border-color var(--dur-fast) var(--ease-soft),
+              background var(--dur-fast) var(--ease-soft);
+  margin-bottom: 18px;
+  box-sizing: border-box;
   font-family: inherit;
 }
 .phone-modal-input:focus {
-  border-color: var(--color-primary, #F5B945);
-  box-shadow: 0 0 0 3px var(--color-primary-ultralight, #FFF0C4);
+  border-color: var(--color-primary);
+  background: var(--bg-surface);
 }
 .phone-modal-btns {
   display: flex;
   gap: 10px;
 }
-.phone-modal-btn {
+.phone-modal-btn-cancel,
+.phone-modal-btn-ok,
+.phone-modal-btn-danger {
   flex: 1;
   padding: 11px 16px;
-  border-radius: var(--radius-full, 999px);
-  font-size: var(--font-base, 14px);
+  border: none;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-sm);
   font-weight: 500;
   font-family: inherit;
-  border: none;
   cursor: pointer;
-  transition: transform var(--dur-fast, 120ms) var(--ease-soft, ease),
-              opacity var(--dur-fast, 120ms) var(--ease-soft, ease);
   user-select: none;
-}
-.phone-modal-btn:active { transform: scale(0.97); }
-.phone-modal-btn-ok {
-  background: var(--grad-primary, linear-gradient(135deg, #F5B945 0%, #FFD66E 100%));
-  color: var(--text-on-primary, #5A3A1A);
-  box-shadow: var(--shadow-soft);
+  transition: transform var(--dur-fast) var(--ease-soft),
+              opacity var(--dur-fast) var(--ease-soft);
 }
 .phone-modal-btn-cancel {
-  background: var(--bg-surface-2, #FFF6E2);
+  background: var(--bg-surface-2, rgba(0, 0, 0, 0.05));
   color: var(--text-secondary);
-  border: 1.5px solid var(--border-soft, #F0E4CC);
 }
+.phone-modal-btn-cancel:active { transform: scale(0.96); }
+.phone-modal-btn-ok {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-deep));
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.phone-modal-btn-ok:active { transform: scale(0.96); }
 .phone-modal-btn-danger {
-  background: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);
-  color: #FFF;
-  box-shadow: 0 4px 14px rgba(232, 130, 107, 0.28);
+  background: linear-gradient(135deg, var(--color-danger), #c25a45);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(232, 130, 107, 0.3);
 }
+.phone-modal-btn-danger:active { transform: scale(0.96); }
 
-@keyframes phoneModalFadeIn {
+@keyframes modal-fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@keyframes modal-pop {
+  0% { transform: scale(0.85) translateY(12px); opacity: 0; }
+  60% { transform: scale(1.02) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
 }
 @keyframes phoneModalFadeOut {
   from { opacity: 1; }

@@ -22,6 +22,7 @@
     "widgetBackground", "dockBackground", "appIconStyles",
     "accentColor", "iconRadius", "bubbleRadius",
     "aiEndpoint", "aiApiKey", "aiModel", "aiSpeakingStyle", "showThinking",
+    "aiFirstPerson", "aiHasOwnLife", "aiSenseWorld", "aiEmotionalResponse", "aiReplyLength", "aiThinkTag",
     "aiTemperature", "aiMaxTokens",
     "aiProactiveEnabled", "aiAutoMoment", "aiAutoInteract", "aiAutoChat",
     "lockPassword", "lockWallpaper", "lockAvatar", "lockText",
@@ -46,6 +47,7 @@
     "tarotDefaultSpread", "tarotShowHistory", "tarotShowStats",
     "galleryAutoPlay", "gallerySlideInterval",
     "mcpEnabled",
+    "ttsEnabled", "ttsVoice", "ttsRate", "ttsPitch", "ttsVolume", "ttsAutoPlay",
   ];
 
   // 启动时从 Storage 一次性加载到缓存

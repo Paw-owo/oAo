@@ -102,6 +102,7 @@ const SCRIPTS = [
   "js/core/app-registry.js",
   "js/core/ai-client.js",
   "js/core/mcp-client.js",
+  "js/core/tts.js",
   "js/core/state.js",
   "js/core/notify.js",
   "js/core/router.js",

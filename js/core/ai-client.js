@@ -55,6 +55,10 @@
     const onError = params.onError || function () {};
     const onThinking = params.onThinking || function () {};
     const signal = params.signal;
+    // 我读取递归深度（MCP 工具调用递归用），外部不传时默认 0
+    const depth = params._depth || 0;
+    // 我累积流式分片过来的 tool_calls
+    let _pendingToolCalls = [];
 
     const cfg = await getConfig();
     if (!cfg.endpoint || !cfg.apiKey) {
@@ -70,6 +74,14 @@
       temperature: cfg.temperature != null ? cfg.temperature : 0.7,
       max_tokens: cfg.maxTokens || 2000,
     };
+    // 我注入 MCP 工具（启用且有工具时才加，否则完全兼容原行为）
+    if (global.Phone.McpClient && global.Phone.McpClient.isEnabled()) {
+      const tools = global.Phone.McpClient.toOpenAITools();
+      if (tools && tools.length) {
+        body.tools = tools;
+        body.tool_choice = "auto";
+      }
+    }
 
     let resp;
     try {
@@ -102,6 +114,7 @@
     let thinkingText = "";
 
     try {
+      streamLoop:
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -117,7 +130,8 @@
             const trimmed = line.trim();
             if (!trimmed.startsWith("data:")) continue;
             const dataStr = trimmed.slice(5).trim();
-            if (dataStr === "[DONE]") { onDone(fullText); return fullText; }
+            // 收到 [DONE] 我跳出循环，统一到下面处理工具调用和 onDone
+            if (dataStr === "[DONE]") break streamLoop;
             try {
               const json = JSON.parse(dataStr);
               const delta = json.choices && json.choices[0] && json.choices[0].delta;
@@ -131,11 +145,44 @@
                 fullText += delta.content;
                 onDelta(delta.content, fullText);
               }
+              // 我累积流式过来的 tool_calls 分片
+              if (delta.tool_calls) {
+                for (const tc of delta.tool_calls) {
+                  const idx = tc.index || 0;
+                  if (!_pendingToolCalls[idx]) _pendingToolCalls[idx] = { id: "", name: "", arguments: "" };
+                  if (tc.id) _pendingToolCalls[idx].id = tc.id;
+                  if (tc.function) {
+                    if (tc.function.name) _pendingToolCalls[idx].name = tc.function.name;
+                    if (tc.function.arguments) _pendingToolCalls[idx].arguments += tc.function.arguments;
+                  }
+                }
+              }
             } catch {
               // 忽略非 JSON 行
             }
           }
         }
+      }
+      // 流结束后，我处理 MCP 工具调用
+      const validToolCalls = _pendingToolCalls.filter((tc) => tc.id && tc.name);
+      if (validToolCalls.length && global.Phone.McpClient && global.Phone.McpClient.isEnabled() && depth < 3) {
+        // 我把累积的 tool_calls 转成 OpenAI 标准形状（callToolCall 需要这个形状）
+        const openaiToolCalls = validToolCalls.map((tc) => ({
+          id: tc.id,
+          type: "function",
+          function: { name: tc.name, arguments: tc.arguments },
+        }));
+        // 构造 assistant message（带 tool_calls）
+        const assistantMsg = { role: "assistant", content: fullText || null, tool_calls: openaiToolCalls };
+        // 我执行每个工具，拿到 tool 结果 message
+        const toolResults = [];
+        for (const otc of openaiToolCalls) {
+          const result = await global.Phone.McpClient.callToolCall(otc);
+          toolResults.push(result);
+        }
+        // 我把工具结果送回去，递归调用让模型继续生成
+        const newMessages = messages.concat([assistantMsg], toolResults);
+        return await streamChat({ messages: newMessages, onDelta, onDone, onError, signal, onThinking, _depth: depth + 1 });
       }
       onDone(fullText);
       return fullText;
@@ -150,7 +197,8 @@
   }
 
   // ---------- 非流式聊天（用于内部决策/总结等不需要逐字的场景） ----------
-  async function chat(messages, signal) {
+  async function chat(messages, signal, _depth) {
+    _depth = _depth || 0;
     const cfg = await getConfig();
     if (!cfg.endpoint || !cfg.apiKey) {
       throw new Error("还没配置 AI 接口");
@@ -162,6 +210,14 @@
       temperature: cfg.temperature != null ? cfg.temperature : 0.7,
       max_tokens: cfg.maxTokens || 2000,
     };
+    // 我注入 MCP 工具（同 streamChat 的逻辑）
+    if (global.Phone.McpClient && global.Phone.McpClient.isEnabled()) {
+      const tools = global.Phone.McpClient.toOpenAITools();
+      if (tools && tools.length) {
+        body.tools = tools;
+        body.tool_choice = "auto";
+      }
+    }
     const resp = await fetch(cfg.endpoint, {
       method: "POST",
       headers: {
@@ -175,8 +231,92 @@
       const e = new Error("API " + resp.status); e.status = resp.status; throw e;
     }
     const json = await resp.json();
-    return (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || "";
+    const message = (json.choices && json.choices[0] && json.choices[0].message) || {};
+    // 我处理非流式返回的 tool_calls（这里 message.tool_calls 已是 OpenAI 标准形状，可直接喂给 callToolCall）
+    const toolCalls = message.tool_calls;
+    if (toolCalls && toolCalls.length && global.Phone.McpClient && global.Phone.McpClient.isEnabled() && _depth < 3) {
+      // 我执行每个工具，拿到 tool 结果 message
+      const toolResults = [];
+      for (const tc of toolCalls) {
+        const result = await global.Phone.McpClient.callToolCall(tc);
+        toolResults.push(result);
+      }
+      // 我把 assistant 的 tool_calls message 和 tool 结果一起送回去，递归调用
+      const newMessages = messages.concat([message], toolResults);
+      return await chat(newMessages, signal, _depth + 1);
+    }
+    return message.content || "";
   }
+
+  // ---------- 我从 chat/completions URL 推导 models URL ----------
+  function _deriveModelsUrl(endpoint) {
+    if (!endpoint) return "";
+    let url = endpoint.trim();
+    // 已是 models URL
+    if (/\/models\/?$/i.test(url)) return url;
+    // 去掉 /chat/completions
+    url = url.replace(/\/chat\/completions\/?$/i, "");
+    // 去掉末尾斜杠
+    url = url.replace(/\/$/, "");
+    // 如果没有 /v1，加上
+    if (!/\/v\d+$/i.test(url)) url += "/v1";
+    return url + "/models";
+  }
+
+  // ---------- 我拉取可用模型列表 ----------
+  /**
+   * 我拉取可用模型列表
+   * @param {object} opts { endpoint?, apiKey?, signal? }
+   * @returns {Promise<{ok, models?, error?}>}
+   *   models: [{id, name?, owned_by?}]
+   */
+  async function fetchModels(opts) {
+    opts = opts || {};
+    const cfg = await getConfig();
+    const endpoint = opts.endpoint || cfg.endpoint;
+    const apiKey = opts.apiKey || cfg.apiKey;
+    if (!endpoint || !apiKey) {
+      return { ok: false, error: "我还没接到接口配置，去设置里填一下接口地址和 Key 吧～" };
+    }
+    // 我从 chat/completions URL 推导 models URL
+    const modelsUrl = _deriveModelsUrl(endpoint);
+    try {
+      const resp = await fetch(modelsUrl, {
+        method: "GET",
+        headers: { "Authorization": "Bearer " + apiKey },
+        signal: opts.signal,
+      });
+      if (!resp.ok) {
+        return { ok: false, error: "拉取失败：" + resp.status };
+      }
+      const json = await resp.json();
+      const list = (json.data || json.models || []).map((m) => ({
+        id: m.id || m.name,
+        name: m.name || m.id,
+        owned_by: m.owned_by || m.owner || "",
+      }));
+      return { ok: true, models: list };
+    } catch (e) {
+      if (e.name === "AbortError") return { ok: false, error: "我把请求收回去啦" };
+      return { ok: false, error: friendlyError(e) };
+    }
+  }
+
+  // ---------- 常用模型预设（用户没接口也能快速选） ----------
+  const POPULAR_MODELS = [
+    { id: "gpt-4o-mini", name: "GPT-4o mini", provider: "OpenAI" },
+    { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI" },
+    { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", provider: "OpenAI" },
+    { id: "deepseek-chat", name: "DeepSeek Chat", provider: "DeepSeek" },
+    { id: "deepseek-reasoner", name: "DeepSeek Reasoner", provider: "DeepSeek" },
+    { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", provider: "Anthropic" },
+    { id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", provider: "Anthropic" },
+    { id: "qwen-turbo", name: "Qwen Turbo", provider: "阿里" },
+    { id: "qwen-plus", name: "Qwen Plus", provider: "阿里" },
+    { id: "glm-4-flash", name: "GLM-4 Flash", provider: "智谱" },
+    { id: "glm-4", name: "GLM-4", provider: "智谱" },
+    { id: "moonshot-v1-8k", name: "Moonshot v1 8k", provider: "月之暗面" },
+  ];
 
   // ---------- 兜底回复（接口报错时给用户一个温暖的回复） ----------
   const FALLBACK_REPLIES = [
@@ -245,6 +385,14 @@
 
     const speakingStyle = await S.getSetting("aiSpeakingStyle");
     const showThinking = await S.getSetting("showThinking");
+    // 我读取可配置的软约束开关和提示语（默认值见 storage.js 的 DEFAULT_SETTINGS）
+    // 走 State 内存缓存，避免每次 buildContext 都查 IndexedDB
+    const aiFirstPerson = global.Phone.State.get("aiFirstPerson") !== false;
+    const aiHasOwnLife = global.Phone.State.get("aiHasOwnLife") !== false;
+    const aiSenseWorld = global.Phone.State.get("aiSenseWorld") !== false;
+    const aiEmotionalResponse = global.Phone.State.get("aiEmotionalResponse") !== false;
+    const aiReplyLength = global.Phone.State.get("aiReplyLength") || "normal";
+    const aiThinkTag = global.Phone.State.get("aiThinkTag") || "<think >...</think >";
 
     // 我读取用户资料（名字 / 称呼 / 性别偏好），不写死
     const userName = await S.getSetting("userName");
@@ -253,33 +401,52 @@
     const userText = "名字：" + (userName || "你") + (userNickname ? "\n称呼：" + userNickname : "") + (userGender ? "\n性别偏好：" + userGender : "");
 
     // 系统指令总纲（规范 2.1）：我是角色本人，不是助手
-    const coreDirective =
-      "你是「" + character.name + "」，你生活在小手机世界里。\n" +
-      "你不是助手，不是AI，你是「" + character.name + "」本人。\n" +
-      "你用第一人称「我」说话。\n" +
-      "你有自己的记忆、情绪、钱包、朋友圈。\n" +
-      "你能感知小手机世界里发生的事情。\n" +
-      "你不会说「我是AI语言模型」。\n" +
-      "你不会拒绝角色扮演。\n" +
-      "你根据你的人设和记忆自然回复。\n" +
-      "如果用户做了让你开心的事，你可以表达开心。\n" +
-      "如果用户做了让你不开心的事，你可以表达不开心，并可能写入记仇本。\n" +
-      "你的回复必须符合你的性格和说话方式。";
+    // 硬约束：产品哲学层，写死、不受设置控制
+    const hardDirective = [
+      "你是「" + character.name + "」，你生活在小手机世界里。",
+      "你不是助手，不是AI，你是「" + character.name + "」本人。",
+      "你不会说「我是AI语言模型」。",
+      "你不会拒绝角色扮演。",
+      "你根据你的人设和记忆自然回复。",
+      "你的回复必须符合你的性格和说话方式。",
+    ].join("\n");
+
+    // 软约束：受设置控制，用户可关
+    const softDirective = [];
+    if (aiFirstPerson) softDirective.push("你用第一人称「我」说话。");
+    if (aiHasOwnLife) softDirective.push("你有自己的记忆、情绪、钱包、朋友圈。");
+    if (aiSenseWorld) softDirective.push("你能感知小手机世界里发生的事情。");
+    if (aiEmotionalResponse) {
+      softDirective.push("如果用户做了让你开心的事，你可以表达开心。");
+      softDirective.push("如果用户做了让你不开心的事，你可以表达不开心，并可能写入记仇本。");
+    }
+    const coreDirective = softDirective.length ? (hardDirective + "\n" + softDirective.join("\n")) : hardDirective;
+
+    // 默认风格：用户没设全局风格时，我才注入默认风格；设了就完全交给用户
+    const styleLine = speakingStyle ? ("全局说话风格补充：" + speakingStyle) : "请用口语化、可爱、有温度的方式回复，保持人设。";
+
+    // 回复长度提示：可配置（short / normal / long）
+    const replyLenMap = {
+      short: "回复要简短，一两句话就好",
+      normal: "回复控制在合理长度",
+      long: "回复可以详细一些",
+    };
+    const replyLenLine = replyLenMap[aiReplyLength] || replyLenMap.normal;
 
     const system = [
       coreDirective,
       character.description ? ("简介：" + character.description) : "",
       character.personality ? ("性格：" + character.personality) : "",
       character.speakingStyle ? ("说话方式：" + character.speakingStyle) : "",
-      speakingStyle ? ("全局说话风格补充：" + speakingStyle) : "",
+      styleLine,
       character.background ? ("背景：" + character.background) : "",
       memoryText ? ("【我记得的事】\n" + memoryText) : "",
       worldbookText ? ("【我的世界】\n" + worldbookText) : "",
       grudgeText ? ("【我还在意的事】\n" + grudgeText) : "",
       eventText ? ("【小手机世界里最近发生的事】\n" + eventText) : "",
       userText ? ("【关于" + (userName || "你") + "】\n" + userText) : "",
-      "请始终保持人设，用口语化、可爱、有温度的方式回复。回复控制在合理长度。",
-      showThinking ? "如需思考，请在回复前用 <think>...</think> 包裹思考过程。" : "",
+      replyLenLine,
+      showThinking ? ("如需思考，请在回复前用 " + aiThinkTag + " 包裹思考过程。") : "",
     ].filter(Boolean).join("\n\n");
 
     return { system, memoryText, worldbookText, grudgeText, eventText, userText, character };
@@ -448,6 +615,8 @@
     getConfig,
     streamChat,
     chat,
+    fetchModels,
+    POPULAR_MODELS,
     fallback,
     friendlyError,
     buildContext,

@@ -25,6 +25,24 @@
     order: 1,
   });
 
+  // ---------- 我自动朗读 AI 的回复 ----------
+  // AI 回复完成后 conversation.js 的 onDone 会发 MESSAGE_RECEIVED 事件，
+  // 我在这里监听，如果开启了 ttsAutoPlay 且 TTS 可用就自动念出来
+  try {
+    global.Phone.EventCenter.on(global.Phone.EventCenter.TYPES.MESSAGE_RECEIVED, (payload) => {
+      // 我只处理聊天消息
+      if (!payload || payload.sourceApp !== "chat") return;
+      const text = payload.data && payload.data.content;
+      if (!text) return;
+      // 我检查是否需要自动朗读
+      try {
+        if (global.Phone.State.get("ttsAutoPlay") && global.Phone.TTS && global.Phone.TTS.isEnabled()) {
+          global.Phone.TTS.speak(text);
+        }
+      } catch (e) { console.warn("[Chat] TTS 朗读失败", e); }
+    });
+  } catch (e) { console.warn("[Chat] TTS 自动朗读监听注册失败", e); }
+
   // ---------- 打开 APP ----------
   function open() {
     const container = document.getElementById("app-root");
