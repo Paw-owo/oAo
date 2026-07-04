@@ -225,6 +225,14 @@
       worldbookText = allEntries.slice(0, 10).map((e) => "- " + e.content).join("\n");
     } catch {}
 
+    // 我读取当前角色还没原谅的记仇（让我在聊天中能提及、能感知情绪）
+    let grudgeText = "";
+    try {
+      const grudges = await S.getByIndex("grudges", "characterId", characterId);
+      const unforgiven = grudges.filter((g) => !g.forgiven).sort((a, b) => b.createdAt - a.createdAt);
+      grudgeText = unforgiven.slice(0, 10).map((g) => "- " + g.content + (g.reason ? "（起因：" + g.reason.slice(0, 30) + "）" : "")).join("\n");
+    } catch {}
+
     // 我读取最近的事件（让 AI 能提及 APP 联动）
     let recentEvents = [];
     try {
@@ -245,12 +253,13 @@
       character.background ? ("背景：" + character.background) : "",
       memoryText ? ("你记得这些事：\n" + memoryText) : "",
       worldbookText ? ("世界观设定：\n" + worldbookText) : "",
+      grudgeText ? ("你还在记仇这些事（没原谅）：\n" + grudgeText) : "",
       eventText ? ("最近发生的事：\n" + eventText) : "",
       "请始终保持人设，用口语化、可爱、有温度的方式回复。回复控制在合理长度。",
       showThinking ? "如需思考，请在回复前用 <think>...</think> 包裹思考过程。" : "",
     ].filter(Boolean).join("\n\n");
 
-    return { system, memoryText, worldbookText, eventText, character };
+    return { system, memoryText, worldbookText, grudgeText, eventText, character };
   }
 
   // ---------- 写入记忆（统一格式） ----------

@@ -10,7 +10,7 @@
   "use strict";
 
   const DB_NAME = "PhoneDB";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
 
   // Store 定义：name -> { keyPath, indexes }
   const STORE_DEFS = {
@@ -33,6 +33,10 @@
     events:          { keyPath: "id",  indexes: [["type", "type"], ["sourceApp", "sourceApp"], ["createdAt", "createdAt"], ["read", "read"]] },
     notifications:   { keyPath: "id",  indexes: [["read", "read"], ["createdAt", "createdAt"]] },
     drafts:          { keyPath: "conversationId" },
+    game_truth_dare: { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
+    game_undercover: { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
+    game_liar_dice:  { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
+    game_tarot:      { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
   };
 
   let _db = null;

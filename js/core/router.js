@@ -36,9 +36,20 @@
 
   async function _showRoot() {
     _clear();
+    await _applyBg(null); // 回桌面清除 APP 背景
     if (typeof rootMount === "function") {
       await rootMount(container);
     }
+  }
+
+  // 应用 APP 自定义背景（读 appBackgrounds 设置，key = 页面名）
+  // 子游戏页面名形如 "game-xxx"，查不到背景时由子游戏自己应用 bgs.games
+  async function _applyBg(name) {
+    try {
+      const bgs = await global.Phone.State.get("appBackgrounds");
+      if (name && bgs && bgs[name]) container.style.background = bgs[name];
+      else container.style.background = "";
+    } catch (e) {}
   }
 
   /**
@@ -59,6 +70,7 @@
     try { history.pushState({ name: name, idx: stack.length - 1 }, ""); } catch {}
 
     _clear();
+    await _applyBg(name); // 应用该 APP 的自定义背景（若有）
     container.classList.add("page-entering");
     try {
       await mountFn(container, page.params);
@@ -88,6 +100,7 @@
     } else {
       const top = stack[stack.length - 1];
       _clear();
+      await _applyBg(top.name); // 恢复上一页的 APP 背景
       try { await top.mount(container, top.params); } catch (e) { console.error(e); }
     }
   }

@@ -24,8 +24,17 @@
   let _curTab = "library"; // library / playlists
   let _curPlaylistId = null;
   let _fullPage = null; // 大播放页引用
+  let _unsubMini = null;  // 迷你条订阅取消函数
+  let _unsubFull = null;  // 大播放页订阅取消函数
+
+  // 取消所有现存订阅（remount / 离开页面时调用）
+  function _clearSubs() {
+    if (_unsubMini) { try { _unsubMini(); } catch (e) {} _unsubMini = null; }
+    if (_unsubFull) { try { _unsubFull(); } catch (e) {} _unsubFull = null; }
+  }
 
   async function mount(container) {
+    _clearSubs(); // 进入/重进页面先清旧订阅，避免泄漏
     const U = global.Phone.Utils;
     const Storage = global.Phone.Storage;
 
@@ -92,6 +101,9 @@
     page.appendChild(_miniBar(U, container));
 
     container.appendChild(page);
+
+    // 离开页面时取消所有订阅，防止内存泄漏
+    global.Phone.Router.onLeave(() => { _clearSubs(); });
   }
 
   // ---------- 歌曲项 ----------
@@ -281,8 +293,8 @@
     cover.addEventListener("click", openFull);
     main.addEventListener("click", openFull);
 
-    // 订阅状态更新
-    MP.subscribe((payload) => {
+    // 订阅状态更新（取消函数存模块级，离开页面时统一清）
+    _unsubMini = MP.subscribe((payload) => {
       if (payload.type === "play" || payload.type === "pause") {
         playBtn.innerHTML = global.Phone.IconLibrary.get(payload.type === "play" ? "pause" : "play", { size: 22 });
         const cur = payload.current;
@@ -318,11 +330,24 @@
         title: "分享到朋友圈", message: "把「" + st.current.name + "」分享到朋友圈？", okText: "分享",
       });
       if (!ok) return;
-      // 调用 Moments 接口
-      const Moments = global.Phone.Moments;
-      if (Moments && Moments.postAsCharacter) {
-        await Moments.postAsCharacter("user_share", "🎵 正在听：" + st.current.name + " - " + (st.current.artist || ""), st.current.cover ? [st.current.cover] : []);
-      }
+      // 直接以用户身份发朋友圈（postAsCharacter 是给 AI 用的，要求角色存在于 characters 表）
+      const moment = {
+        id: U.uid("moment"),
+        authorId: "user",
+        content: "🎵 正在听：" + st.current.name + " - " + (st.current.artist || ""),
+        images: st.current.cover ? [st.current.cover] : [],
+        likes: [],
+        comments: [],
+        createdAt: Date.now(),
+      };
+      try {
+        await global.Phone.Storage.put("moments", moment);
+        global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MOMENT_POSTED, {
+          sourceApp: "music",
+          data: moment,
+          summary: "分享了歌曲：" + st.current.name,
+        });
+      } catch (e) { console.warn("[Music] 分享到朋友圈失败", e); }
       // 写事件中心
       const EC = global.Phone.EventCenter;
       EC.emit(EC.TYPES.MUSIC_SHARED, {
@@ -399,8 +424,8 @@
 
     container.appendChild(full);
 
-    // 订阅更新
-    const unsub = MP.subscribe((payload) => {
+    // 订阅更新（取消函数存模块级，离开页面/关闭大播放页时统一清）
+    _unsubFull = MP.subscribe((payload) => {
       const s = MP.getState();
       if (payload.type === "play" || payload.type === "pause") {
         playBtn.innerHTML = global.Phone.IconLibrary.get(s.paused ? "play" : "pause", { size: 28 });
@@ -419,9 +444,9 @@
       }
     });
 
-    // 移除时取消订阅
+    // 移除时取消订阅（点返回键走这里）
     const origRemove = full.remove.bind(full);
-    full.remove = () => { unsub(); origRemove(); _fullPage = null; };
+    full.remove = () => { if (_unsubFull) { try { _unsubFull(); } catch (e) {} _unsubFull = null; } origRemove(); _fullPage = null; };
   }
 
   // ---------- 工具 ----------

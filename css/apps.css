@@ -656,3 +656,59 @@
   border-radius: var(--radius-sm);
   background: var(--bg-surface-2);
 }
+
+/* ---------- 游戏通用 ---------- */
+.section-title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 0 4px;
+}
+
+/* 骰子 */
+.dice-cell {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-soft);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--color-primary-deep);
+}
+
+/* 塔罗牌牌阵 */
+.tarot-board {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+.tarot-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.tarot-slot .tarot-pos {
+  font-size: var(--font-xs);
+  color: var(--color-primary-deep);
+  font-weight: 500;
+}
+.tarot-card .tc-name {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-primary-deep);
+  margin-bottom: 4px;
+}
+.tarot-card .tc-orient {
+  font-size: 10px;
+  color: var(--text-placeholder);
+  margin-bottom: 4px;
+}
+.tarot-card .tc-meaning {
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
