@@ -147,6 +147,22 @@
     dockGroup.appendChild(dockEditor);
     content.appendChild(dockGroup);
 
+    // APP 自定义背景
+    content.appendChild(U.el("div", { class: "settings-section-title", text: "APP 背景" }));
+    const bgGroup = U.el("div", { class: "settings-group" });
+    const appBgs = State.get("appBackgrounds") || {};
+    const bgApps = global.Phone.AppRegistry.list().filter((a) => a.id !== "settings");
+    bgApps.forEach((a) => {
+      const row = U.el("div", { class: "settings-row" });
+      row.appendChild(U.el("div", { class: "sr-icon", style: { background: "var(--color-primary-ultralight)", color: "var(--color-primary-deep)" }, html: global.Phone.IconLibrary.get(a.icon, { size: 18 }) }));
+      row.appendChild(U.el("div", { class: "sr-main" }, [U.el("div", { class: "sr-title", text: a.name })]));
+      const val = U.el("div", { class: "sr-right", text: appBgs[a.id] ? "已设置" : "默认", style: { fontSize: "var(--font-xs)", color: appBgs[a.id] ? "var(--color-primary-deep)" : "var(--text-placeholder)" } });
+      row.appendChild(val);
+      row.addEventListener("click", () => _editAppBg(a, appBgs, container));
+      bgGroup.appendChild(row);
+    });
+    content.appendChild(bgGroup);
+
     // 系统名
     content.appendChild(U.el("div", { class: "settings-section-title", text: "其他" }));
     const otherGroup = U.el("div", { class: "settings-group" });
@@ -223,6 +239,106 @@
         mask.remove();
         _remount(container);
       }})
+    ]));
+    mask.appendChild(modal);
+    mask.addEventListener("click", (e) => { if (e.target === mask) mask.remove(); });
+    document.body.appendChild(mask);
+  }
+
+  function _editAppBg(app, appBgs, container) {
+    const U = global.Phone.Utils;
+    const State = global.Phone.State;
+    const cur = appBgs[app.id] || "";
+
+    const mask = U.el("div", { class: "modal-mask" });
+    const modal = U.el("div", { class: "modal", style: { maxWidth: "460px" } });
+    modal.appendChild(U.el("div", { class: "modal-title", text: app.name + " 的背景" }));
+
+    const body = U.el("div", { class: "modal-body", style: { textAlign: "left" } });
+
+    // 当前值预览
+    const preview = U.el("div", { class: "app-bg-preview", style: {
+      height: "80px", borderRadius: "var(--radius-md)", marginBottom: "12px",
+      background: cur || "var(--bg-surface-2)",
+      border: "1px solid var(--border-soft)",
+    } });
+    body.appendChild(preview);
+
+    // 纯色 / 渐变输入
+    body.appendChild(U.el("div", { class: "form-label", text: "纯色或渐变（CSS background 值）" }));
+    const cssInput = U.el("input", { class: "input", placeholder: "如 #FFF8E7 或 linear-gradient(...)", value: cur });
+    cssInput.addEventListener("input", () => { preview.style.background = cssInput.value || "var(--bg-surface-2)"; });
+    body.appendChild(cssInput);
+
+    // 预设色板
+    body.appendChild(U.el("div", { class: "form-label", text: "快速选色", style: { marginTop: "10px" } }));
+    const swatchRow = U.el("div", { class: "row gap-8", style: { flexWrap: "wrap" } });
+    const PRESETS = [
+      { name: "奶黄", v: "linear-gradient(135deg, #FFF8E7, #FFE8B0)" },
+      { name: "粉色", v: "linear-gradient(135deg, #FFE4E1, #FFC0CB)" },
+      { name: "天蓝", v: "linear-gradient(135deg, #E0F0FF, #B0D8FF)" },
+      { name: "薄荷", v: "linear-gradient(135deg, #E8F5E9, #B8E6C1)" },
+      { name: "淡紫", v: "linear-gradient(135deg, #F3E8FF, #D8B8FF)" },
+      { name: "暖白", v: "#FFFCF5" },
+      { name: "深灰", v: "#2A2A2A" },
+    ];
+    PRESETS.forEach((p) => {
+      const sw = U.el("div", { class: "color-swatch", style: {
+        width: "32px", height: "32px", borderRadius: "var(--radius-full)",
+        background: p.v, cursor: "pointer", border: "2px solid var(--border-soft)",
+      }, title: p.name });
+      sw.addEventListener("click", () => {
+        cssInput.value = p.v;
+        preview.style.background = p.v;
+      });
+      swatchRow.appendChild(sw);
+    });
+    body.appendChild(swatchRow);
+
+    // 上传图片（存 base64，限制 1.5MB）
+    body.appendChild(U.el("div", { class: "form-label", text: "或上传背景图", style: { marginTop: "10px" } }));
+    const uploadBtn = U.el("button", { class: "btn btn-ghost btn-sm", text: "选择图片" });
+    uploadBtn.addEventListener("click", () => {
+      const inp = U.el("input", { type: "file", accept: "image/*", style: { display: "none" } });
+      document.body.appendChild(inp);
+      inp.addEventListener("change", () => {
+        const f = inp.files[0]; if (!f) return;
+        if (f.size > 1.5 * 1024 * 1024) {
+          global.Phone.Modal.alert({ title: "图片太大", message: "建议小于 1.5MB" });
+          inp.remove(); return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          cssInput.value = "url(" + reader.result + ") center/cover";
+          preview.style.background = cssInput.value;
+          inp.remove();
+        };
+        reader.onerror = () => { global.Phone.Notify.push({ appId: "settings", title: "读取失败" }); inp.remove(); };
+        reader.readAsDataURL(f);
+      });
+      inp.click();
+    });
+    body.appendChild(uploadBtn);
+
+    modal.appendChild(body);
+
+    modal.appendChild(U.el("div", { class: "modal-actions", style: { flexDirection: "column", gap: "6px" } }, [
+      U.el("button", { class: "btn btn-text btn-sm", text: "恢复默认", onclick: async () => {
+        const next = Object.assign({}, appBgs); delete next[app.id];
+        await State.set("appBackgrounds", next);
+        mask.remove(); _remount(container);
+      }}),
+      U.el("div", { class: "row gap-8", style: { width: "100%" } }, [
+        U.el("button", { class: "btn btn-ghost", text: "取消", style: { flex: "1" }, onclick: () => mask.remove() }),
+        U.el("button", { class: "btn", text: "保存", style: { flex: "1" }, onclick: async () => {
+          const v = cssInput.value.trim();
+          const next = Object.assign({}, appBgs);
+          if (v) next[app.id] = v; else delete next[app.id];
+          await State.set("appBackgrounds", next);
+          global.Phone.Notify.push({ appId: "settings", title: "已应用" });
+          mask.remove(); _remount(container);
+        }}),
+      ]),
     ]));
     mask.appendChild(modal);
     mask.addEventListener("click", (e) => { if (e.target === mask) mask.remove(); });

@@ -131,13 +131,17 @@
       if (myTotal > aiTotal) outcome = "win";
       else if (myTotal < aiTotal) outcome = "lose";
 
+      // 实际结算结果（钱包操作可能因余额不足失败，按实际结果存档显示）
+      let settled = outcome; // win / lose / draw / fail
       let note = "骗子酒馆摇骰";
       if (outcome === "win") {
-        await Wallet.aiToUser(bet, "骗子酒馆赢了");
-        note = "骰子赢了 +" + bet;
+        const r = await Wallet.aiToUser(bet, "骗子酒馆赢了");
+        if (r && r.ok) { note = "骰子赢了 +" + bet; }
+        else { settled = "fail"; note = "赢了但 AI 余额不足，未结算：" + (r ? r.error : "失败"); }
       } else if (outcome === "lose") {
-        await Wallet.deduct(bet, "骗子酒馆输了");
-        note = "骰子输了 -" + bet;
+        const r = await Wallet.deduct(bet, "骗子酒馆输了");
+        if (r && r.ok) { note = "骰子输了 -" + bet; }
+        else { settled = "fail"; note = "输了但扣款失败：" + (r ? r.error : "失败"); }
       } else {
         note = "骰子平局";
       }
@@ -149,20 +153,24 @@
         aiDice: aiDice,
         myTotal: myTotal,
         aiTotal: aiTotal,
-        outcome: outcome,
+        outcome: settled,
+        rawOutcome: outcome, // 原始胜负（骰子结果），settled 是实际结算结果
         createdAt: Date.now(),
       };
       await Storage.put("game_liar_dice", rec);
       global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
         sourceApp: "games",
-        data: { game: "liar-dice", outcome: outcome, bet: bet },
-        summary: "骗子酒馆：" + (outcome === "win" ? "赢了" + bet : outcome === "lose" ? "输了" + bet : "平局"),
+        data: { game: "liar-dice", outcome: settled, bet: bet },
+        summary: "骗子酒馆：" + (settled === "win" ? "赢了" + bet : settled === "lose" ? "输了" + bet : settled === "fail" ? "未结算" : "平局"),
       });
 
       // 显示结果
       result.style.display = "";
       U.empty(result);
-      const txt = outcome === "win" ? "🎉 你赢了！+" + bet : outcome === "lose" ? "😢 你输了 -" + bet : "🤝 平局，退回下注";
+      const txt = settled === "win" ? "🎉 你赢了！+" + bet
+        : settled === "lose" ? "😢 你输了 -" + bet
+        : settled === "fail" ? "⚠️ 骰子" + (outcome === "win" ? "赢了但" : "输了但") + "结算失败"
+        : "🤝 平局，退回下注";
       result.appendChild(U.el("div", { text: txt, style: { fontWeight: "600", fontSize: "var(--font-md)" } }));
       result.appendChild(U.el("div", { class: "muted", text: note, style: { marginTop: "4px", fontSize: "var(--font-xs)" } }));
 
@@ -185,7 +193,7 @@
         const icon = U.el("div", { class: "mi-icon", html: global.Phone.IconLibrary.get("dice", { size: 16 }) });
         item.appendChild(icon);
         const main = U.el("div", { class: "mi-main" });
-        const tag = r.outcome === "win" ? "胜 +" + r.bet : r.outcome === "lose" ? "负 -" + r.bet : "平";
+        const tag = r.outcome === "win" ? "胜 +" + r.bet : r.outcome === "lose" ? "负 -" + r.bet : r.outcome === "fail" ? "未结算" : "平";
         main.appendChild(U.el("div", { class: "mi-content", text: "我 " + r.myTotal + " vs " + r.aiTotal + " · " + tag }));
         main.appendChild(U.el("div", { class: "mi-meta", text: "下注 " + r.bet + " · " + U.relTime(r.createdAt) }));
         item.appendChild(main);

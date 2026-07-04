@@ -137,15 +137,13 @@
         reading.appendChild(row);
       });
 
-      // 存历史 + 事件
+      // 存历史 + 事件（position 直接用循环索引 i，避免重名牌时 indexOf 出错）
       const rec = {
         id: U.uid("tr"),
-        cards: picks.map((p) => ({ name: p.name, isReversed: p.isReversed, position: POSITIONS[picks.indexOf(p)] })),
+        cards: picks.map((p, i) => ({ name: p.name, isReversed: p.isReversed, position: POSITIONS[i] })),
         question: "",
         createdAt: Date.now(),
       };
-      // 修正 position（上面 indexOf 在重名时会错，这里直接重写）
-      rec.cards = picks.map((p, i) => ({ name: p.name, isReversed: p.isReversed, position: POSITIONS[i] }));
       await Storage.put("game_tarot", rec);
       global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
         sourceApp: "games",
