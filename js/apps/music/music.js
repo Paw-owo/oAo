@@ -1,7 +1,16 @@
 /* ============================================================
-   music.js — 音乐 APP
-   音乐库 / 上传 / 歌单 / 播放页 / 进度·音量 / 播放模式
-   分享到朋友圈 / 事件写入事件中心
+   music.js — 音乐 APP（专业版）
+   对齐参考：Apple Music / 网易云音乐 / Spotify / QQ 音乐
+   功能：
+     - 音乐库 / 上传 / 歌单 / 播放页 / 进度·音量 / 播放模式
+     - 3 个 Tab：音乐库 / 歌单 / 收藏
+     - 搜索 + 排序（最近/名称/歌手/播放次数）
+     - 统计概览：歌曲数 / 歌单数 / 总时长 / 收藏数
+     - 收藏歌曲
+     - 编辑歌曲元数据（名称/歌手/封面）
+     - 长按删除
+     - 分享到朋友圈
+     - 设置页：默认音量 / 排序 / 自动播放下一首 / 显示统计 / 清空 / 导出
    挂在 window.Phone.Music
    依赖 window.Phone.MusicPlayer
    ============================================================ */
@@ -9,6 +18,7 @@
   "use strict";
 
   global.Phone = global.Phone || {};
+
   global.Phone.AppRegistry.register({
     id: "music",
     name: "音乐",
@@ -21,60 +31,158 @@
 
   function open() { global.Phone.Router.push("music", mount, {}); }
 
-  let _curTab = "library"; // library / playlists
+  let _curTab = "library"; // library / playlists / favorites
   let _curPlaylistId = null;
-  let _fullPage = null; // 大播放页引用
-  let _unsubMini = null;  // 迷你条订阅取消函数
-  let _unsubFull = null;  // 大播放页订阅取消函数
+  let _fullPage = null;
+  let _unsubMini = null;
+  let _unsubFull = null;
+  let _sleepTimer = null;
 
-  // 取消所有现存订阅（remount / 离开页面时调用）
   function _clearSubs() {
     if (_unsubMini) { try { _unsubMini(); } catch (e) {} _unsubMini = null; }
     if (_unsubFull) { try { _unsubFull(); } catch (e) {} _unsubFull = null; }
   }
 
   async function mount(container) {
-    _clearSubs(); // 进入/重进页面先清旧订阅，避免泄漏
+    _clearSubs();
     const U = global.Phone.Utils;
     const Storage = global.Phone.Storage;
+    const State = global.Phone.State;
 
     const songs = await Storage.getAll("music");
     const playlists = await Storage.getAll("playlists");
     songs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     const page = U.el("div", { class: "page" });
-    const nav = _nav(U, "音乐", () => {
-      // 上传按钮
-      const addBtn = U.el("button", { class: "icon-btn" });
-      addBtn.innerHTML = global.Phone.IconLibrary.get("plus", { size: 22 });
-      addBtn.addEventListener("click", () => _upload(U, songs, playlists, () => _remount(container)));
-      return addBtn;
+    if (global.Phone.ThemeEngine && global.Phone.ThemeEngine.tagApp) {
+      global.Phone.ThemeEngine.tagApp(page, "music");
+    }
+    page.appendChild(_nav(U, "音乐",
+      () => _upload(U, songs, playlists, () => _remount(container)),
+      () => _openSettings(U, () => _remount(container))));
+
+    const content = U.el("div", { class: "scroll page-content", style: { padding: "16px", paddingBottom: "76px" } });
+
+    // ---------- 统计概览 ----------
+    if (State.get("musicShowStats") !== false) {
+      const totalDur = songs.reduce((acc, s) => acc + (s.duration || 0), 0);
+      const favCount = songs.filter((s) => s.favorited).length;
+      content.appendChild(U.el("div", { class: "mu-stats-bar" }, [
+        U.el("div", { class: "msb-card" }, [
+          U.el("div", { class: "msb-num", text: String(songs.length) }),
+          U.el("div", { class: "msb-label", text: "歌曲" }),
+        ]),
+        U.el("div", { class: "msb-card" }, [
+          U.el("div", { class: "msb-num", text: String(playlists.length) }),
+          U.el("div", { class: "msb-label", text: "歌单" }),
+        ]),
+        U.el("div", { class: "msb-card" }, [
+          U.el("div", { class: "msb-num", text: String(favCount) }),
+          U.el("div", { class: "msb-label", text: "收藏" }),
+        ]),
+        U.el("div", { class: "msb-card" }, [
+          U.el("div", { class: "msb-num", text: _fmtDur(totalDur) }),
+          U.el("div", { class: "msb-label", text: "总时长" }),
+        ]),
+      ]));
+    }
+
+    // ---------- Tab ----------
+    const tabBar = U.el("div", { class: "segment", style: { display: "flex", marginBottom: "12px", overflowX: "auto" } });
+    [
+      { k: "library", l: "音乐库" },
+      { k: "playlists", l: "歌单" },
+      { k: "favorites", l: "收藏" },
+    ].forEach((s) => {
+      const node = U.el("div", { class: "segment-item" + (_curTab === s.k ? " active" : ""), text: s.l });
+      node.addEventListener("click", () => { _curTab = s.k; _remount(container); });
+      tabBar.appendChild(node);
     });
-    page.appendChild(nav);
+    content.appendChild(tabBar);
 
-    // tab
-    const tabBar = U.el("div", { class: "seg-bar" });
-    [{ k: "library", t: "音乐库" }, { k: "playlists", t: "歌单" }].forEach((s) => {
-      const b = U.el("button", { class: "seg-btn" + (_curTab === s.k ? " active" : ""), text: s.t });
-      b.addEventListener("click", () => { _curTab = s.k; _remount(container); });
-      tabBar.appendChild(b);
-    });
-    page.appendChild(tabBar);
+    // ---------- 搜索（仅库和收藏） ----------
+    let search = null;
+    let sortSelect = null;
+    if (_curTab !== "playlists") {
+      search = U.el("input", { class: "input", placeholder: "搜索歌曲 / 歌手...", style: { marginBottom: "8px" } });
+      content.appendChild(search);
 
-    const content = U.el("div", { class: "page-content", style: { paddingBottom: "76px" } });
+      // 排序
+      const sortWrap = U.el("div", { class: "row", style: { justifyContent: "space-between", alignItems: "center", marginBottom: "12px" } });
+      sortWrap.appendChild(U.el("div", { class: "muted", text: "排序：", style: { fontSize: "var(--font-xs)" } }));
+      sortSelect = U.el("select", { class: "input", style: { width: "auto", fontSize: "var(--font-xs)" } });
+      const curSort = State.get("musicDefaultSort") || "recent";
+      [
+        { v: "recent", l: "最近添加" },
+        { v: "name", l: "歌曲名" },
+        { v: "artist", l: "歌手" },
+        { v: "plays", l: "播放次数" },
+      ].forEach((o) => {
+        const opt = U.el("option", { value: o.v, text: o.l });
+        if (curSort === o.v) opt.selected = true;
+        sortSelect.appendChild(opt);
+      });
+      sortWrap.appendChild(sortSelect);
+      content.appendChild(sortWrap);
+    }
 
-    if (_curTab === "library") {
-      if (songs.length === 0) {
-        content.appendChild(_empty(U, "还没有歌曲哦～\n点右上角上传吧"));
-      } else {
-        songs.forEach((s, i) => content.appendChild(_songItem(U, s, () => {
-          global.Phone.MusicPlayer.playQueue(songs, i);
-          _showFull(U, container);
-        })));
+    const listWrap = U.el("div", {});
+
+    async function _load() {
+      let list = await Storage.getAll("music");
+      // 排序
+      const sort = sortSelect ? sortSelect.value : "recent";
+      if (sort === "name") list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      else if (sort === "artist") list.sort((a, b) => (a.artist || "").localeCompare(b.artist || ""));
+      else if (sort === "plays") list.sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
+      else list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      // 搜索
+      if (search) {
+        const kw = search.value.trim().toLowerCase();
+        if (kw) {
+          list = list.filter((s) =>
+            (s.name || "").toLowerCase().includes(kw) ||
+            (s.artist || "").toLowerCase().includes(kw)
+          );
+        }
       }
+
+      // Tab 过滤
+      if (_curTab === "favorites") list = list.filter((s) => s.favorited);
+
+      U.empty(listWrap);
+      if (list.length === 0) {
+        listWrap.appendChild(_empty(U,
+          _curTab === "favorites" ? "还没有收藏" : "还没有歌曲",
+          _curTab === "favorites" ? "听歌时点小心心收藏吧~" : "点右上角上传吧~"
+        ));
+        return;
+      }
+      const MP = global.Phone.MusicPlayer;
+      const st = MP.getState();
+      list.forEach((s, i) => {
+        listWrap.appendChild(_songItem(U, s, st.current && st.current.id === s.id, () => {
+          // 播放
+          global.Phone.MusicPlayer.playQueue(list, i);
+          _incPlayCount(s);
+          _showFull(U, container);
+        }, () => _edit(U, s, () => _load()), () => _toggleFav(U, s, () => _load())));
+      });
+    }
+
+    if (search) search.addEventListener("input", global.Phone.Utils.debounce(_load, 200));
+    if (sortSelect) sortSelect.addEventListener("change", async () => {
+      await State.set("musicDefaultSort", sortSelect.value);
+      _load();
+    });
+
+    if (_curTab === "library" || _curTab === "favorites") {
+      content.appendChild(listWrap);
+      _load();
     } else {
-      // 歌单
-      const newPlBtn = U.el("button", { class: "btn btn-ghost btn-sm", text: "+ 新建歌单", style: { margin: "0 12px 8px" } });
+      // 歌单 Tab
+      const newPlBtn = U.el("button", { class: "btn btn-ghost btn-sm", text: "+ 新建歌单", style: { marginBottom: "12px" } });
       newPlBtn.addEventListener("click", async () => {
         const name = await global.Phone.Modal.prompt({ title: "新建歌单", placeholder: "歌单名字" });
         if (!name || !name.trim()) return;
@@ -90,25 +198,21 @@
       content.appendChild(newPlBtn);
 
       if (playlists.length === 0) {
-        content.appendChild(_empty(U, "还没有歌单哦～"));
+        content.appendChild(_empty(U, "还没有歌单", "点上方按钮建一个吧~"));
       } else {
         playlists.forEach((pl) => content.appendChild(_playlistItem(U, pl, songs, () => _remount(container))));
       }
     }
+
     page.appendChild(content);
-
-    // 底部迷你播放条
     page.appendChild(_miniBar(U, container));
-
     container.appendChild(page);
-
-    // 离开页面时取消所有订阅，防止内存泄漏
     global.Phone.Router.onLeave(() => { _clearSubs(); });
   }
 
   // ---------- 歌曲项 ----------
-  function _songItem(U, s, onPlay) {
-    const item = U.el("div", { class: "music-list-item" });
+  function _songItem(U, s, isPlaying, onPlay, onEdit, onToggleFav) {
+    const item = U.el("div", { class: "music-list-item" + (isPlaying ? " playing" : "") });
     const cover = U.el("div", { class: "ml-cover" });
     if (s.cover) {
       const img = U.el("img", { src: s.cover, alt: "" });
@@ -120,12 +224,32 @@
     item.appendChild(cover);
     const main = U.el("div", { class: "ml-main" });
     main.appendChild(U.el("div", { class: "ml-name", text: s.name || "未知歌曲" }));
-    main.appendChild(U.el("div", { class: "ml-artist", text: s.artist || "未知歌手" }));
+    const subRow = U.el("div", { class: "ml-artist" });
+    subRow.textContent = s.artist || "未知歌手";
+    if (s.playCount > 0) subRow.textContent += " · 播放 " + s.playCount + " 次";
+    main.appendChild(subRow);
     item.appendChild(main);
+
+    // 收藏按钮
+    const favBtn = U.el("button", { class: "icon-btn btn-sm" });
+    favBtn.innerHTML = global.Phone.IconLibrary.get(s.favorited ? "heart-fill" : "heart", { size: 16 });
+    if (s.favorited) favBtn.style.color = "var(--color-accent)";
+    favBtn.addEventListener("click", (e) => { e.stopPropagation(); onToggleFav(); });
+    item.appendChild(favBtn);
+
     if (s.duration) {
       item.appendChild(U.el("div", { class: "ml-dur", text: _fmtTime(s.duration) }));
     }
     item.addEventListener("click", onPlay);
+
+    // 长按 600ms 触发编辑
+    let pressTimer = null;
+    item.addEventListener("touchstart", () => {
+      pressTimer = setTimeout(() => { onEdit(); pressTimer = null; }, 600);
+    });
+    item.addEventListener("touchend", () => { if (pressTimer) clearTimeout(pressTimer); });
+    item.addEventListener("touchmove", () => { if (pressTimer) clearTimeout(pressTimer); });
+
     return item;
   }
 
@@ -133,18 +257,25 @@
   function _playlistItem(U, pl, songs, onDone) {
     const item = U.el("div", { class: "music-list-item", style: { cursor: "pointer" } });
     const cover = U.el("div", { class: "ml-cover" });
-    cover.innerHTML = global.Phone.IconLibrary.get("app-music", { size: 20 });
+    const plSongs = (pl.songIds || []).map((id) => songs.find((s) => s.id === id)).filter(Boolean);
+    if (plSongs.length > 0 && plSongs[0].cover) {
+      const img = U.el("img", { src: plSongs[0].cover });
+      img.addEventListener("error", () => { cover.innerHTML = global.Phone.IconLibrary.get("playlist", { size: 20 }); });
+      cover.appendChild(img);
+    } else {
+      cover.innerHTML = global.Phone.IconLibrary.get("playlist", { size: 20 });
+    }
     item.appendChild(cover);
     const main = U.el("div", { class: "ml-main" });
     main.appendChild(U.el("div", { class: "ml-name", text: pl.name || "未命名歌单" }));
-    main.appendChild(U.el("div", { class: "ml-artist", text: (pl.songIds || []).length + " 首" }));
+    main.appendChild(U.el("div", { class: "ml-artist", text: plSongs.length + " 首" }));
     item.appendChild(main);
+    item.appendChild(U.el("div", { class: "ml-dur", html: global.Phone.IconLibrary.get("chevron-right", { size: 16 }) }));
     item.addEventListener("click", () => _openPlaylist(U, pl, songs, onDone));
     return item;
   }
 
   function _openPlaylist(U, pl, songs, onDone) {
-    // 简易：直接进入歌单详情（用 Modal 列出歌曲）
     const mask = U.el("div", { class: "modal-mask" });
     const modal = U.el("div", { class: "modal", style: { maxWidth: "420px" } });
     modal.appendChild(U.el("div", { class: "modal-title", text: pl.name }));
@@ -152,20 +283,27 @@
 
     const plSongs = (pl.songIds || []).map((id) => songs.find((s) => s.id === id)).filter(Boolean);
     if (plSongs.length === 0) {
-      body.appendChild(U.el("div", { class: "empty-text", text: "歌单还空着，去音乐库添加吧～" }));
+      body.appendChild(U.el("div", { class: "empty-text", text: "歌单还空着，去音乐库添加吧~" }));
     } else {
+      // 播放全部
+      const playAllBtn = U.el("button", { class: "btn btn-sm", text: "播放全部", style: { marginBottom: "8px" } });
+      playAllBtn.addEventListener("click", () => {
+        global.Phone.MusicPlayer.playQueue(plSongs, 0);
+        _showFull(U, document.getElementById("app-root").firstChild);
+        mask.remove();
+      });
+      body.appendChild(playAllBtn);
       plSongs.forEach((s, i) => {
-        body.appendChild(_songItem(U, s, () => {
+        body.appendChild(_songItem(U, s, false, () => {
           global.Phone.MusicPlayer.playQueue(plSongs, i);
+          _incPlayCount(s);
           _showFull(U, document.getElementById("app-root").firstChild);
           mask.remove();
-        }));
+        }, () => _edit(U, s, () => onDone()), () => _toggleFav(U, s, () => onDone())));
       });
     }
 
-    // 操作
     const actions = U.el("div", { class: "modal-actions", style: { flexDirection: "column", gap: "6px" } });
-    // 添加歌曲到歌单
     const addBtn = U.el("button", { class: "btn btn-ghost btn-sm", text: "+ 添加歌曲" });
     addBtn.addEventListener("click", async () => {
       const available = songs.filter((s) => !(pl.songIds || []).includes(s.id));
@@ -173,8 +311,7 @@
         global.Phone.Notify.push({ appId: "music", title: "没有可添加的歌曲" });
         return;
       }
-      // 列表选择（用 prompt 简化）
-      const opts = available.map((s) => s.name + " - " + (s.artist || "")).join("\n");
+      const opts = available.map((s, i) => (i + 1) + ". " + s.name + " - " + (s.artist || "")).join("\n");
       const idxStr = await global.Phone.Modal.prompt({
         title: "选择歌曲", message: "输入序号（从 1 开始）：\n" + opts, placeholder: "1",
       });
@@ -187,7 +324,6 @@
       onDone();
     });
     actions.appendChild(addBtn);
-    // 删除歌单
     const delBtn = U.el("button", { class: "btn btn-text btn-sm", text: "删除歌单" });
     delBtn.addEventListener("click", async () => {
       const ok = await global.Phone.Modal.confirm({
@@ -208,13 +344,93 @@
     document.body.appendChild(mask);
   }
 
+  // ---------- 收藏切换 ----------
+  async function _toggleFav(U, s, onDone) {
+    s.favorited = !s.favorited;
+    s.updatedAt = Date.now();
+    await global.Phone.Storage.put("music", s);
+    global.Phone.Notify.push({ appId: "music", title: s.favorited ? "已收藏" : "已取消收藏" });
+    onDone();
+  }
+
+  // ---------- 增加播放次数 ----------
+  async function _incPlayCount(s) {
+    s.playCount = (s.playCount || 0) + 1;
+    s.lastPlayedAt = Date.now();
+    try { await global.Phone.Storage.put("music", s); } catch (e) {}
+  }
+
+  // ---------- 编辑歌曲 ----------
+  function _edit(U, s, onDone) {
+    const mask = U.el("div", { class: "modal-mask" });
+    const modal = U.el("div", { class: "modal" });
+    modal.appendChild(U.el("div", { class: "modal-title", text: "编辑歌曲" }));
+
+    const body = U.el("div", { class: "modal-body", style: { textAlign: "left" } });
+    body.appendChild(U.el("div", { class: "form-label", text: "歌曲名" }));
+    const nameIn = U.el("input", { class: "input", value: s.name || "" });
+    body.appendChild(nameIn);
+    body.appendChild(U.el("div", { class: "form-label", text: "歌手", style: { marginTop: "10px" } }));
+    const artistIn = U.el("input", { class: "input", value: s.artist || "" });
+    body.appendChild(artistIn);
+    body.appendChild(U.el("div", { class: "form-label", text: "封面（可选）", style: { marginTop: "10px" } }));
+    const coverPreview = U.el("div", { class: "an-cover-preview", style: { backgroundImage: s.cover ? "url(" + s.cover + ")" : "none", backgroundColor: s.cover ? "transparent" : "var(--bg-surface-2)" } });
+    const coverBtn = U.el("button", { class: "btn btn-ghost btn-sm", text: s.cover ? "更换封面" : "上传封面" });
+    const coverInput = U.el("input", { type: "file", accept: "image/*", style: { display: "none" } });
+    coverInput.addEventListener("change", () => {
+      const f = coverInput.files[0];
+      if (!f) return;
+      if (f.size > 1.5 * 1024 * 1024) {
+        global.Phone.Notify.push({ appId: "music", title: "图片太大啦" });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        s.cover = reader.result;
+        coverPreview.style.backgroundImage = "url(" + s.cover + ")";
+        coverPreview.style.backgroundColor = "transparent";
+      };
+      reader.readAsDataURL(f);
+    });
+    coverBtn.addEventListener("click", () => coverInput.click());
+    body.appendChild(coverPreview);
+    body.appendChild(coverBtn);
+    modal.appendChild(body);
+
+    const actions = U.el("div", { class: "modal-actions", style: { flexDirection: "column", gap: "6px" } });
+    actions.appendChild(U.el("button", { class: "btn btn-ghost", text: "取消", onclick: () => mask.remove() }));
+    const saveBtn = U.el("button", { class: "btn", text: "保存" });
+    saveBtn.addEventListener("click", async () => {
+      s.name = nameIn.value.trim() || "未知歌曲";
+      s.artist = artistIn.value.trim();
+      s.updatedAt = Date.now();
+      await global.Phone.Storage.put("music", s);
+      global.Phone.Notify.push({ appId: "music", title: "已更新" });
+      mask.remove();
+      onDone();
+    });
+    actions.appendChild(saveBtn);
+    const delBtn = U.el("button", { class: "btn btn-text btn-sm", text: "删除歌曲" });
+    delBtn.addEventListener("click", async () => {
+      const ok = await global.Phone.Modal.confirm({ title: "删除歌曲", message: "删除「" + (s.name || "未知") + "」？", danger: true });
+      if (!ok) return;
+      await global.Phone.Storage.del("music", s.id);
+      mask.remove();
+      onDone();
+    });
+    actions.appendChild(delBtn);
+    modal.appendChild(actions);
+    mask.appendChild(modal);
+    mask.addEventListener("click", (e) => { if (e.target === mask) mask.remove(); });
+    document.body.appendChild(mask);
+  }
+
   // ---------- 上传 ----------
   function _upload(U, songs, playlists, onDone) {
     const inp = U.el("input", { type: "file", accept: "audio/*", style: { display: "none" } });
     inp.addEventListener("change", () => {
       const f = inp.files[0];
       if (!f) return;
-      // 大文件提示（估算 base64 = 原始 * 1.37）
       const estSize = f.size * 1.37;
       if (estSize > 40 * 1024 * 1024) {
         global.Phone.Modal.alert({
@@ -232,6 +448,8 @@
           src: reader.result,
           cover: "",
           duration: 0,
+          favorited: false,
+          playCount: 0,
           createdAt: Date.now(),
         };
         try {
@@ -288,12 +506,10 @@
     ctrl.appendChild(nextBtn);
     bar.appendChild(ctrl);
 
-    // 点击主区域展开大播放页
     const openFull = () => _showFull(U, container);
     cover.addEventListener("click", openFull);
     main.addEventListener("click", openFull);
 
-    // 订阅状态更新（取消函数存模块级，离开页面时统一清）
     _unsubMini = MP.subscribe((payload) => {
       if (payload.type === "play" || payload.type === "pause") {
         playBtn.innerHTML = global.Phone.IconLibrary.get(payload.type === "play" ? "pause" : "play", { size: 22 });
@@ -316,28 +532,60 @@
     const full = U.el("div", { class: "music-full" });
     _fullPage = full;
 
-    // 返回
     const back = U.el("button", { class: "icon-btn", style: { position: "absolute", top: "calc(12px + env(safe-area-inset-top))", left: "12px" } });
     back.innerHTML = global.Phone.IconLibrary.get("chevron-down", { size: 24 });
     back.addEventListener("click", () => full.remove());
     full.appendChild(back);
 
-    // 分享
-    const share = U.el("button", { class: "icon-btn", style: { position: "absolute", top: "calc(12px + env(safe-area-inset-top))", right: "12px" } });
+    // 顶部右侧：收藏 + 分享 + 定时
+    const topRight = U.el("div", { style: { position: "absolute", top: "calc(12px + env(safe-area-inset-top))", right: "12px", display: "flex", gap: "4px" } });
+    const favBtn = U.el("button", { class: "icon-btn" });
+    favBtn.innerHTML = global.Phone.IconLibrary.get(st.current.favorited ? "heart-fill" : "heart", { size: 20 });
+    if (st.current.favorited) favBtn.style.color = "var(--color-accent)";
+    favBtn.addEventListener("click", async () => {
+      const cur = st.current;
+      cur.favorited = !cur.favorited;
+      await global.Phone.Storage.put("music", cur);
+      favBtn.innerHTML = global.Phone.IconLibrary.get(cur.favorited ? "heart-fill" : "heart", { size: 20 });
+      favBtn.style.color = cur.favorited ? "var(--color-accent)" : "";
+      global.Phone.Notify.push({ appId: "music", title: cur.favorited ? "已收藏" : "已取消收藏" });
+    });
+    topRight.appendChild(favBtn);
+
+    const sleepBtn = U.el("button", { class: "icon-btn" });
+    sleepBtn.innerHTML = global.Phone.IconLibrary.get("clock", { size: 20 });
+    sleepBtn.title = "定时关闭";
+    sleepBtn.addEventListener("click", async () => {
+      const opts = "1. 15 分钟\n2. 30 分钟\n3. 45 分钟\n4. 60 分钟\n5. 取消定时";
+      const ans = await global.Phone.Modal.prompt({ title: "定时关闭", message: opts, placeholder: "1" });
+      const idx = parseInt(ans, 10);
+      if (_sleepTimer) { clearTimeout(_sleepTimer); _sleepTimer = null; }
+      const mins = { 1: 15, 2: 30, 3: 45, 4: 60 }[idx];
+      if (mins) {
+        _sleepTimer = setTimeout(() => { MP.pause(); _sleepTimer = null; global.Phone.Notify.push({ appId: "music", title: "定时已到，已停止播放" }); }, mins * 60 * 1000);
+        global.Phone.Notify.push({ appId: "music", title: mins + " 分钟后停止播放" });
+      } else {
+        global.Phone.Notify.push({ appId: "music", title: "已取消定时" });
+      }
+    });
+    topRight.appendChild(sleepBtn);
+
+    const share = U.el("button", { class: "icon-btn" });
     share.innerHTML = global.Phone.IconLibrary.get("share", { size: 20 });
     share.addEventListener("click", async () => {
       const ok = await global.Phone.Modal.confirm({
         title: "分享到朋友圈", message: "把「" + st.current.name + "」分享到朋友圈？", okText: "分享",
       });
       if (!ok) return;
-      // 直接以用户身份发朋友圈（postAsCharacter 是给 AI 用的，要求角色存在于 characters 表）
       const moment = {
         id: U.uid("moment"),
         authorId: "user",
-        content: "🎵 正在听：" + st.current.name + " - " + (st.current.artist || ""),
+        content: "正在听：" + st.current.name + " - " + (st.current.artist || "") + "，旋律好温柔呀",
+        topic: "正在听",
+        mood: "calm",
+        visibility: "public",
         images: st.current.cover ? [st.current.cover] : [],
-        likes: [],
-        comments: [],
+        likes: [], comments: [], pinned: false,
         createdAt: Date.now(),
       };
       try {
@@ -348,7 +596,6 @@
           summary: "分享了歌曲：" + st.current.name,
         });
       } catch (e) { console.warn("[Music] 分享到朋友圈失败", e); }
-      // 写事件中心
       const EC = global.Phone.EventCenter;
       EC.emit(EC.TYPES.MUSIC_SHARED, {
         sourceApp: "music",
@@ -357,9 +604,10 @@
       });
       global.Phone.Notify.push({ appId: "music", title: "已分享到朋友圈" });
     });
-    full.appendChild(share);
+    topRight.appendChild(share);
+    full.appendChild(topRight);
 
-    // 封面（黑胶旋转）
+    // 封面
     const coverWrap = U.el("div", { class: "mf-cover spinning" });
     if (st.current.cover) {
       const img = U.el("img", { src: st.current.cover });
@@ -424,7 +672,6 @@
 
     container.appendChild(full);
 
-    // 订阅更新（取消函数存模块级，离开页面/关闭大播放页时统一清）
     _unsubFull = MP.subscribe((payload) => {
       const s = MP.getState();
       if (payload.type === "play" || payload.type === "pause") {
@@ -444,9 +691,79 @@
       }
     });
 
-    // 移除时取消订阅（点返回键走这里）
     const origRemove = full.remove.bind(full);
     full.remove = () => { if (_unsubFull) { try { _unsubFull(); } catch (e) {} _unsubFull = null; } origRemove(); _fullPage = null; };
+  }
+
+  // ---------- 设置页 ----------
+  function _openSettings(U, onDone) {
+    global.Phone.AppSettings.open({
+      appId: "music",
+      title: "音乐设置",
+      build: (content, tools) => {
+        const State = global.Phone.State;
+
+        tools.section("显示");
+        tools.toggle("显示统计概览", "关闭后隐藏顶部的数字卡片", "musicShowStats", null);
+        tools.toggle("自动播放下一首", "歌曲结束后自动播放下一首", "musicAutoPlayNext", null);
+
+        tools.section("排序");
+        const curSort = State.get("musicDefaultSort") || "recent";
+        const sortSeg = U.el("div", { class: "segment", style: { display: "flex", flexWrap: "wrap" } });
+        [
+          { v: "recent", l: "最近" },
+          { v: "name", l: "名称" },
+          { v: "artist", l: "歌手" },
+          { v: "plays", l: "播放次数" },
+        ].forEach((s) => {
+          const node = U.el("div", { class: "segment-item" + (curSort === s.v ? " active" : ""), text: s.l });
+          node.addEventListener("click", async () => {
+            await State.set("musicDefaultSort", s.v);
+            sortSeg.querySelectorAll(".segment-item").forEach((n) => n.classList.remove("active"));
+            node.classList.add("active");
+          });
+          sortSeg.appendChild(node);
+        });
+        const sortGroup = U.el("div", { class: "settings-group", style: { padding: "12px 16px" } }, [sortSeg]);
+        content.appendChild(sortGroup);
+
+        tools.section("音量");
+        tools.input("默认音量（0-1）", "musicDefaultVolume", { type: "number", min: "0", max: "1", step: "0.1" });
+
+        tools.section("数据");
+        tools.action("导出歌单（不含音频）", async () => {
+          const list = await global.Phone.Storage.getAll("music");
+          const light = list.map((s) => ({ id: s.id, name: s.name, artist: s.artist, favorited: s.favorited, playCount: s.playCount || 0 }));
+          const blob = new Blob([JSON.stringify(light, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "music-" + new Date().toISOString().slice(0, 10) + ".json";
+          a.click();
+          URL.revokeObjectURL(url);
+          global.Phone.Notify.push({ appId: "music", title: "已导出 " + light.length + " 首" });
+        });
+        tools.action("清空所有歌曲", async () => {
+          const ok = await global.Phone.Modal.confirm({ title: "清空歌曲", message: "这会删除所有歌曲和音频文件，不可恢复哦。", danger: true });
+          if (!ok) return;
+          const list = await global.Phone.Storage.getAll("music");
+          for (const s of list) await global.Phone.Storage.del("music", s.id);
+          global.Phone.Notify.push({ appId: "music", title: "已清空" });
+          onDone && onDone();
+        }, { danger: true });
+        tools.action("清空所有歌单", async () => {
+          const ok = await global.Phone.Modal.confirm({ title: "清空歌单", message: "这会删除所有歌单（歌曲不删）。", danger: true });
+          if (!ok) return;
+          const list = await global.Phone.Storage.getAll("playlists");
+          for (const p of list) await global.Phone.Storage.del("playlists", p.id);
+          global.Phone.Notify.push({ appId: "music", title: "已清空歌单" });
+          onDone && onDone();
+        }, { danger: true });
+
+        tools.section("关于");
+        tools.hint("音乐 APP 帮你管理本地音乐，支持上传、歌单、收藏、播放模式、定时关闭。所有音频文件保存在本地 IndexedDB。");
+      },
+    });
   }
 
   // ---------- 工具 ----------
@@ -463,7 +780,15 @@
     return m + ":" + (s < 10 ? "0" : "") + s;
   }
 
-  function _nav(U, title, rightFactory) {
+  function _fmtDur(sec) {
+    if (!sec) return "0分";
+    const m = Math.floor(sec / 60);
+    if (m < 60) return m + "分";
+    const h = Math.floor(m / 60);
+    return h + "时" + (m % 60) + "分";
+  }
+
+  function _nav(U, title, onAdd, onSettings) {
     const nav = U.el("div", { class: "navbar" });
     const navLeft = U.el("div", { class: "nav-left" });
     const back = U.el("button", { class: "icon-btn" });
@@ -473,16 +798,28 @@
     nav.appendChild(navLeft);
     nav.appendChild(U.el("div", { class: "nav-title", text: title }));
     const navRight = U.el("div", { class: "nav-right" });
-    if (rightFactory) navRight.appendChild(rightFactory());
+    if (onSettings) {
+      const setBtn = U.el("button", { class: "icon-btn" });
+      setBtn.innerHTML = global.Phone.IconLibrary.get("app-settings", { size: 20 });
+      setBtn.addEventListener("click", onSettings);
+      navRight.appendChild(setBtn);
+    }
+    if (onAdd) {
+      const addBtn = U.el("button", { class: "icon-btn" });
+      addBtn.innerHTML = global.Phone.IconLibrary.get("plus", { size: 22 });
+      addBtn.addEventListener("click", onAdd);
+      navRight.appendChild(addBtn);
+    }
     nav.appendChild(navRight);
     return nav;
   }
 
-  function _empty(U, text) {
-    const wrap = U.el("div", { class: "empty-state" });
-    wrap.appendChild(U.el("div", { class: "empty-icon", html: global.Phone.IconLibrary.get("app-music", { size: 48 }) }));
-    text.split("\n").forEach((line) => wrap.appendChild(U.el("div", { class: "empty-text", text: line })));
-    return wrap;
+  function _empty(U, title, sub) {
+    return U.el("div", { class: "empty-state" }, [
+      U.el("div", { class: "es-icon", html: global.Phone.IconLibrary.get("app-music", { size: 32 }) }),
+      U.el("div", { class: "es-title", text: title }),
+      U.el("div", { class: "es-sub", text: sub }),
+    ]);
   }
 
   function _remount(container) {
@@ -490,6 +827,54 @@
     mount(container);
   }
 
-  // ---------- 暴露 ----------
-  global.Phone.Music = { open, mount };
+  // ---------- 暴露 API ----------
+  global.Phone.Music = {
+    open, mount,
+    /** 列出歌曲 */
+    async list(filter) {
+      let list = await global.Phone.Storage.getAll("music");
+      if (filter) {
+        if (filter.favorited != null) list = list.filter((s) => !!s.favorited === !!filter.favorited);
+        if (filter.artist) list = list.filter((s) => s.artist === filter.artist);
+        if (filter.since) list = list.filter((s) => s.createdAt >= filter.since);
+      }
+      return list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    },
+    /** 列出歌单 */
+    async listPlaylists() {
+      return await global.Phone.Storage.getAll("playlists");
+    },
+    /** 收藏/取消收藏 */
+    async setFavorite(songId, fav) {
+      const s = await global.Phone.Storage.get("music", songId);
+      if (!s) return { ok: false, error: "找不到歌曲" };
+      s.favorited = !!fav;
+      s.updatedAt = Date.now();
+      await global.Phone.Storage.put("music", s);
+      return { ok: true };
+    },
+    /** 创建歌单 */
+    async createPlaylist(name, songIds) {
+      const pl = {
+        id: global.Phone.Utils.uid("pl"),
+        name: name || "未命名歌单",
+        songIds: songIds || [],
+        createdAt: Date.now(),
+      };
+      await global.Phone.Storage.put("playlists", pl);
+      return pl;
+    },
+    /** 统计 */
+    async stats() {
+      const songs = await global.Phone.Storage.getAll("music");
+      const playlists = await global.Phone.Storage.getAll("playlists");
+      return {
+        songs: songs.length,
+        playlists: playlists.length,
+        favorites: songs.filter((s) => s.favorited).length,
+        totalDuration: songs.reduce((acc, s) => acc + (s.duration || 0), 0),
+        totalPlays: songs.reduce((acc, s) => acc + (s.playCount || 0), 0),
+      };
+    },
+  };
 })(window);

@@ -247,6 +247,31 @@ img { display: block; max-width: 100%; }
 [data-font-size="md"]  { --font-scale: 1.08; }
 [data-font-size="lg"]  { --font-scale: 1.16; }
 
+/* ---------- 每个 APP 自定义背景（personalization 里设置） ----------
+   通过 .page[data-app="xxx"] 选择器读 --app-bg-xxx 变量
+   没设置时回退到 var(--bg-base-grad) */
+.page[data-app] {
+  background: var(--app-bg-current, var(--bg-base-grad));
+}
+.page[data-app="chat"]        { --app-bg-current: var(--app-bg-chat, var(--bg-base-grad)); }
+.page[data-app="moments"]     { --app-bg-current: var(--app-bg-moments, var(--bg-base-grad)); }
+.page[data-app="characters"]  { --app-bg-current: var(--app-bg-characters, var(--bg-base-grad)); }
+.page[data-app="worldbook"]   { --app-bg-current: var(--app-bg-worldbook, var(--bg-base-grad)); }
+.page[data-app="memory"]      { --app-bg-current: var(--app-bg-memory, var(--bg-base-grad)); }
+.page[data-app="gallery"]     { --app-bg-current: var(--app-bg-gallery, var(--bg-base-grad)); }
+.page[data-app="wallet"]      { --app-bg-current: var(--app-bg-wallet, var(--bg-base-grad)); }
+.page[data-app="shop"]        { --app-bg-current: var(--app-bg-shop, var(--bg-base-grad)); }
+.page[data-app="memo"]        { --app-bg-current: var(--app-bg-memo, var(--bg-base-grad)); }
+.page[data-app="anniversary"] { --app-bg-current: var(--app-bg-anniversary, var(--bg-base-grad)); }
+.page[data-app="games"]       { --app-bg-current: var(--app-bg-games, var(--bg-base-grad)); }
+.page[data-app="music"]       { --app-bg-current: var(--app-bg-music, var(--bg-base-grad)); }
+.page[data-app="settings"]    { --app-bg-current: var(--app-bg-settings, var(--bg-base-grad)); }
+
+/* 聊天气泡圆角档位（被设置覆盖） */
+.bubble-user, .bubble-ai {
+  border-radius: var(--bubble-radius, var(--radius-md));
+}
+
 /* ---------- 动画关键帧 ---------- */
 @keyframes breathe {
   0%, 100% { transform: scale(1); opacity: 0.9; }

@@ -76,7 +76,7 @@
   flex-shrink: 0;
 }
 .widget {
-  background: rgba(255, 253, 250, 0.78);
+  background: var(--widget-bg, rgba(255, 253, 250, 0.78));
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   border-radius: var(--radius-lg);
@@ -196,7 +196,7 @@
 .app-icon .ai-box {
   width: clamp(48px, 16vw, 60px);
   height: clamp(48px, 16vw, 60px);
-  border-radius: var(--radius-lg);
+  border-radius: var(--icon-radius-base, var(--radius-lg));
   background: var(--bg-surface);
   box-shadow: var(--shadow-neu-out);
   display: flex;
@@ -246,19 +246,46 @@
 .app-icon .ai-badge:empty { width: 8px; min-width: 8px; height: 8px; }
 
 /* 不同 APP 图标色调（线条图标颜色跟随主色，盒子背景做差异） */
-.app-icon[data-id="chat"] .ai-box       { background: linear-gradient(135deg, #FFF3D6, #FFD66E); color: var(--color-primary-deep); }
-.app-icon[data-id="moments"] .ai-box    { background: linear-gradient(135deg, #FFE7EC, #FFA8B9); color: var(--color-accent); }
-.app-icon[data-id="characters"] .ai-box { background: linear-gradient(135deg, #FFF0C4, #FFD66E); color: var(--color-primary-deep); }
-.app-icon[data-id="memory"] .ai-box     { background: linear-gradient(135deg, #F3E2FA, #C792EA); color: #7B4FA8; }
-.app-icon[data-id="gallery"] .ai-box    { background: linear-gradient(135deg, #FFE0D8, #E8826B); color: #B85A45; }
-.app-icon[data-id="wallet"] .ai-box     { background: linear-gradient(135deg, #FFF3D6, #F5B945); color: var(--color-primary-deep); }
-.app-icon[data-id="shop"] .ai-box       { background: linear-gradient(135deg, #FFE7EC, #F38BA0); color: var(--color-accent); }
-.app-icon[data-id="memo"] .ai-box       { background: linear-gradient(135deg, #E2EEFF, #94C8F5); color: #3B6FA0; }
-.app-icon[data-id="anniversary"] .ai-box{ background: linear-gradient(135deg, #FFF0C4, #F5B945); color: var(--color-primary-deep); }
-.app-icon[data-id="games"] .ai-box      { background: linear-gradient(135deg, #E0F0E8, #8AC9B4); color: #4A8A75; }
-.app-icon[data-id="music"] .ai-box      { background: linear-gradient(135deg, #FFE7EC, #F38BA0); color: var(--color-accent); }
-.app-icon[data-id="worldbook"] .ai-box  { background: linear-gradient(135deg, #FFF3D6, #FFD66E); color: var(--color-primary-deep); }
-.app-icon[data-id="settings"] .ai-box   { background: linear-gradient(135deg, #F0F0F4, #D8D8E0); color: var(--text-secondary); }
+.app-icon[data-id="chat"] .ai-box       { background: var(--icon-bg-chat, linear-gradient(135deg, #FFF3D6, #FFD66E)); color: var(--icon-color-chat, var(--color-primary-deep)); }
+.app-icon[data-id="moments"] .ai-box    { background: var(--icon-bg-moments, linear-gradient(135deg, #FFE7EC, #FFA8B9)); color: var(--icon-color-moments, var(--color-accent)); }
+.app-icon[data-id="characters"] .ai-box { background: var(--icon-bg-characters, linear-gradient(135deg, #FFF0C4, #FFD66E)); color: var(--icon-color-characters, var(--color-primary-deep)); }
+.app-icon[data-id="memory"] .ai-box     { background: var(--icon-bg-memory, linear-gradient(135deg, #F3E2FA, #C792EA)); color: var(--icon-color-memory, #7B4FA8); }
+.app-icon[data-id="gallery"] .ai-box    { background: var(--icon-bg-gallery, linear-gradient(135deg, #FFE0D8, #E8826B)); color: var(--icon-color-gallery, #B85A45); }
+.app-icon[data-id="wallet"] .ai-box     { background: var(--icon-bg-wallet, linear-gradient(135deg, #FFF3D6, #F5B945)); color: var(--icon-color-wallet, var(--color-primary-deep)); }
+.app-icon[data-id="shop"] .ai-box       { background: var(--icon-bg-shop, linear-gradient(135deg, #FFE7EC, #F38BA0)); color: var(--icon-color-shop, var(--color-accent)); }
+.app-icon[data-id="memo"] .ai-box       { background: var(--icon-bg-memo, linear-gradient(135deg, #E2EEFF, #94C8F5)); color: var(--icon-color-memo, #3B6FA0); }
+.app-icon[data-id="anniversary"] .ai-box{ background: var(--icon-bg-anniversary, linear-gradient(135deg, #FFF0C4, #F5B945)); color: var(--icon-color-anniversary, var(--color-primary-deep)); }
+.app-icon[data-id="games"] .ai-box      { background: var(--icon-bg-games, linear-gradient(135deg, #E0F0E8, #8AC9B4)); color: var(--icon-color-games, #4A8A75); }
+.app-icon[data-id="music"] .ai-box      { background: var(--icon-bg-music, linear-gradient(135deg, #FFE7EC, #F38BA0)); color: var(--icon-color-music, var(--color-accent)); }
+.app-icon[data-id="worldbook"] .ai-box  { background: var(--icon-bg-worldbook, linear-gradient(135deg, #FFF3D6, #FFD66E)); color: var(--icon-color-worldbook, var(--color-primary-deep)); }
+.app-icon[data-id="settings"] .ai-box   { background: var(--icon-bg-settings, linear-gradient(135deg, #F0F0F4, #D8D8E0)); color: var(--icon-color-settings, var(--text-secondary)); }
+
+/* 自定义图标图片（覆盖在线条图标上面） */
+.app-icon .ai-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ai-icon-image, none);
+  background-size: cover;
+  background-position: center;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+.app-icon[data-id="chat"] .ai-box::after       { background: var(--icon-image-chat, none); background-size: cover; background-position: center; }
+.app-icon[data-id="moments"] .ai-box::after    { background: var(--icon-image-moments, none); background-size: cover; background-position: center; }
+.app-icon[data-id="characters"] .ai-box::after { background: var(--icon-image-characters, none); background-size: cover; background-position: center; }
+.app-icon[data-id="memory"] .ai-box::after     { background: var(--icon-image-memory, none); background-size: cover; background-position: center; }
+.app-icon[data-id="gallery"] .ai-box::after    { background: var(--icon-image-gallery, none); background-size: cover; background-position: center; }
+.app-icon[data-id="wallet"] .ai-box::after     { background: var(--icon-image-wallet, none); background-size: cover; background-position: center; }
+.app-icon[data-id="shop"] .ai-box::after       { background: var(--icon-image-shop, none); background-size: cover; background-position: center; }
+.app-icon[data-id="memo"] .ai-box::after       { background: var(--icon-image-memo, none); background-size: cover; background-position: center; }
+.app-icon[data-id="anniversary"] .ai-box::after{ background: var(--icon-image-anniversary, none); background-size: cover; background-position: center; }
+.app-icon[data-id="games"] .ai-box::after      { background: var(--icon-image-games, none); background-size: cover; background-position: center; }
+.app-icon[data-id="music"] .ai-box::after      { background: var(--icon-image-music, none); background-size: cover; background-position: center; }
+.app-icon[data-id="worldbook"] .ai-box::after  { background: var(--icon-image-worldbook, none); background-size: cover; background-position: center; }
+.app-icon[data-id="settings"] .ai-box::after   { background: var(--icon-image-settings, none); background-size: cover; background-position: center; }
+.app-icon .ai-box:has(::after:not([style*="none"])) svg { display: none; }
 
 /* 隐藏态 */
 .app-icon.hidden { display: none; }
@@ -308,7 +335,7 @@
   gap: 8px;
   margin: 0 16px calc(12px + env(safe-area-inset-bottom));
   padding: 12px 16px;
-  background: rgba(255, 253, 250, 0.7);
+  background: var(--dock-bg, rgba(255, 253, 250, 0.7));
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-radius: var(--radius-xl);
@@ -362,19 +389,47 @@
 .dock-item .ai-badge:empty { width: 8px; min-width: 8px; height: 8px; }
 
 /* 不同 Dock 图标色调同 .app-icon */
-.dock-item[data-id="chat"] .di-box       { background: linear-gradient(135deg, #FFF3D6, #FFD66E); color: var(--color-primary-deep); }
-.dock-item[data-id="moments"] .di-box    { background: linear-gradient(135deg, #FFE7EC, #FFA8B9); color: var(--color-accent); }
-.dock-item[data-id="characters"] .di-box { background: linear-gradient(135deg, #FFF0C4, #FFD66E); color: var(--color-primary-deep); }
-.dock-item[data-id="memory"] .di-box     { background: linear-gradient(135deg, #F3E2FA, #C792EA); color: #7B4FA8; }
-.dock-item[data-id="gallery"] .di-box    { background: linear-gradient(135deg, #FFE0D8, #E8826B); color: #B85A45; }
-.dock-item[data-id="wallet"] .di-box     { background: linear-gradient(135deg, #FFF3D6, #F5B945); color: var(--color-primary-deep); }
-.dock-item[data-id="shop"] .di-box       { background: linear-gradient(135deg, #FFE7EC, #F38BA0); color: var(--color-accent); }
-.dock-item[data-id="memo"] .di-box       { background: linear-gradient(135deg, #E2EEFF, #94C8F5); color: #3B6FA0; }
-.dock-item[data-id="anniversary"] .di-box{ background: linear-gradient(135deg, #FFF0C4, #F5B945); color: var(--color-primary-deep); }
-.dock-item[data-id="games"] .di-box      { background: linear-gradient(135deg, #E0F0E8, #8AC9B4); color: #4A8A75; }
-.dock-item[data-id="music"] .di-box      { background: linear-gradient(135deg, #FFE7EC, #F38BA0); color: var(--color-accent); }
-.dock-item[data-id="worldbook"] .di-box  { background: linear-gradient(135deg, #FFF3D6, #FFD66E); color: var(--color-primary-deep); }
-.dock-item[data-id="settings"] .di-box   { background: linear-gradient(135deg, #F0F0F4, #D8D8E0); color: var(--text-secondary); }
+.dock-item[data-id="chat"] .di-box       { background: var(--icon-bg-chat, linear-gradient(135deg, #FFF3D6, #FFD66E)); color: var(--icon-color-chat, var(--color-primary-deep)); }
+.dock-item[data-id="moments"] .di-box    { background: var(--icon-bg-moments, linear-gradient(135deg, #FFE7EC, #FFA8B9)); color: var(--icon-color-moments, var(--color-accent)); }
+.dock-item[data-id="characters"] .di-box { background: var(--icon-bg-characters, linear-gradient(135deg, #FFF0C4, #FFD66E)); color: var(--icon-color-characters, var(--color-primary-deep)); }
+.dock-item[data-id="memory"] .di-box     { background: var(--icon-bg-memory, linear-gradient(135deg, #F3E2FA, #C792EA)); color: var(--icon-color-memory, #7B4FA8); }
+.dock-item[data-id="gallery"] .di-box    { background: var(--icon-bg-gallery, linear-gradient(135deg, #FFE0D8, #E8826B)); color: var(--icon-color-gallery, #B85A45); }
+.dock-item[data-id="wallet"] .di-box     { background: var(--icon-bg-wallet, linear-gradient(135deg, #FFF3D6, #F5B945)); color: var(--icon-color-wallet, var(--color-primary-deep)); }
+.dock-item[data-id="shop"] .di-box       { background: var(--icon-bg-shop, linear-gradient(135deg, #FFE7EC, #F38BA0)); color: var(--icon-color-shop, var(--color-accent)); }
+.dock-item[data-id="memo"] .di-box       { background: var(--icon-bg-memo, linear-gradient(135deg, #E2EEFF, #94C8F5)); color: var(--icon-color-memo, #3B6FA0); }
+.dock-item[data-id="anniversary"] .di-box{ background: var(--icon-bg-anniversary, linear-gradient(135deg, #FFF0C4, #F5B945)); color: var(--icon-color-anniversary, var(--color-primary-deep)); }
+.dock-item[data-id="games"] .di-box      { background: var(--icon-bg-games, linear-gradient(135deg, #E0F0E8, #8AC9B4)); color: var(--icon-color-games, #4A8A75); }
+.dock-item[data-id="music"] .di-box      { background: var(--icon-bg-music, linear-gradient(135deg, #FFE7EC, #F38BA0)); color: var(--icon-color-music, var(--color-accent)); }
+.dock-item[data-id="worldbook"] .di-box  { background: var(--icon-bg-worldbook, linear-gradient(135deg, #FFF3D6, #FFD66E)); color: var(--icon-color-worldbook, var(--color-primary-deep)); }
+.dock-item[data-id="settings"] .di-box   { background: var(--icon-bg-settings, linear-gradient(135deg, #F0F0F4, #D8D8E0)); color: var(--icon-color-settings, var(--text-secondary)); }
+
+/* Dock 图标也支持自定义图片覆盖 */
+.dock-item .di-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+.dock-item[data-id="chat"] .di-box::after       { background: var(--icon-image-chat, none); }
+.dock-item[data-id="moments"] .di-box::after    { background: var(--icon-image-moments, none); }
+.dock-item[data-id="characters"] .di-box::after { background: var(--icon-image-characters, none); }
+.dock-item[data-id="memory"] .di-box::after     { background: var(--icon-image-memory, none); }
+.dock-item[data-id="gallery"] .di-box::after    { background: var(--icon-image-gallery, none); }
+.dock-item[data-id="wallet"] .di-box::after     { background: var(--icon-image-wallet, none); }
+.dock-item[data-id="shop"] .di-box::after       { background: var(--icon-image-shop, none); }
+.dock-item[data-id="memo"] .di-box::after       { background: var(--icon-image-memo, none); }
+.dock-item[data-id="anniversary"] .di-box::after{ background: var(--icon-image-anniversary, none); }
+.dock-item[data-id="games"] .di-box::after      { background: var(--icon-image-games, none); }
+.dock-item[data-id="music"] .di-box::after      { background: var(--icon-image-music, none); }
+.dock-item[data-id="worldbook"] .di-box::after  { background: var(--icon-image-worldbook, none); }
+.dock-item[data-id="settings"] .di-box::after   { background: var(--icon-image-settings, none); }
+
+/* Dock 图标圆角跟随 */
+.dock-item .di-box { border-radius: var(--icon-radius-base, var(--radius-lg)); }
 
 /* ---------- 桌面长按编辑弹层 ---------- */
 .desktop-edit-banner {

@@ -10,7 +10,7 @@
   "use strict";
 
   const DB_NAME = "PhoneDB";
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
 
   // Store 定义：name -> { keyPath, indexes }
   const STORE_DEFS = {
@@ -26,6 +26,9 @@
     transactions:    { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
     shop:            { keyPath: "id",  indexes: [["category", "category"]] },
     inventory:       { keyPath: "id",  indexes: [["characterId", "characterId"], ["itemId", "itemId"]] },
+    favorites:       { keyPath: "id",  indexes: [["itemId", "itemId"], ["createdAt", "createdAt"]] },
+    cart:            { keyPath: "id",  indexes: [["itemId", "itemId"], ["updatedAt", "updatedAt"]] },
+    orders:          { keyPath: "id",  indexes: [["itemId", "itemId"], ["type", "type"], ["createdAt", "createdAt"]] },
     music:           { keyPath: "id"   },
     playlists:       { keyPath: "id"   },
     memos:           { keyPath: "id",  indexes: [["completed", "completed"], ["remindAt", "remindAt"]] },

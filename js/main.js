@@ -27,6 +27,15 @@
       console.error("[Main] 状态初始化失败", e);
     }
 
+    // 2.5 应用全局主题引擎（壁纸/小组件/Dock/图标/气泡等所有外观变量）
+    try {
+      if (global.Phone.ThemeEngine && global.Phone.ThemeEngine.init) {
+        await global.Phone.ThemeEngine.init();
+      }
+    } catch (e) {
+      console.error("[Main] 主题引擎初始化失败", e);
+    }
+
     // 3. 注册 Service Worker（PWA 离线）
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js").catch(() => {});

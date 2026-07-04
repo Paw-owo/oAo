@@ -1,6 +1,13 @@
 /* ============================================================
-   undercover.js — 谁是卧底
-   玩家 vs 当前角色（AI）/ 随机分配卧底 / 描述 / 猜身份 / 揭示
+   undercover.js — 谁是卧底（专业版）
+   对齐参考：谁是卧底 Online / 聚会玩 / 桌游大全
+   功能：
+     - 玩家 vs 当前角色（AI）/ 随机分配卧底 / 描述 / 猜身份 / 揭示
+     - 多轮描述（1-3 轮，可配置）
+     - AI 描述：优先调用 AIClient，失败回退到模板
+     - 统计概览：总局 / 胜场 / 胜率 / 今日
+     - 历史搜索 + 长按删除
+     - 设置页：AI 对手 / 轮数 / 显示统计 / 清空 / 导出 / 关于
    数据存 game_undercover 表，事件 GAME_PLAYED
    挂在 window.Phone.Games["undercover"]
    ============================================================ */
@@ -10,26 +17,24 @@
   global.Phone = global.Phone || {};
   global.Phone.Games = global.Phone.Games || {};
 
-  // 词对库：[平民词, 卧底词]
-  const WORDS = [
-    ["苹果", "橘子"],
-    ["猫", "狗"],
-    ["咖啡", "茶"],
-    ["太阳", "月亮"],
-    ["沙发", "床"],
-    ["雨伞", "帽子"],
-    ["书本", "笔记本"],
-    ["手机", "平板"],
-    ["钢琴", "吉他"],
-    ["蛋糕", "面包"],
-    ["地铁", "公交车"],
-    ["冰箱", "空调"],
-    ["铅笔", "钢笔"],
-    ["春天", "秋天"],
-    ["海浪", "湖面"],
-  ];
+  // 词对库：[平民词, 卧底词] —— 按难度分组
+  const WORD_BANK = {
+    easy: [
+      ["苹果", "橘子"], ["猫", "狗"], ["咖啡", "茶"], ["太阳", "月亮"],
+      ["沙发", "床"], ["雨伞", "帽子"], ["书本", "笔记本"], ["手机", "平板"],
+    ],
+    normal: [
+      ["钢琴", "吉他"], ["蛋糕", "面包"], ["地铁", "公交车"], ["冰箱", "空调"],
+      ["铅笔", "钢笔"], ["春天", "秋天"], ["海浪", "湖面"], ["薯片", "饼干"],
+      ["果汁", "汽水"], ["牛奶", "豆浆"],
+    ],
+    hard: [
+      ["律师", "检察官"], ["教授", "研究员"], ["海豚", "鲨鱼"], ["樱花", "梅花"],
+      ["唐诗", "宋词"], ["散文", "随笔"], ["寓言", "童话"], ["油画", "水彩"],
+    ],
+  };
 
-  // AI 描述模板
+  // AI 描述模板（回退用）
   const DESC_TEMPLATES = [
     "它和{词}有点像，但又不完全一样",
     "我想到的这个词，平时很常见",
@@ -45,6 +50,23 @@
 
   let _round = null; // 当前回合状态
 
+  async function _aiDescribe(aiWord, round, history) {
+    // 优先调用 AIClient（如果有 endpoint 配置）
+    const AIClient = global.Phone.AIClient;
+    if (AIClient && typeof AIClient.chat === "function") {
+      try {
+        const prompt = "我们在玩「谁是卧底」，你拿到的词是「" + aiWord + "」。请用一句话含蓄地描述这个词（不要直接说出它），第 " + round + " 轮描述，可以参考之前的描述但不要重复。直接给出描述，不要解释。";
+        const reply = await AIClient.chat([{ role: "user", content: prompt }]);
+        if (reply && typeof reply === "string" && reply.trim()) {
+          return reply.trim().slice(0, 60);
+        }
+      } catch (e) { /* 回退到模板 */ }
+    }
+    // 模板回退
+    const tpl = DESC_TEMPLATES[Math.floor(Math.random() * DESC_TEMPLATES.length)];
+    return tpl.replace("{词}", aiWord);
+  }
+
   async function mount(container) {
     global.Phone.Games.applyBg(container);
     const U = global.Phone.Utils;
@@ -55,15 +77,37 @@
     const chars = await Storage.getAll("characters");
     const aiChar = chars.find((c) => c.id === curCharId) || chars[0];
     const aiName = aiChar ? aiChar.name : "AI";
+    const useAI = State.get("undercoverAiOpponent") !== false;
+    const maxRounds = parseInt(State.get("undercoverRounds"), 10) || 2;
+    const curDiff = State.get("gamesDifficulty") || "normal";
 
     const page = U.el("div", { class: "page" });
-    page.appendChild(_nav(U, "谁是卧底"));
-    const stage = U.el("div", { class: "game-stage" });
+    if (global.Phone.ThemeEngine && global.Phone.ThemeEngine.tagApp) {
+      global.Phone.ThemeEngine.tagApp(page, "undercover");
+    }
+    page.appendChild(_nav(U, "谁是卧底", () => _openSettings(U, () => _remount(container))));
+
+    const stage = U.el("div", { class: "game-stage scroll", style: { padding: "16px" } });
+
+    // ---------- 统计概览 ----------
+    if (State.get("undercoverShowStats") !== false) {
+      const all = await Storage.getAll("game_undercover");
+      const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+      const wins = all.filter((r) => r.win).length;
+      const today = all.filter((r) => (r.createdAt || 0) >= t0.getTime()).length;
+      const rate = all.length > 0 ? Math.round(wins * 100 / all.length) : 0;
+      stage.appendChild(U.el("div", { class: "gm-stats-bar" }, [
+        U.el("div", { class: "msb-card" }, [U.el("div", { class: "msb-num", text: String(all.length) }), U.el("div", { class: "msb-label", text: "总局" })]),
+        U.el("div", { class: "msb-card highlight" }, [U.el("div", { class: "msb-num", text: String(wins) }), U.el("div", { class: "msb-label", text: "胜场" })]),
+        U.el("div", { class: "msb-card" }, [U.el("div", { class: "msb-num", text: rate + "%" }), U.el("div", { class: "msb-label", text: "胜率" })]),
+        U.el("div", { class: "msb-card" }, [U.el("div", { class: "msb-num", text: String(today) }), U.el("div", { class: "msb-label", text: "今日" })]),
+      ]));
+    }
 
     // 顶部信息
     const info = U.el("div", { class: "card-soft", style: { marginBottom: "12px" } });
-    info.appendChild(U.el("div", { text: "对手：" + aiName, style: { fontWeight: "500" } }));
-    info.appendChild(U.el("div", { class: "muted", text: "你和我各拿一个词，一个是平民词，一个是卧底词。描述完猜身份。", style: { fontSize: "var(--font-xs)", marginTop: "4px" } }));
+    info.appendChild(U.el("div", { text: "对手：" + aiName + "（" + (useAI ? "智能描述" : "模板描述") + " · " + maxRounds + " 轮 · " + ({ easy: "轻松", normal: "普通", hard: "挑战" }[curDiff] || "普通") + "）", style: { fontWeight: "500" } }));
+    info.appendChild(U.el("div", { class: "muted", text: "你和我各拿一个词，一个是平民词，一个是卧底词。轮流描述后猜身份。", style: { fontSize: "var(--font-xs)", marginTop: "4px" } }));
     stage.appendChild(info);
 
     // 词卡
@@ -74,28 +118,16 @@
     wordCard.appendChild(wordText);
     stage.appendChild(wordCard);
 
+    // 回合指示
+    const roundInd = U.el("div", { class: "muted", text: "尚未开始", style: { fontSize: "var(--font-xs)", marginBottom: "8px", textAlign: "center" } });
+    stage.appendChild(roundInd);
+
     // 开始按钮
     const startBtn = U.el("button", { class: "btn", text: "开始新回合", style: { width: "100%", marginBottom: "12px" } });
     stage.appendChild(startBtn);
 
     // 描述区
     const descArea = U.el("div", { class: "card-soft", style: { display: "none", marginBottom: "12px" } });
-    const myDescRow = U.el("div", { class: "row gap-8", style: { alignItems: "flex-start", marginBottom: "8px" } });
-    myDescRow.appendChild(U.el("div", { class: "avatar avatar-sm", text: "我" }));
-    const myDescMain = U.el("div", { class: "mi-main" });
-    myDescMain.appendChild(U.el("div", { class: "muted", text: "你的描述", style: { fontSize: "var(--font-xs)" } }));
-    const myDescText = U.el("div", { text: "（还没说）" });
-    myDescMain.appendChild(myDescText);
-    myDescRow.appendChild(myDescMain);
-    descArea.appendChild(myDescRow);
-    const aiDescRow = U.el("div", { class: "row gap-8", style: { alignItems: "flex-start" } });
-    aiDescRow.appendChild(U.el("div", { class: "avatar avatar-sm", text: (aiName || "?").slice(0, 1) }));
-    const aiDescMain = U.el("div", { class: "mi-main" });
-    aiDescMain.appendChild(U.el("div", { class: "muted", text: aiName + " 的描述", style: { fontSize: "var(--font-xs)" } }));
-    const aiDescText = U.el("div", { text: "（还没说）" });
-    aiDescMain.appendChild(aiDescText);
-    aiDescRow.appendChild(aiDescMain);
-    descArea.appendChild(aiDescRow);
     stage.appendChild(descArea);
 
     // 输入描述
@@ -118,11 +150,33 @@
 
     // 历史
     stage.appendChild(U.el("div", { class: "section-title", text: "历史记录", style: { margin: "16px 0 8px" } }));
+    const search = U.el("input", { class: "input", placeholder: "搜索记录...", style: { marginBottom: "8px" } });
+    stage.appendChild(search);
     const histWrap = U.el("div", {});
     stage.appendChild(histWrap);
 
+    function _renderDescArea() {
+      U.empty(descArea);
+      if (!_round) return;
+      // 历史描述列表
+      _round.history.forEach((h, i) => {
+        const row = U.el("div", { class: "row gap-8", style: { alignItems: "flex-start", marginBottom: "8px" } });
+        if (h.who === "player") {
+          row.appendChild(U.el("div", { class: "avatar avatar-sm", text: "我" }));
+        } else {
+          row.appendChild(U.el("div", { class: "avatar avatar-sm", text: (aiName || "?").slice(0, 1) }));
+        }
+        const main = U.el("div", { class: "mi-main" });
+        main.appendChild(U.el("div", { class: "muted", text: (h.who === "player" ? "你的描述" : aiName + " 的描述") + " · 第 " + h.round + " 轮", style: { fontSize: "var(--font-xs)" } }));
+        main.appendChild(U.el("div", { text: h.text }));
+        row.appendChild(main);
+        descArea.appendChild(row);
+      });
+    }
+
     function _start() {
-      const pair = WORDS[Math.floor(Math.random() * WORDS.length)];
+      const bank = WORD_BANK[curDiff] || WORD_BANK.normal;
+      const pair = bank[Math.floor(Math.random() * bank.length)];
       const playerIsUnder = Math.random() < 0.5;
       _round = {
         civilWord: pair[0],
@@ -130,34 +184,48 @@
         playerWord: playerIsUnder ? pair[1] : pair[0],
         aiWord: playerIsUnder ? pair[0] : pair[1],
         playerIsUnder: playerIsUnder,
-        myDesc: "",
-        aiDesc: "",
-        phase: "desc", // desc -> guess -> done
+        history: [],
+        round: 1,
+        maxRounds: maxRounds,
+        phase: "desc-player", // desc-player -> desc-ai -> guess -> done
       };
       wordText.textContent = _round.playerWord;
       wordLabel.textContent = "你的词";
+      roundInd.textContent = "第 1 / " + maxRounds + " 轮 · 该你描述";
       descArea.style.display = "";
       descInput.style.display = "";
       descBtn.style.display = "";
       descInput.value = "";
-      myDescText.textContent = "（还没说）";
-      aiDescText.textContent = "（还没说）";
+      _renderDescArea();
       guessRow.style.display = "none";
       result.style.display = "none";
     }
 
-    function _submitDesc() {
+    async function _submitDesc() {
       const t = descInput.value.trim();
       if (!t) { global.Phone.Notify.push({ appId: "games", title: "说点啥吧" }); return; }
-      _round.myDesc = t;
-      myDescText.textContent = t;
-      // AI 描述（用模板，避免依赖 AI 接口）
-      const tpl = DESC_TEMPLATES[Math.floor(Math.random() * DESC_TEMPLATES.length)];
-      _round.aiDesc = tpl.replace("{词}", _round.aiWord);
-      aiDescText.textContent = _round.aiDesc;
+      _round.history.push({ who: "player", text: t, round: _round.round });
+      descInput.value = "";
       descInput.style.display = "none";
       descBtn.style.display = "none";
-      guessRow.style.display = "flex";
+      roundInd.textContent = "第 " + _round.round + " / " + maxRounds + " 轮 · " + aiName + " 思考中...";
+      _renderDescArea();
+      // AI 描述
+      const aiDesc = await _aiDescribe(_round.aiWord, _round.round, _round.history);
+      _round.history.push({ who: "ai", text: aiDesc, round: _round.round });
+      _renderDescArea();
+      // 进入下一轮 or 猜身份
+      if (_round.round >= _round.maxRounds) {
+        _round.phase = "guess";
+        roundInd.textContent = "猜身份时间";
+        guessRow.style.display = "flex";
+      } else {
+        _round.round++;
+        _round.phase = "desc-player";
+        roundInd.textContent = "第 " + _round.round + " / " + maxRounds + " 轮 · 该你描述";
+        descInput.style.display = "";
+        descBtn.style.display = "";
+      }
     }
 
     async function _guess(playerGuessUnder) {
@@ -170,61 +238,168 @@
         playerWord: _round.playerWord,
         aiWord: _round.aiWord,
         playerIsUnder: _round.playerIsUnder,
-        myDesc: _round.myDesc,
-        aiDesc: _round.aiDesc,
+        history: _round.history,
         guess: playerGuessUnder,
         win: win,
+        rounds: _round.maxRounds,
+        difficulty: curDiff,
         createdAt: Date.now(),
       };
       await Storage.put("game_undercover", rec);
       global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.GAME_PLAYED, {
         sourceApp: "games",
-        data: { game: "undercover", win: win },
+        data: { game: "undercover", win: win, difficulty: curDiff },
         summary: "谁是卧底：" + (win ? "我猜对了" : "我猜错了") + "（" + (_round.playerIsUnder ? "我是卧底" : "我是平民") + "）",
       });
       // 显示结果
       result.style.display = "";
       U.empty(result);
-      result.appendChild(U.el("div", { text: win ? "🎉 猜对了！" : "😅 猜错了", style: { fontWeight: "600", fontSize: "var(--font-md)", marginBottom: "8px" } }));
+      result.appendChild(U.el("div", { text: win ? "嘿嘿，猜对啦！" : "哎呀，猜错啦", style: { fontWeight: "600", fontSize: "var(--font-md)", marginBottom: "8px" } }));
       result.appendChild(U.el("div", { class: "mi-content", text: "平民词：" + _round.civilWord }));
       result.appendChild(U.el("div", { class: "mi-content", text: "卧底词：" + _round.underWord }));
       result.appendChild(U.el("div", { class: "muted", text: "你拿的是「" + _round.playerWord + "」" + (_round.playerIsUnder ? "（卧底）" : "（平民）"), style: { marginTop: "4px" } }));
       guessRow.style.display = "none";
+      roundInd.textContent = "本回合结束";
       _round.phase = "done";
       _loadHist();
+      _refreshStats();
+    }
+
+    async function _refreshStats() {
+      if (State.get("undercoverShowStats") === false) return;
+      const oldBar = stage.querySelector(".gm-stats-bar");
+      if (!oldBar) return;
+      const all = await Storage.getAll("game_undercover");
+      const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+      const wins = all.filter((r) => r.win).length;
+      const today = all.filter((r) => (r.createdAt || 0) >= t0.getTime()).length;
+      const rate = all.length > 0 ? Math.round(wins * 100 / all.length) : 0;
+      const newBar = U.el("div", { class: "gm-stats-bar" }, [
+        U.el("div", { class: "msb-card" }, [U.el("div", { class: "msb-num", text: String(all.length) }), U.el("div", { class: "msb-label", text: "总局" })]),
+        U.el("div", { class: "msb-card highlight" }, [U.el("div", { class: "msb-num", text: String(wins) }), U.el("div", { class: "msb-label", text: "胜场" })]),
+        U.el("div", { class: "msb-card" }, [U.el("div", { class: "msb-num", text: rate + "%" }), U.el("div", { class: "msb-label", text: "胜率" })]),
+        U.el("div", { class: "msb-card" }, [U.el("div", { class: "msb-num", text: String(today) }), U.el("div", { class: "msb-label", text: "今日" })]),
+      ]);
+      oldBar.replaceWith(newBar);
     }
 
     async function _loadHist() {
       const list = await Storage.getAll("game_undercover");
       list.sort((a, b) => b.createdAt - a.createdAt);
       U.empty(histWrap);
-      if (list.length === 0) {
-        histWrap.appendChild(U.el("div", { class: "empty-text", text: "还没有记录" }));
+      const kw = search.value.trim().toLowerCase();
+      let filtered = list;
+      if (kw) {
+        filtered = list.filter((r) => (r.civilWord + r.underWord + (r.history || []).map((h) => h.text).join(" ")).toLowerCase().includes(kw));
+      }
+      if (filtered.length === 0) {
+        histWrap.appendChild(U.el("div", { class: "empty-text", text: list.length === 0 ? "还没有记录" : "没找到匹配的记录" }));
         return;
       }
-      list.slice(0, 20).forEach((r) => {
+      filtered.slice(0, 30).forEach((r) => {
         const item = U.el("div", { class: "memo-item" });
         const icon = U.el("div", { class: "mi-icon", html: global.Phone.IconLibrary.get(r.win ? "check" : "close", { size: 16 }) });
         item.appendChild(icon);
         const main = U.el("div", { class: "mi-main" });
         main.appendChild(U.el("div", { class: "mi-content", text: (r.playerIsUnder ? "卧底" : "平民") + " · " + r.civilWord + "/" + r.underWord }));
-        main.appendChild(U.el("div", { class: "mi-meta", text: (r.win ? "胜" : "负") + " · " + U.relTime(r.createdAt) }));
+        main.appendChild(U.el("div", { class: "mi-meta", text: (r.win ? "胜" : "负") + " · " + (r.rounds || 1) + " 轮 · " + U.relTime(r.createdAt) }));
         item.appendChild(main);
+        let pressTimer = null;
+        item.addEventListener("touchstart", () => {
+          pressTimer = setTimeout(async () => {
+            pressTimer = null;
+            const ok = await global.Phone.Modal.confirm({ title: "删除记录", message: "删除这条记录？", danger: true });
+            if (!ok) return;
+            await Storage.del("game_undercover", r.id);
+            _loadHist();
+            _refreshStats();
+          }, 600);
+        });
+        item.addEventListener("touchend", () => { if (pressTimer) clearTimeout(pressTimer); });
+        item.addEventListener("touchmove", () => { if (pressTimer) clearTimeout(pressTimer); });
+        item.addEventListener("contextmenu", async (e) => {
+          e.preventDefault();
+          const ok = await global.Phone.Modal.confirm({ title: "删除记录", message: "删除这条记录？", danger: true });
+          if (!ok) return;
+          await Storage.del("game_undercover", r.id);
+          _loadHist();
+          _refreshStats();
+        });
         histWrap.appendChild(item);
       });
     }
 
     startBtn.addEventListener("click", _start);
     descBtn.addEventListener("click", _submitDesc);
+    descInput.addEventListener("keydown", (e) => { if (e.key === "Enter") _submitDesc(); });
     guessCivil.addEventListener("click", () => _guess(false));
     guessUnder.addEventListener("click", () => _guess(true));
+    search.addEventListener("input", U.debounce(_loadHist, 200));
 
     _loadHist();
     page.appendChild(stage);
     container.appendChild(page);
   }
 
-  function _nav(U, title) {
+  // ---------- 设置页 ----------
+  function _openSettings(U, onDone) {
+    global.Phone.AppSettings.open({
+      appId: "undercover",
+      title: "谁是卧底设置",
+      build: (content, tools) => {
+        const State = global.Phone.State;
+
+        tools.section("显示");
+        tools.toggle("显示统计概览", "关闭后隐藏顶部的数字卡片", "undercoverShowStats", null);
+
+        tools.section("对手");
+        tools.toggle("AI 智能描述", "开启后调用 AI 接口生成描述（更聪明），关闭则用模板", "undercoverAiOpponent", null);
+
+        tools.section("描述轮数");
+        const curRounds = parseInt(State.get("undercoverRounds"), 10) || 2;
+        const roundSeg = U.el("div", { class: "segment", style: { display: "flex", flexWrap: "wrap" } });
+        [
+          { v: "1", l: "1 轮" },
+          { v: "2", l: "2 轮" },
+          { v: "3", l: "3 轮" },
+        ].forEach((s) => {
+          const node = U.el("div", { class: "segment-item" + (curRounds === parseInt(s.v, 10) ? " active" : ""), text: s.l });
+          node.addEventListener("click", async () => {
+            await State.set("undercoverRounds", parseInt(s.v, 10));
+            roundSeg.querySelectorAll(".segment-item").forEach((n) => n.classList.remove("active"));
+            node.classList.add("active");
+          });
+          roundSeg.appendChild(node);
+        });
+        const roundGroup = U.el("div", { class: "settings-group", style: { padding: "12px 16px" } }, [roundSeg]);
+        content.appendChild(roundGroup);
+
+        tools.section("数据");
+        tools.action("导出历史记录", async () => {
+          const list = await global.Phone.Storage.getAll("game_undercover");
+          const blob = new Blob([JSON.stringify(list, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = "undercover-" + new Date().toISOString().slice(0, 10) + ".json"; a.click();
+          URL.revokeObjectURL(url);
+          global.Phone.Notify.push({ appId: "games", title: "已导出 " + list.length + " 条" });
+        });
+        tools.action("清空历史记录", async () => {
+          const ok = await global.Phone.Modal.confirm({ title: "清空记录", message: "删除所有谁是卧底的历史？", danger: true, okText: "清空" });
+          if (!ok) return;
+          const list = await global.Phone.Storage.getAll("game_undercover");
+          for (const r of list) await global.Phone.Storage.del("game_undercover", r.id);
+          global.Phone.Notify.push({ appId: "games", title: "已清空" });
+          onDone && onDone();
+        }, { danger: true });
+
+        tools.section("关于");
+        tools.hint("谁是卧底支持 1-3 轮描述，开启 AI 智能描述后对手会更聪明。长按历史记录可删除。");
+      },
+    });
+  }
+
+  function _nav(U, title, onSettings) {
     const nav = U.el("div", { class: "navbar" });
     const left = U.el("div", { class: "nav-left" });
     const back = U.el("button", { class: "icon-btn" });
@@ -233,9 +408,49 @@
     left.appendChild(back);
     nav.appendChild(left);
     nav.appendChild(U.el("div", { class: "nav-title", text: title }));
-    nav.appendChild(U.el("div", { class: "nav-right" }));
+    const right = U.el("div", { class: "nav-right" });
+    if (onSettings) {
+      const setBtn = U.el("button", { class: "icon-btn" });
+      setBtn.innerHTML = global.Phone.IconLibrary.get("app-settings", { size: 20 });
+      setBtn.addEventListener("click", onSettings);
+      right.appendChild(setBtn);
+    }
+    nav.appendChild(right);
     return nav;
   }
 
-  global.Phone.Games["undercover"] = { open, mount };
+  function _remount(container) {
+    while (container.firstChild) container.removeChild(container.firstChild);
+    mount(container);
+  }
+
+  // ---------- 暴露 API ----------
+  global.Phone.Games["undercover"] = {
+    open, mount,
+    /** 列出历史记录 */
+    async list(filter) {
+      let list = await global.Phone.Storage.getAll("game_undercover");
+      if (filter) {
+        if (typeof filter.win === "boolean") list = list.filter((r) => r.win === filter.win);
+        if (filter.difficulty) list = list.filter((r) => r.difficulty === filter.difficulty);
+        if (filter.aiCharacterId) list = list.filter((r) => r.aiCharacterId === filter.aiCharacterId);
+      }
+      return list.sort((a, b) => b.createdAt - a.createdAt);
+    },
+    /** 统计 */
+    async stats() {
+      const list = await global.Phone.Storage.getAll("game_undercover");
+      const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+      const wins = list.filter((r) => r.win).length;
+      return {
+        total: list.length,
+        wins,
+        losses: list.length - wins,
+        winRate: list.length > 0 ? Math.round(wins * 100 / list.length) : 0,
+        today: list.filter((r) => (r.createdAt || 0) >= t0.getTime()).length,
+      };
+    },
+    /** 让 AI 描述一个词（供外部调用） */
+    async aiDescribe(word, round) { return await _aiDescribe(word, round || 1, []); },
+  };
 })(window);

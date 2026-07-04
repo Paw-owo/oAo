@@ -113,6 +113,13 @@
     "card-tarot":    '<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M12 7l1.5 3-1.5 3-1.5-3z"/><circle cx="9" cy="16" r="0.7" fill="currentColor"/><circle cx="15" cy="16" r="0.7" fill="currentColor"/>',
     "lyrics":        '<path d="M5 4h14v12H5z"/><path d="M5 16l14 4M9 8h6M9 11h4"/>',
     "playlist":      '<path d="M4 5h12M4 9h12M4 13h8"/><circle cx="17" cy="16" r="3"/><path d="M14 16V6l5-1v10"/>',
+    // ---------- 钱包分类图标 ----------
+    "utensils":      '<path d="M4 3v7a2 2 0 0 0 2 2h0v9M7 3v9M9 3v7a2 2 0 0 1-2 2M16 3c-1.5 0-2 2-2 4v4h4V7c0-2-.5-4-2-4zM14 11v10"/>',
+    "car":           '<path d="M5 13l1.5-5A2 2 0 0 1 8.4 6.6h7.2a2 2 0 0 1 1.9 1.4L19 13M5 13h14M5 13v5h2v-2h10v2h2v-5"/><circle cx="8" cy="16" r="0.6" fill="currentColor"/><circle cx="16" cy="16" r="0.6" fill="currentColor"/>',
+    "bag":           '<path d="M6 8h12l-1 12H7zM9 8a3 3 0 0 1 6 0"/>',
+    "gamepad":       '<rect x="3" y="7" width="18" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="15" cy="11" r="0.9" fill="currentColor"/><circle cx="18" cy="14" r="0.9" fill="currentColor"/>',
+    "cake":          '<path d="M4 21h16v-7H4zM4 14c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2M12 7V3"/><circle cx="12" cy="6" r="0.8" fill="currentColor"/>',
+    "flower":        '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-3 1-5 0-7-1 2 0 4 0 7zM12 14c0 3-1 5 0 7 1-2 0-4 0-7zM10 12c-3 0-5-1-7 0 2 1 4 0 7 0zM14 12c3 0 5 1 7 0-2-1-4 0-7 0z"/>',
   };
 
   /**
