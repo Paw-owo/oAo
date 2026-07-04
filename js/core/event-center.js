@@ -134,6 +134,7 @@
     MEMO_CREATED: "memo_created",
     MEMO_REMINDED: "memo_reminded",
     ANNIVERSARY_DUE: "anniversary_due",
+    ANNIVERSARY_CREATED: "anniversary_created",
     CHARACTER_SWITCHED: "character_switched",
     CHARACTER_CREATED: "character_created",
     WORLDBOOK_UPDATED: "worldbook_updated",

@@ -25,7 +25,8 @@
     const startTime = Date.now();
 
     const boot = global.Phone.Utils.el("div", { class: "boot-screen" });
-    const logo = global.Phone.Utils.el("div", { class: "boot-logo anim-breathe" }, {
+    const logo = global.Phone.Utils.el("div", {
+      class: "boot-logo anim-breathe",
       html: global.Phone.IconLibrary.get("sb-paw-big", { size: 72, strokeWidth: 1.4 })
     });
     const msg = global.Phone.Utils.el("div", { class: "boot-msg", text: global.Phone.Utils.pick(BOOT_MESSAGES) });

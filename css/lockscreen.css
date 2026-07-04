@@ -119,6 +119,14 @@
   color: var(--color-danger);
   animation: shake 0.4s var(--ease-soft);
 }
+.lock-hint {
+  font-size: var(--font-xs);
+  color: var(--color-primary);
+  margin-top: 6px;
+  padding: 6px 12px;
+  background: var(--color-primary-ultralight);
+  border-radius: var(--radius-full);
+}
 
 /* 数字键盘 */
 .lock-pad {

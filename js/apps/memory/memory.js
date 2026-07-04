@@ -39,7 +39,10 @@
     clearBtn.innerHTML = global.Phone.IconLibrary.get("trash", { size: 20 });
     clearBtn.addEventListener("click", async () => {
       if (!current) return;
-      if (!confirm("清空「" + current.name + "」的所有记忆吗？")) return;
+      const ok = await global.Phone.Modal.confirm({
+        title: "清空记忆", message: "清空「" + current.name + "」的所有记忆吗？", danger: true, okText: "清空",
+      });
+      if (!ok) return;
       const mems = await Storage.getByIndex("memories", "characterId", current.id);
       for (const m of mems) await Storage.del("memories", m.id);
       global.Phone.Notify.push({ appId: "memory", title: "已清空记忆" });
@@ -111,7 +114,10 @@
               const b = U.el("button", { class: "icon-btn" });
               b.innerHTML = global.Phone.IconLibrary.get("trash", { size: 16 });
               b.addEventListener("click", async () => {
-                if (!confirm("删除这条记忆？")) return;
+                const ok = await global.Phone.Modal.confirm({
+                  title: "删除记忆", message: "删除这条记忆？", danger: true, okText: "删除",
+                });
+                if (!ok) return;
                 await Storage.del("memories", m.id);
                 _load();
               });

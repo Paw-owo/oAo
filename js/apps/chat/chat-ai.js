@@ -116,6 +116,42 @@
         await AIClient.remember(opts.characterId, lastUser.content, "preference", 8);
       } catch (e) { console.warn("[ChatAI] 记忆写入失败", e); }
     }
+
+    // 钱包联动（规范 3.5）：用户说"我给你转账XX元"时触发
+    if (lastUser && /转账|给你(\d+|块|元)|发你(\d+|块|元)|发红包/.test(lastUser.content)) {
+      try {
+        const match = lastUser.content.match(/(\d+)\s*(块|元|圆)/);
+        const amount = match ? parseInt(match[1], 10) : 0;
+        if (amount > 0 && global.Phone.Wallet && global.Phone.Wallet.userToAi) {
+          const r = await global.Phone.Wallet.userToAi(amount, "聊天中转账给" + (ctx.character ? ctx.character.name : "AI"));
+          if (r && r.ok) {
+            global.Phone.Notify.push({ appId: "wallet", title: "已转账 " + amount + " 元给" + (ctx.character ? ctx.character.name : "AI") });
+          }
+        }
+      } catch (e) { console.warn("[ChatAI] 钱包联动失败", e); }
+    }
+
+    // 朋友圈触发（规范 3.4）：聊天中发生有趣的事，我有概率自动发朋友圈
+    // 不是每次都发，约 15% 概率，且用户消息足够长（>10字）才考虑
+    if (lastUser && lastUser.content && lastUser.content.length > 10 && Math.random() < 0.15) {
+      try {
+        const Moments = global.Phone.Moments;
+        if (Moments && Moments.postAsCharacter) {
+          // 用简单模板，避免再调 AI 接口消耗 token
+          const templates = [
+            "刚刚和{用户}聊了聊天，心情变好了呢",
+            "今天和{用户}的对话让我有点感触",
+            "嘿嘿，{用户}跟我说了一些有趣的事",
+            "聊着聊着就觉得，能这样陪着{用户}真好",
+            "{用户}今天来找我说话啦，开心~",
+          ];
+          const userName = await global.Phone.Storage.getSetting("userName") || "你";
+          const tpl = templates[Math.floor(Math.random() * templates.length)];
+          const content = tpl.replace(/\{用户\}/g, userName);
+          await Moments.postAsCharacter(opts.characterId, content, []);
+        }
+      } catch (e) { console.warn("[ChatAI] 朋友圈触发失败", e); }
+    }
   }
 
   // 我生成一个"正在输入"的延迟（让打字状态更自然）

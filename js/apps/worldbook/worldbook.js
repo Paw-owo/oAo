@@ -73,7 +73,10 @@
     editBtn.addEventListener("click", () => global.Phone.Router.push("wb-edit", editMount, { id: wb.id }));
     const delBtn = U.el("button", { class: "btn btn-text btn-sm", text: "删除" });
     delBtn.addEventListener("click", async () => {
-      if (!confirm("删除「" + wb.name + "」吗？")) return;
+      const ok = await global.Phone.Modal.confirm({
+        title: "删除世界书", message: "删除「" + wb.name + "」吗？", danger: true, okText: "删除",
+      });
+      if (!ok) return;
       await global.Phone.Storage.del("worldbooks", wb.id);
       global.Phone.Notify.push({ appId: "worldbook", title: "已删除" });
       refresh();

@@ -19,9 +19,35 @@
     "systemName", "theme", "wallpaper", "wallpaperMode", "fontSize",
     "iconColumns", "iconSpacing", "dockApps", "hiddenApps", "appOrder",
     "appBackgrounds", "bubbleStyle", "chatBackground",
-    "aiEndpoint", "aiModel", "aiSpeakingStyle", "showThinking",
+    "widgetBackground", "dockBackground", "appIconStyles",
+    "accentColor", "iconRadius", "bubbleRadius",
+    "aiEndpoint", "aiApiKey", "aiModel", "aiSpeakingStyle", "showThinking",
+    "aiFirstPerson", "aiHasOwnLife", "aiSenseWorld", "aiEmotionalResponse", "aiReplyLength", "aiThinkTag",
+    "aiTemperature", "aiMaxTokens",
+    "aiProactiveEnabled", "aiAutoMoment", "aiAutoInteract", "aiAutoChat",
     "lockPassword", "lockWallpaper", "lockAvatar", "lockText",
-    "currentCharacterId", "badgeEnabled", "notifyEnabled", "dndEnabled",
+    "currentCharacterId", "badgeEnabled", "notifyEnabled", "notifyPerApp",
+    "dndEnabled", "dndStart", "dndEnd",
+    "userName", "userNickname", "userGender",
+    // 每个 APP 自己的设置项
+    "walletHideBalance", "walletCurrency", "walletLowThreshold", "walletDefaultCategory",
+    "shopDefaultSort", "shopShowPrices", "shopAutoGift",
+    "memoDefaultSort", "memoDefaultCategory", "memoAutoRemind",
+    "anniversaryUpcomingDays", "anniversaryDefaultRepeat",
+    "anniversaryDefaultSort", "anniversaryShowPassed", "anniversaryDefaultRemindDays", "anniversaryDefaultType",
+    "momentsFeedDensity", "momentsHideLiked",
+    "momentsDefaultVisibility", "momentsShowStats", "momentsAutoLoadImages",
+    "musicDefaultVolume", "musicCrossfade", "musicSleepTimer",
+    "musicDefaultSort", "musicShowStats", "musicAutoPlayNext",
+    "gamesDifficulty", "gamesSound", "gamesShowHint",
+    "gamesShowStats", "gamesDefaultTab", "gamesPinFavorites",
+    "truthDareDefaultType", "truthDareShowHistory", "truthDareShowStats",
+    "undercoverAiOpponent", "undercoverRounds", "undercoverShowStats",
+    "liarDiceDefaultBet", "liarDiceMode", "liarDiceShowStats",
+    "tarotDefaultSpread", "tarotShowHistory", "tarotShowStats",
+    "galleryAutoPlay", "gallerySlideInterval",
+    "mcpEnabled",
+    "ttsEnabled", "ttsVoice", "ttsRate", "ttsPitch", "ttsVolume", "ttsAutoPlay",
   ];
 
   // 启动时从 Storage 一次性加载到缓存
@@ -47,6 +73,17 @@
     cache[key] = val;
     if (PERSISTED_KEYS.indexOf(key) >= 0) {
       try { await global.Phone.Storage.setSetting(key, val); } catch (e) { console.warn("[State] 落库失败", e); }
+      // 持久化设置变更进事件中心，供消息中心 / AI 读取
+      try {
+        const EC = global.Phone.EventCenter;
+        if (EC) {
+          EC.emit(EC.TYPES.SETTINGS_CHANGED, {
+            sourceApp: "settings",
+            data: { key, value: val },
+            summary: "设置变更：" + key,
+          });
+        }
+      } catch (e) { console.warn("[State] emit SETTINGS_CHANGED 失败", e); }
     }
     _notify(key, val);
     // 主题/字号/系统名联动 DOM

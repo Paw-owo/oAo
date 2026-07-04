@@ -7,6 +7,46 @@
 (function (global) {
   "use strict";
 
+  // 我记住当前正在朗读的消息，方便朗读按钮切换图标
+  let _speakingMsgId = null;
+  let _speakingBtn = null;
+
+  // 我切换某条消息的朗读 / 停止朗读
+  function _toggleSpeak(msg, btn) {
+    const TTS = global.Phone.TTS;
+    if (!TTS) return;
+    try {
+      if (_speakingMsgId === msg.id && TTS.isSpeaking()) {
+        // 我停止朗读这条消息
+        TTS.cancel();
+        _resetSpeakBtn();
+      } else {
+        // 我先停掉别的，再朗读这条
+        TTS.cancel();
+        _speakingMsgId = msg.id;
+        _speakingBtn = btn;
+        btn.innerHTML = global.Phone.IconLibrary.get("volume-mute", { size: 14 });
+        btn.classList.add("speaking");
+        TTS.speak(msg.content || "", {
+          onEnd: () => { _resetSpeakBtn(); },
+        });
+      }
+    } catch (e) {
+      console.warn("[MessageRenderer] TTS 朗读失败", e);
+      _resetSpeakBtn();
+    }
+  }
+
+  // 我把朗读按钮恢复成默认（小喇叭）状态
+  function _resetSpeakBtn() {
+    _speakingMsgId = null;
+    if (_speakingBtn) {
+      _speakingBtn.innerHTML = global.Phone.IconLibrary.get("volume", { size: 14 });
+      _speakingBtn.classList.remove("speaking");
+      _speakingBtn = null;
+    }
+  }
+
   /**
    * 我（渲染器）渲染单条消息
    * @param {object} msg { id, role, content, type, createdAt, status, quote }
@@ -81,6 +121,32 @@
       meta.appendChild(U.el("span", { class: "msg-status msg-status-fail", text: "发送失败" }));
     }
     meta.appendChild(U.el("span", { class: "msg-time", text: U.fmtHM(msg.createdAt || Date.now()) }));
+
+    // 我给 AI 的文本消息加一个朗读按钮（点击念出来，再点停止）
+    if (!isMe && msg.type === "text" && !msg.pending && msg.content) {
+      const isSpeaking = _speakingMsgId === msg.id;
+      const speakBtn = U.el("button", {
+        class: "msg-speak-btn" + (isSpeaking ? " speaking" : ""),
+        style: {
+          background: "none",
+          border: "none",
+          padding: "0 0 0 4px",
+          cursor: "pointer",
+          opacity: isSpeaking ? "1" : "0.55",
+          display: "inline-flex",
+          verticalAlign: "middle",
+          color: "var(--text-secondary, #999)",
+          lineHeight: "0",
+        },
+        html: global.Phone.IconLibrary.get(isSpeaking ? "volume-mute" : "volume", { size: 14 }),
+      });
+      speakBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        _toggleSpeak(msg, speakBtn);
+      });
+      meta.appendChild(speakBtn);
+    }
+
     body.appendChild(meta);
 
     wrap.appendChild(body);
@@ -193,6 +259,7 @@
   }
 
   function _timeLabel(ts) {
+    const U = global.Phone.Utils;
     const now = new Date();
     const d = new Date(ts);
     const isToday = now.toDateString() === d.toDateString();

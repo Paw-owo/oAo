@@ -86,15 +86,30 @@
     container.appendChild(page);
 
     document.getElementById("btn-clear").addEventListener("click", async () => {
-      if (!confirm("确定清空所有数据吗？角色/聊天/记忆等都会消失，设置保留。")) return;
+      const ok = await global.Phone.Modal.confirm({
+        title: "清空数据", message: "确定清空所有数据吗？\n角色/聊天/记忆等都会消失，设置保留。", danger: true, okText: "清空",
+      });
+      if (!ok) return;
       await Storage.clearAll();
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.SETTINGS_CHANGED, {
+        sourceApp: "settings", data: { action: "clearAll" }, summary: "清空了所有数据",
+      });
       global.Phone.Notify.push({ appId: "settings", title: "已清空数据" });
       setTimeout(() => location.reload(), 1000);
     });
     document.getElementById("btn-reset").addEventListener("click", async () => {
-      if (!confirm("确定重置系统吗？所有数据包括设置都会恢复到初始状态！")) return;
-      if (!confirm("再确认一次哦，真的要全部重来吗？")) return;
+      const ok1 = await global.Phone.Modal.confirm({
+        title: "重置系统", message: "确定重置系统吗？\n所有数据包括设置都会恢复到初始状态！", danger: true, okText: "继续",
+      });
+      if (!ok1) return;
+      const ok2 = await global.Phone.Modal.confirm({
+        title: "再确认一次", message: "真的要全部重来吗？", danger: true, okText: "全部重来",
+      });
+      if (!ok2) return;
       await Storage.resetSystem();
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.SETTINGS_CHANGED, {
+        sourceApp: "settings", data: { action: "resetSystem" }, summary: "重置了系统",
+      });
       global.Phone.Notify.push({ appId: "settings", title: "系统已重置" });
       setTimeout(() => location.reload(), 1000);
     });

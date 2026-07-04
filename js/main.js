@@ -27,6 +27,15 @@
       console.error("[Main] 状态初始化失败", e);
     }
 
+    // 2.5 应用全局主题引擎（壁纸/小组件/Dock/图标/气泡等所有外观变量）
+    try {
+      if (global.Phone.ThemeEngine && global.Phone.ThemeEngine.init) {
+        await global.Phone.ThemeEngine.init();
+      }
+    } catch (e) {
+      console.error("[Main] 主题引擎初始化失败", e);
+    }
+
     // 3. 注册 Service Worker（PWA 离线）
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js").catch(() => {});
@@ -51,6 +60,10 @@
         }
         if (global.Phone.Memo && global.Phone.Memo.checkReminders) {
           try { global.Phone.Memo.checkReminders(); } catch {}
+        }
+        // 启动我的主动行为引擎（我会主动发朋友圈/点赞评论/主动聊天）
+        if (global.Phone.AIProactive && global.Phone.AIProactive.start) {
+          try { global.Phone.AIProactive.start(); } catch (e) { console.warn("[Main] 我的主动引擎启动失败了", e); }
         }
       }, 1500);
     });

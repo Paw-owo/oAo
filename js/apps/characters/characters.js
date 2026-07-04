@@ -103,7 +103,10 @@
         }
       }},
       { icon: "trash", label: "删除角色", danger: true, fn: async () => {
-        if (!confirm("删除「" + c.name + "」吗？该角色的所有记忆和聊天都会消失哦")) return;
+        const ok = await global.Phone.Modal.confirm({
+          title: "删除角色", message: "删除「" + c.name + "」吗？\n该角色的所有记忆和聊天都会消失哦", danger: true, okText: "删除",
+        });
+        if (!ok) return;
         await global.Phone.Storage.del("characters", c.id);
         // 删除关联记忆和聊天
         try {

@@ -257,7 +257,10 @@
         inputBar.focus();
       } else if (action === "forward") {
         // 转发到朋友圈
-        if (confirm("分享这条消息到朋友圈？")) {
+        const ok = await global.Phone.Modal.confirm({
+          title: "分享到朋友圈", message: "分享这条消息到朋友圈？", okText: "分享",
+        });
+        if (ok) {
           global.Phone.EventCenter.emit("forward_to_moments", {
             sourceApp: "chat",
             data: { content: msg.content },
@@ -289,7 +292,10 @@
         { icon: "image", label: "聊天背景", fn: () => _pickBackground(conv, refresh) },
         { icon: "download", label: "导出聊天记录", fn: () => _exportChat(conv, char) },
         { icon: "trash", label: "清空聊天记录", danger: true, fn: async () => {
-          if (!confirm("确定清空聊天记录吗？不可恢复哦")) return;
+          const ok = await global.Phone.Modal.confirm({
+            title: "清空记录", message: "确定清空聊天记录吗？不可恢复哦", danger: true, okText: "清空",
+          });
+          if (!ok) return;
           conv.messages = []; await Storage.put("conversations", conv); refresh();
         }},
       ];

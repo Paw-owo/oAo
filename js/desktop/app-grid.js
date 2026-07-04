@@ -95,7 +95,8 @@
     const U = global.Phone.Utils;
     const icon = U.el("div", { class: "app-icon" + (isHidden ? " hidden" : ""), dataset: { id: spec.id } });
 
-    const box = U.el("div", { class: "ai-box" }, {
+    const box = U.el("div", {
+      class: "ai-box",
       html: global.Phone.IconLibrary.get(spec.icon || "app-memo", { size: 32 })
     });
     if (badgeCount > 0) {

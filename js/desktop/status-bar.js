@@ -10,6 +10,7 @@
 
   let _interval = null;
   let _currentIndex = 0;
+  let _timeTimer = null;
 
   /**
    * 我（状态栏）渲染到指定容器
@@ -65,14 +66,16 @@
     }, 6000);
 
     // 时间每分钟更新
-    const timeTimer = setInterval(tickTime, 30000);
+    if (_timeTimer) clearInterval(_timeTimer);
+    _timeTimer = setInterval(tickTime, 30000);
 
     return {
       el: bar,
       destroy: () => {
         clearInterval(_interval);
-        clearInterval(timeTimer);
+        clearInterval(_timeTimer);
         _interval = null;
+        _timeTimer = null;
       }
     };
   }

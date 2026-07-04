@@ -10,7 +10,7 @@
   "use strict";
 
   const DB_NAME = "PhoneDB";
-  const DB_VERSION = 1;
+  const DB_VERSION = 4;
 
   // Store 定义：name -> { keyPath, indexes }
   const STORE_DEFS = {
@@ -26,6 +26,9 @@
     transactions:    { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
     shop:            { keyPath: "id",  indexes: [["category", "category"]] },
     inventory:       { keyPath: "id",  indexes: [["characterId", "characterId"], ["itemId", "itemId"]] },
+    favorites:       { keyPath: "id",  indexes: [["itemId", "itemId"], ["createdAt", "createdAt"]] },
+    cart:            { keyPath: "id",  indexes: [["itemId", "itemId"], ["updatedAt", "updatedAt"]] },
+    orders:          { keyPath: "id",  indexes: [["itemId", "itemId"], ["type", "type"], ["createdAt", "createdAt"]] },
     music:           { keyPath: "id"   },
     playlists:       { keyPath: "id"   },
     memos:           { keyPath: "id",  indexes: [["completed", "completed"], ["remindAt", "remindAt"]] },
@@ -33,6 +36,12 @@
     events:          { keyPath: "id",  indexes: [["type", "type"], ["sourceApp", "sourceApp"], ["createdAt", "createdAt"], ["read", "read"]] },
     notifications:   { keyPath: "id",  indexes: [["read", "read"], ["createdAt", "createdAt"]] },
     drafts:          { keyPath: "conversationId" },
+    game_truth_dare: { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
+    game_undercover: { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
+    game_liar_dice:  { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
+    game_tarot:      { keyPath: "id",  indexes: [["createdAt", "createdAt"]] },
+    game_truth_dare_custom: { keyPath: "id", indexes: [["createdAt", "createdAt"]] },
+    game_undercover_custom: { keyPath: "id", indexes: [["createdAt", "createdAt"]] },
   };
 
   let _db = null;
@@ -152,8 +161,21 @@
     aiModel: "gpt-4o-mini",
     aiSpeakingStyle: "",
     showThinking: false,
+    aiFirstPerson: true,
+    aiHasOwnLife: true,
+    aiSenseWorld: true,
+    aiEmotionalResponse: true,
+    aiReplyLength: "normal",
+    aiThinkTag: "<think >...</think >",
     aiTemperature: 0.7,
     aiMaxTokens: 2000,
+    mcpEnabled: false,
+    ttsEnabled: false,
+    ttsAutoPlay: false,
+    ttsVoice: "",
+    ttsRate: 1,
+    ttsPitch: 1,
+    ttsVolume: 1,
     notifyEnabled: true,
     notifyPerApp: {},
     dndEnabled: false,

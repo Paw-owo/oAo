@@ -77,8 +77,8 @@
 .btn-text:active { opacity: 0.6; transform: scale(0.97); }
 
 .btn-danger {
-  background: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);
-  color: #FFF;
+  background: var(--grad-danger);
+  color: var(--text-on-danger);
 }
 
 .btn-sm { padding: 6px 12px; font-size: var(--font-sm); }
@@ -495,7 +495,7 @@
   padding: 0 4px;
   border-radius: var(--radius-full);
   background: var(--color-danger);
-  color: #fff;
+  color: var(--text-on-danger);
   font-size: 10px;
   font-weight: 600;
   display: flex;
@@ -581,3 +581,143 @@
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
 .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* ---------- 统一弹窗 (Phone.Modal) ----------
+   替代 alert/confirm/prompt，全部走 Promise
+   与 .modal-mask 旧样式并存，互不干扰
+----------------------------------------------- */
+.phone-modal-mask {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-mask);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000; /* JS 会自增以支持嵌套 */
+  padding: 24px;
+  opacity: 0;
+  animation: modal-fade-in var(--dur-fast) var(--ease-soft) forwards;
+  box-sizing: border-box;
+}
+.phone-modal-mask.phone-modal-closing {
+  animation: phoneModalFadeOut var(--dur-fast) var(--ease-out) forwards;
+}
+.phone-modal-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+  padding: 24px 20px 16px;
+  transform: scale(0.85) translateY(12px);
+  opacity: 0;
+  animation: modal-pop var(--dur-base) var(--ease-soft) forwards;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.phone-modal-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--color-primary-light), var(--color-primary), var(--color-primary-deep));
+  opacity: 0.7;
+}
+.phone-modal-card.phone-modal-closing {
+  animation: phoneModalPopOut var(--dur-fast) var(--ease-soft) forwards;
+}
+.phone-modal-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.phone-modal-message {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.6;
+  margin-bottom: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.phone-modal-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  background: var(--bg-surface-2);
+  outline: none;
+  transition: border-color var(--dur-fast) var(--ease-soft),
+              background var(--dur-fast) var(--ease-soft);
+  margin-bottom: 18px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+.phone-modal-input:focus {
+  border-color: var(--color-primary);
+  background: var(--bg-surface);
+}
+.phone-modal-btns {
+  display: flex;
+  gap: 10px;
+}
+.phone-modal-btn-cancel,
+.phone-modal-btn-ok,
+.phone-modal-btn-danger {
+  flex: 1;
+  padding: 11px 16px;
+  border: none;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  user-select: none;
+  transition: transform var(--dur-fast) var(--ease-soft),
+              opacity var(--dur-fast) var(--ease-soft);
+}
+.phone-modal-btn-cancel {
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+}
+.phone-modal-btn-cancel:active { transform: scale(0.96); }
+.phone-modal-btn-ok {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-deep));
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-soft);
+}
+.phone-modal-btn-ok:active { transform: scale(0.96); }
+.phone-modal-btn-danger {
+  background: linear-gradient(135deg, var(--color-danger), var(--color-danger-deep));
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-soft);
+}
+.phone-modal-btn-danger:active { transform: scale(0.96); }
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-pop {
+  0% { transform: scale(0.85) translateY(12px); opacity: 0; }
+  60% { transform: scale(1.02) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes phoneModalFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes phoneModalPopOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.92); }
+}
