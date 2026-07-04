@@ -334,5 +334,29 @@
       _emitWallet(global.Phone.Utils, "user", amount, note || "AI 转账", current);
       return { ok: true };
     },
+    // 供 AI 调用：用户转钱给 AI（聊天中说"我给你转账"时触发）
+    async userToAi(amount, note) {
+      const Storage = global.Phone.Storage;
+      const w = await Storage.get("wallet", "main");
+      if (!w) return { ok: false, error: "钱包未初始化" };
+      if ((w.userBalance || 0) < amount) return { ok: false, error: "余额不够啦" };
+      w.userBalance = (w.userBalance || 0) - amount;
+      w.aiBalance = (w.aiBalance || 0) + amount;
+      w.transactions = w.transactions || [];
+      w.transactions.push({
+        id: global.Phone.Utils.uid("tx"), type: "transfer", amount: -amount,
+        balanceType: "user", note: note || "转账给AI", createdAt: Date.now(),
+      });
+      w.transactions.push({
+        id: global.Phone.Utils.uid("tx"), type: "transfer", amount: amount,
+        balanceType: "ai", note: note || "转账给AI", createdAt: Date.now(),
+      });
+      await Storage.put("wallet", w);
+      const currentId = await global.Phone.State.get("currentCharacterId");
+      const chars = await Storage.getAll("characters");
+      const current = chars.find((c) => c.id === currentId) || chars[0];
+      _emitWallet(global.Phone.Utils, "ai", amount, note || "转账给AI", current);
+      return { ok: true };
+    },
   };
 })(window);

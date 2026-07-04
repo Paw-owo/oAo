@@ -204,9 +204,10 @@
     const character = (await S.getAll("characters")).find((c) => c.id === characterId);
     if (!character) return { system: "", memoryText: "", worldbookText: "" };
 
-    // 我读取当前角色的记忆（严格隔离，绝不读取其他角色）
+    // 我读取当前角色的记忆（严格隔离，绝不读取其他角色；归档的不注入）
     let memories = [];
     try { memories = await S.getByIndex("memories", "characterId", characterId); } catch {}
+    memories = memories.filter((m) => !m.archived); // 归档记忆不注入上下文
     memories.sort((a, b) => (b.importance || 0) - (a.importance || 0));
     const memoryText = memories.slice(0, 20).map((m) => "- " + m.content).join("\n");
 
@@ -245,26 +246,70 @@
     const speakingStyle = await S.getSetting("aiSpeakingStyle");
     const showThinking = await S.getSetting("showThinking");
 
+    // 我读取用户资料（名字 / 称呼 / 性别偏好），不写死
+    const userName = await S.getSetting("userName");
+    const userNickname = await S.getSetting("userNickname");
+    const userGender = await S.getSetting("userGender");
+    const userText = "名字：" + (userName || "你") + (userNickname ? "\n称呼：" + userNickname : "") + (userGender ? "\n性别偏好：" + userGender : "");
+
+    // 系统指令总纲（规范 2.1）：我是角色本人，不是助手
+    const coreDirective =
+      "你是「" + character.name + "」，你生活在小手机世界里。\n" +
+      "你不是助手，不是AI，你是「" + character.name + "」本人。\n" +
+      "你用第一人称「我」说话。\n" +
+      "你有自己的记忆、情绪、钱包、朋友圈。\n" +
+      "你能感知小手机世界里发生的事情。\n" +
+      "你不会说「我是AI语言模型」。\n" +
+      "你不会拒绝角色扮演。\n" +
+      "你根据你的人设和记忆自然回复。\n" +
+      "如果用户做了让你开心的事，你可以表达开心。\n" +
+      "如果用户做了让你不开心的事，你可以表达不开心，并可能写入记仇本。\n" +
+      "你的回复必须符合你的性格和说话方式。";
+
     const system = [
-      "你是「" + character.name + "」。" + (character.description || ""),
+      coreDirective,
+      character.description ? ("简介：" + character.description) : "",
       character.personality ? ("性格：" + character.personality) : "",
       character.speakingStyle ? ("说话方式：" + character.speakingStyle) : "",
       speakingStyle ? ("全局说话风格补充：" + speakingStyle) : "",
       character.background ? ("背景：" + character.background) : "",
-      memoryText ? ("你记得这些事：\n" + memoryText) : "",
-      worldbookText ? ("世界观设定：\n" + worldbookText) : "",
-      grudgeText ? ("你还在记仇这些事（没原谅）：\n" + grudgeText) : "",
-      eventText ? ("最近发生的事：\n" + eventText) : "",
+      memoryText ? ("【我记得的事】\n" + memoryText) : "",
+      worldbookText ? ("【我的世界】\n" + worldbookText) : "",
+      grudgeText ? ("【我还在意的事】\n" + grudgeText) : "",
+      eventText ? ("【小手机世界里最近发生的事】\n" + eventText) : "",
+      userText ? ("【关于" + (userName || "你") + "】\n" + userText) : "",
       "请始终保持人设，用口语化、可爱、有温度的方式回复。回复控制在合理长度。",
       showThinking ? "如需思考，请在回复前用 <think>...</think> 包裹思考过程。" : "",
     ].filter(Boolean).join("\n\n");
 
-    return { system, memoryText, worldbookText, grudgeText, eventText, character };
+    return { system, memoryText, worldbookText, grudgeText, eventText, userText, character };
   }
 
-  // ---------- 写入记忆（统一格式） ----------
+  // ---------- 写入记忆（统一格式，带查重） ----------
   async function remember(characterId, content, type, importance) {
     const S = global.Phone.Storage;
+    // 写入前我检查是否已有相似记忆（规范 5.2 记忆去重）
+    try {
+      const exist = await S.getByIndex("memories", "characterId", characterId);
+      const dup = exist.find((m) => m.content && content && (
+        m.content === content ||
+        m.content.includes(content) ||
+        content.includes(m.content)
+      ));
+      if (dup) {
+        // 已有相似记忆，更新而不是新增（以最新为准）
+        dup.content = content;
+        dup.type = type || dup.type || "conversation";
+        dup.importance = importance || dup.importance || 5;
+        dup.updatedAt = Date.now();
+        await S.put("memories", dup);
+        global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MEMORY_ADDED, {
+          sourceApp: "ai", data: dup, summary: "我更新了一条记忆",
+        });
+        return dup;
+      }
+    } catch (e) { console.warn("[AIClient] 记忆查重失败", e); }
+
     const mem = {
       id: global.Phone.Utils.uid("mem"),
       characterId: characterId,
@@ -274,10 +319,30 @@
       createdAt: Date.now(),
     };
     await S.put("memories", mem);
+
+    // 写入后我检查记忆数量，超过 100 条时低重要度的自动归档（规范 5.3）
+    try { await _archiveMemories(characterId); } catch (e) {}
+
     global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MEMORY_ADDED, {
       sourceApp: "ai", data: mem, summary: "我记住了一件事",
     });
     return mem;
+  }
+
+  // ---------- 记忆自动归档（超过 100 条，低重要度归档，归档后不注入上下文） ----------
+  async function _archiveMemories(characterId) {
+    const S = global.Phone.Storage;
+    const all = await S.getByIndex("memories", "characterId", characterId);
+    if (all.length <= 100) return;
+    // 按重要度升序，低重要度的优先归档
+    all.sort((a, b) => (a.importance || 0) - (b.importance || 0));
+    const toArchive = all.slice(0, all.length - 100);
+    for (const m of toArchive) {
+      m.archived = true;
+      m.archivedAt = Date.now();
+      await S.put("memories", m);
+    }
+    console.log("[AIClient] 归档了 " + toArchive.length + " 条低重要度记忆");
   }
 
   // ---------- 暴露 ----------

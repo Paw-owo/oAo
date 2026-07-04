@@ -24,6 +24,7 @@
     "lockPassword", "lockWallpaper", "lockAvatar", "lockText",
     "currentCharacterId", "badgeEnabled", "notifyEnabled", "notifyPerApp",
     "dndEnabled", "dndStart", "dndEnd",
+    "userName", "userNickname", "userGender",
   ];
 
   // 启动时从 Storage 一次性加载到缓存

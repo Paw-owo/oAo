@@ -163,16 +163,52 @@
     });
     content.appendChild(bgGroup);
 
+    // 我的资料（让 AI 知道我是谁）
+    content.appendChild(U.el("div", { class: "settings-section-title", text: "我的资料" }));
+    content.appendChild(U.el("div", { class: "form-hint", text: "这些信息 AI 会知道，让 TA 更懂你", style: { marginBottom: "8px" } }));
+    const profGroup = U.el("div", { class: "settings-group" });
+    const uName = State.get("userName") || "";
+    const uNick = State.get("userNickname") || "";
+    const uGender = State.get("userGender") || "";
+
+    const nameRow = U.el("div", { class: "settings-row" });
+    nameRow.appendChild(U.el("div", { class: "sr-icon", html: global.Phone.IconLibrary.get("user", { size: 18 }) }));
+    nameRow.appendChild(U.el("div", { class: "sr-main" }, [
+      U.el("div", { class: "sr-title", text: "我的名字" }),
+      U.el("div", { class: "sr-sub", text: uName || "未设置", style: { fontSize: "var(--font-xs)", color: "var(--text-placeholder)" } }),
+    ]));
+    nameRow.addEventListener("click", () => _editProfileField("userName", "我的名字", "请输入你的名字", container));
+    profGroup.appendChild(nameRow);
+
+    const nickRow = U.el("div", { class: "settings-row" });
+    nickRow.appendChild(U.el("div", { class: "sr-icon", html: global.Phone.IconLibrary.get("heart", { size: 18 }) }));
+    nickRow.appendChild(U.el("div", { class: "sr-main" }, [
+      U.el("div", { class: "sr-title", text: "希望被叫什么" }),
+      U.el("div", { class: "sr-sub", text: uNick || "未设置", style: { fontSize: "var(--font-xs)", color: "var(--text-placeholder)" } }),
+    ]));
+    nickRow.addEventListener("click", () => _editProfileField("userNickname", "希望被叫什么", "AI 会这样称呼你", container));
+    profGroup.appendChild(nickRow);
+
+    const genderRow = U.el("div", { class: "settings-row" });
+    genderRow.appendChild(U.el("div", { class: "sr-icon", html: global.Phone.IconLibrary.get("users", { size: 18 }) }));
+    genderRow.appendChild(U.el("div", { class: "sr-main" }, [
+      U.el("div", { class: "sr-title", text: "性别偏好" }),
+      U.el("div", { class: "sr-sub", text: uGender || "未设置", style: { fontSize: "var(--font-xs)", color: "var(--text-placeholder)" } }),
+    ]));
+    genderRow.addEventListener("click", () => _editGender(container));
+    profGroup.appendChild(genderRow);
+    content.appendChild(profGroup);
+
     // 系统名
     content.appendChild(U.el("div", { class: "settings-section-title", text: "其他" }));
     const otherGroup = U.el("div", { class: "settings-group" });
-    const nameRow = U.el("div", { class: "settings-row" });
-    nameRow.appendChild(U.el("div", { class: "sr-icon", html: global.Phone.IconLibrary.get("info", { size: 18 }) }));
-    nameRow.appendChild(U.el("div", { class: "sr-main" }, [U.el("div", { class: "sr-title", text: "系统名字" })]));
+    const sysNameRow = U.el("div", { class: "settings-row" });
+    sysNameRow.appendChild(U.el("div", { class: "sr-icon", html: global.Phone.IconLibrary.get("info", { size: 18 }) }));
+    sysNameRow.appendChild(U.el("div", { class: "sr-main" }, [U.el("div", { class: "sr-title", text: "系统名字" })]));
     const nameVal = U.el("div", { class: "sr-right", text: State.get("systemName") || "小手机" });
-    nameRow.appendChild(nameVal);
-    nameRow.addEventListener("click", () => _editName(container));
-    otherGroup.appendChild(nameRow);
+    sysNameRow.appendChild(nameVal);
+    sysNameRow.addEventListener("click", () => _editName(container));
+    otherGroup.appendChild(sysNameRow);
     content.appendChild(otherGroup);
 
     page.appendChild(content);
@@ -243,6 +279,38 @@
     mask.appendChild(modal);
     mask.addEventListener("click", (e) => { if (e.target === mask) mask.remove(); });
     document.body.appendChild(mask);
+  }
+
+  function _editProfileField(key, title, placeholder, container) {
+    const U = global.Phone.Utils;
+    const State = global.Phone.State;
+    global.Phone.Modal.prompt({
+      title: title,
+      message: placeholder,
+      defaultValue: State.get(key) || "",
+      placeholder: placeholder,
+    }).then(async (val) => {
+      if (val === null) return;
+      await State.set(key, val.trim());
+      global.Phone.Notify.push({ appId: "settings", title: "已保存" });
+      _remount(container);
+    });
+  }
+
+  function _editGender(container) {
+    const U = global.Phone.Utils;
+    const State = global.Phone.State;
+    const cur = State.get("userGender") || "";
+    global.Phone.Modal.prompt({
+      title: "性别偏好",
+      message: "如：女生 / 男生 / 不想说，或自定义",
+      defaultValue: cur,
+      placeholder: "留空表示不设置",
+    }).then(async (val) => {
+      if (val === null) return;
+      await State.set("userGender", val.trim());
+      _remount(container);
+    });
   }
 
   function _editAppBg(app, appBgs, container) {
