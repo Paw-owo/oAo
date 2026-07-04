@@ -52,9 +52,9 @@
         if (global.Phone.Memo && global.Phone.Memo.checkReminders) {
           try { global.Phone.Memo.checkReminders(); } catch {}
         }
-        // 启动 AI 主动行为引擎（让 AI 会主动发朋友圈/点赞评论/主动聊天）
+        // 启动我的主动行为引擎（我会主动发朋友圈/点赞评论/主动聊天）
         if (global.Phone.AIProactive && global.Phone.AIProactive.start) {
-          try { global.Phone.AIProactive.start(); } catch (e) { console.warn("[Main] AI 主动引擎启动失败", e); }
+          try { global.Phone.AIProactive.start(); } catch (e) { console.warn("[Main] 我的主动引擎启动失败了", e); }
         }
       }, 1500);
     });

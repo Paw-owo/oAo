@@ -65,9 +65,9 @@
     thinkRow.appendChild(thinkSwitch);
     content.appendChild(thinkRow);
 
-    // ---------- AI 主动行为 ----------
-    content.appendChild(U.el("div", { class: "settings-section-title", text: "AI 主动行为", style: { marginTop: "16px" } }));
-    content.appendChild(U.el("div", { class: "form-hint", text: "让 AI 像真人一样会主动找你、发朋友圈、给你点赞评论", style: { marginBottom: "8px" } }));
+    // ---------- 我的主动行为 ----------
+    content.appendChild(U.el("div", { class: "settings-section-title", text: "我的主动行为", style: { marginTop: "16px" } }));
+    content.appendChild(U.el("div", { class: "form-hint", text: "我会像真人一样主动找你、发朋友圈、给你点赞评论", style: { marginBottom: "8px" } }));
 
     const proactiveSettings = await Storage.getAllSettings();
     const pEnabled = proactiveSettings.aiProactiveEnabled !== false;
@@ -79,7 +79,7 @@
     const pRow = U.el("div", { class: "list-item" }, [
       U.el("div", { class: "li-main" }, [
         U.el("div", { class: "li-title", text: "启用主动行为" }),
-        U.el("div", { class: "li-sub", text: "关闭后 AI 不会主动打扰你" }),
+        U.el("div", { class: "li-sub", text: "关闭后我不会主动打扰你" }),
       ]),
     ]);
     const pSwitch = U.el("div", { class: "switch" + (pEnabled ? " on" : "") });
@@ -96,7 +96,7 @@
     // 子开关：自动发朋友圈
     const mRow = U.el("div", { class: "list-item" }, [
       U.el("div", { class: "li-main" }, [
-        U.el("div", { class: "li-title", text: "自动发朋友圈" }),
+        U.el("div", { class: "li-title", text: "我会自动发朋友圈" }),
         U.el("div", { class: "li-sub", text: "每 6 小时发一条" }),
       ]),
     ]);
@@ -112,7 +112,7 @@
     // 子开关：点赞评论
     const iRow = U.el("div", { class: "list-item" }, [
       U.el("div", { class: "li-main" }, [
-        U.el("div", { class: "li-title", text: "点赞评论朋友圈" }),
+        U.el("div", { class: "li-title", text: "我会点赞评论朋友圈" }),
         U.el("div", { class: "li-sub", text: "每 2 小时互动一次" }),
       ]),
     ]);
@@ -128,7 +128,7 @@
     // 子开关：主动聊天
     const cRow = U.el("div", { class: "list-item" }, [
       U.el("div", { class: "li-main" }, [
-        U.el("div", { class: "li-title", text: "主动找你聊天" }),
+        U.el("div", { class: "li-title", text: "我会主动找你聊天" }),
         U.el("div", { class: "li-sub", text: "每 4 小时来打个招呼（1小时内聊过则不打扰）" }),
       ]),
     ]);

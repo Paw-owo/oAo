@@ -27,18 +27,18 @@
     return { endpoint, apiKey, model, temperature, maxTokens, showThinking };
   }
 
-  // ---------- 错误处理 ----------
+  // ---------- 错误处理（我用第一人称给用户温暖的提示） ----------
   function friendlyError(err) {
-    if (!err) return "出错了，请稍后再试～";
-    if (err.name === "AbortError") return "请求被中断了";
+    if (!err) return "我好像出错了，等一下再试～";
+    if (err.name === "AbortError") return "我把话收回去啦";
     if (err.message && /Failed to fetch|NetworkError/i.test(err.message)) {
-      return "网络好像断掉了，检查一下网络再试";
+      return "我的网络好像断掉了，检查一下再试";
     }
-    if (err.status === 401 || err.status === 403) return "接口认证失败，去设置里检查 API Key";
-    if (err.status === 429) return "请求太频繁了，等一下再试";
-    if (err.status >= 500) return "AI 服务暂时打盹了，稍后再试";
-    if (err.message && /timeout/i.test(err.message)) return "AI 思考太久啦，再试一次";
-    return "AI 暂时不想说话，稍后再试～";
+    if (err.status === 401 || err.status === 403) return "我的接口认证失败了，去设置里检查 API Key";
+    if (err.status === 429) return "我说太快了，等一下再试";
+    if (err.status >= 500) return "我有点打盹了，稍后再试";
+    if (err.message && /timeout/i.test(err.message)) return "我思考太久啦，再试一次";
+    return "我暂时不想说话，稍后再试～";
   }
 
   // ---------- 流式聊天 ----------
@@ -58,7 +58,7 @@
 
     const cfg = await getConfig();
     if (!cfg.endpoint || !cfg.apiKey) {
-      const msg = "还没配置 AI 接口，去设置里填一下接口地址和 Key 吧～";
+      const msg = "我还没接到接口配置，去设置里填一下接口地址和 Key 吧～";
       onError(new Error(msg));
       return "";
     }
