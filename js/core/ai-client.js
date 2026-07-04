@@ -511,7 +511,6 @@
       m.archivedAt = Date.now();
       await S.put("memories", m);
     }
-    console.log("[AIClient] 归档了 " + toArchive.length + " 条低重要度记忆");
   }
 
   // ---------- 我删除单条记忆 ----------

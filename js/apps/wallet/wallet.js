@@ -824,17 +824,23 @@
     /** 扣款（向后兼容：amount/note 可选 category） */
     async deduct(amount, note, category) {
       const Storage = global.Phone.Storage;
-      const w = await Storage.get("wallet", "main");
-      if (!w) return { ok: false, error: "钱包未初始化" };
-      if ((w.userBalance || 0) < amount) return { ok: false, error: "余额不够啦" };
-      w.userBalance = (w.userBalance || 0) - amount;
-      w.transactions = w.transactions || [];
-      w.transactions.push({
-        id: global.Phone.Utils.uid("tx"), type: "purchase", amount: -amount,
-        balanceType: "user", category: category || "shopping",
-        note: note || "购买", createdAt: Date.now(),
-      });
-      await Storage.put("wallet", w);
+      let w;
+      try {
+        w = await Storage.get("wallet", "main");
+        if (!w) return { ok: false, error: "钱包未初始化" };
+        if ((w.userBalance || 0) < amount) return { ok: false, error: "余额不够啦" };
+        w.userBalance = (w.userBalance || 0) - amount;
+        w.transactions = w.transactions || [];
+        w.transactions.push({
+          id: global.Phone.Utils.uid("tx"), type: "purchase", amount: -amount,
+          balanceType: "user", category: category || "shopping",
+          note: note || "购买", createdAt: Date.now(),
+        });
+        await Storage.put("wallet", w);
+      } catch (e) {
+        console.warn("[Wallet] deduct 失败", e);
+        throw e;
+      }
       _emitWallet(global.Phone.Utils, "user", -amount, note || "购买", null);
       // 检查低余额
       const threshold = parseInt(global.Phone.State.get("walletLowThreshold"), 10) || 0;

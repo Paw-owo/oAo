@@ -70,6 +70,7 @@
   ];
 
   let _timer = null;
+  let _startTimer = null;
   let _running = false;
   let _lastMomentPost = 0;
   let _lastInteract = 0;
@@ -83,12 +84,12 @@
     // 每 10 分钟跑一次调度
     _timer = setInterval(_tick, 10 * 60 * 1000);
     // 启动后 30 秒我先跑一次（开机后尽快有我的行为）
-    setTimeout(_tick, 30 * 1000);
-    console.log("[AIProactive] 我已启动，主动行为引擎运行中");
+    _startTimer = setTimeout(_tick, 30 * 1000);
   }
 
   function stop() {
     if (_timer) { clearInterval(_timer); _timer = null; }
+    if (_startTimer) { clearTimeout(_startTimer); _startTimer = null; }
     _running = false;
   }
 
@@ -143,7 +144,6 @@
     const content = MOMENT_TEMPLATES[Math.floor(Math.random() * MOMENT_TEMPLATES.length)];
     try {
       await Moments.postAsCharacter(characterId, content, []);
-      console.log("[AIProactive] 我以 " + char.name + " 的身份发了朋友圈：" + content.slice(0, 20));
     } catch (e) { console.warn("[AIProactive] 我发朋友圈失败了", e); }
   }
 
@@ -155,11 +155,9 @@
       // 我 50% 概率点赞，50% 概率评论
       if (Math.random() < 0.5 && Moments.likeUserMoment) {
         await Moments.likeUserMoment(characterId);
-        console.log("[AIProactive] 我点赞了用户的朋友圈");
       } else if (Moments.commentUserMoment) {
         const text = COMMENT_TEMPLATES[Math.floor(Math.random() * COMMENT_TEMPLATES.length)];
         await Moments.commentUserMoment(characterId, text);
-        console.log("[AIProactive] 我评论了用户的朋友圈：" + text);
       }
     } catch (e) { console.warn("[AIProactive] 我互动时失败了", e); }
   }
@@ -204,7 +202,6 @@
         title: (char ? char.name : "我") + " 来找你了",
         body: opener,
       });
-      console.log("[AIProactive] 我主动找用户聊了：" + opener);
     } catch (e) { console.warn("[AIProactive] 我主动聊天失败了", e); }
   }
 
@@ -255,7 +252,6 @@
         body: opener,
       });
       _lastAnniversaryKey = todayKey;
-      console.log("[AIProactive] 周年纪念我主动提及了：" + opener);
     } catch (e) { console.warn("[AIProactive] 我检查周年纪念时出错了", e); }
   }
 

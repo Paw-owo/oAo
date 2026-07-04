@@ -259,6 +259,7 @@
   }
 
   function _timeLabel(ts) {
+    const U = global.Phone.Utils;
     const now = new Date();
     const d = new Date(ts);
     const isToday = now.toDateString() === d.toDateString();

@@ -18,6 +18,8 @@
 
   const MODE_LABELS = { single: "单局", bo3: "三局两胜" };
 
+  let _unmounted = false;
+
   function open() { global.Phone.Router.push("game-liar-dice", mount, {}); }
 
   function _rollDice() {
@@ -31,6 +33,7 @@
   }
 
   async function mount(container) {
+    _unmounted = false;
     global.Phone.Games.applyBg(container);
     const U = global.Phone.Utils;
     const Storage = global.Phone.Storage;
@@ -160,12 +163,13 @@
 
       // 摇骰动画
       let ticks = 0;
-      const timer = setInterval(() => {
+      const diceAnimTimer = setInterval(() => {
+        if (_unmounted) { clearInterval(diceAnimTimer); return; }
         U.empty(myDiceWrap); _diceHtml(U, _rollDice()).forEach((c) => myDiceWrap.appendChild(c));
         U.empty(aiDiceWrap); _diceHtml(U, _rollDice()).forEach((c) => aiDiceWrap.appendChild(c));
         ticks++;
         if (ticks > 8) {
-          clearInterval(timer);
+          clearInterval(diceAnimTimer);
           _settle(bet);
         }
       }, 80);
@@ -386,6 +390,10 @@
     _loadHist();
     page.appendChild(stage);
     container.appendChild(page);
+
+    if (global.Phone.Router && global.Phone.Router.onLeave) {
+      global.Phone.Router.onLeave(() => { _unmounted = true; });
+    }
   }
 
   // ---------- 设置页 ----------

@@ -268,7 +268,13 @@
             const it = await Storage.get("shop", c.itemId);
             if (!it) continue;
             const count = c.count || 1;
-            const res = await global.Phone.Wallet.deduct((it.price || 0) * count, "购买 " + it.name + " x" + count);
+            let res;
+            try {
+              res = await global.Phone.Wallet.deduct((it.price || 0) * count, "购买 " + it.name + " x" + count);
+            } catch (e) {
+              global.Phone.Notify.push({ appId: "shop", title: "结算中途出错了" });
+              continue;
+            }
             if (!res.ok) {
               global.Phone.Notify.push({ appId: "shop", title: "余额不够啦：" + it.name });
               break;
@@ -501,22 +507,27 @@
     });
     if (!ok) return;
     const Wallet = global.Phone.Wallet;
-    const res = await Wallet.deduct(it.price, "购买 " + it.name, "shopping");
-    if (!res.ok) {
-      global.Phone.Notify.push({ appId: "shop", title: res.error });
+    try {
+      const res = await Wallet.deduct(it.price, "购买 " + it.name, "shopping");
+      if (!res.ok) {
+        global.Phone.Notify.push({ appId: "shop", title: res.error });
+        return;
+      }
+      await _addToBag(it, 1);
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.SHOP_PURCHASED, {
+        sourceApp: "shop", data: { itemId: it.id, name: it.name, price: it.price },
+        summary: "买了「" + it.name + "」花了 " + it.price,
+      });
+      // 订单
+      await global.Phone.Storage.put("orders", {
+        id: U.uid("order"), itemId: it.id, name: it.name,
+        price: it.price, count: 1, total: it.price,
+        type: "purchase", createdAt: Date.now(),
+      });
+    } catch (e) {
+      global.Phone.Notify.push({ appId: "shop", title: "购买没成功，等一下再试" });
       return;
     }
-    await _addToBag(it, 1);
-    global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.SHOP_PURCHASED, {
-      sourceApp: "shop", data: { itemId: it.id, name: it.name, price: it.price },
-      summary: "买了「" + it.name + "」花了 " + it.price,
-    });
-    // 订单
-    await global.Phone.Storage.put("orders", {
-      id: U.uid("order"), itemId: it.id, name: it.name,
-      price: it.price, count: 1, total: it.price,
-      type: "purchase", createdAt: Date.now(),
-    });
     global.Phone.Notify.push({ appId: "shop", title: "购买成功，已加入背包" });
     // 我就地刷新顶部余额数字，避免整个重挂导致列表滚动位置丢失
     try {
@@ -866,13 +877,17 @@
       if (!it) return { ok: false, error: "商品不存在" };
       count = count || 1;
       const total = (it.price || 0) * count;
-      const res = await global.Phone.Wallet.deduct(total, "购买 " + it.name + " x" + count, "shopping");
-      if (!res.ok) return res;
-      await _addToBag(it, count);
-      await global.Phone.Storage.put("orders", {
-        id: global.Phone.Utils.uid("order"), itemId, name: it.name,
-        price: it.price, count, total, type: "purchase", createdAt: Date.now(),
-      });
+      try {
+        const res = await global.Phone.Wallet.deduct(total, "购买 " + it.name + " x" + count, "shopping");
+        if (!res.ok) return res;
+        await _addToBag(it, count);
+        await global.Phone.Storage.put("orders", {
+          id: global.Phone.Utils.uid("order"), itemId, name: it.name,
+          price: it.price, count, total, type: "purchase", createdAt: Date.now(),
+        });
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
       global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.SHOP_PURCHASED, {
         sourceApp: "shop",
         data: { itemId, name: it.name, price: it.price, count },

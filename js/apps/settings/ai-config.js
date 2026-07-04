@@ -490,31 +490,34 @@
       const mt = parseInt(document.getElementById("cfg-maxtokens").value) || 2000;
       const tt = (document.getElementById("cfg-thinktag") || {}).value;
       const tv = (document.getElementById("cfg-tts-voice") || {}).value;
-      await Promise.all([
-        State.set("aiEndpoint", e), State.set("aiApiKey", k), State.set("aiModel", m),
-        State.set("aiSpeakingStyle", s), State.set("aiMaxTokens", mt),
-        State.set("aiThinkTag", tt || "<think >...</think >"),
-        State.set("ttsVoice", tv || ""),
-      ]);
+      try {
+        await Promise.all([
+          State.set("aiEndpoint", e), State.set("aiApiKey", k), State.set("aiModel", m),
+          State.set("aiSpeakingStyle", s), State.set("aiMaxTokens", mt),
+          State.set("aiThinkTag", tt || "<think >...</think >"),
+          State.set("ttsVoice", tv || ""),
+        ]);
+      } catch (err) {
+        global.Phone.Notify.push({ appId: "settings", title: "保存失败了，再试一次" });
+        return;
+      }
       global.Phone.Notify.push({ appId: "settings", title: "AI 配置已保存", body: e ? "接口已就绪" : "记得填接口地址哦" });
       global.Phone.Router.back();
     });
 
     // 角色管理入口
-    setTimeout(() => {
-      const charLink = U.el("div", { class: "list-item", style: { marginTop: "20px" } }, [
-        U.el("div", { class: "li-avatar", style: { background: "var(--color-accent-ultralight)", color: "var(--color-accent)" }, html: global.Phone.IconLibrary.get("app-characters", { size: 18 }) }),
-        U.el("div", { class: "li-main" }, [
-          U.el("div", { class: "li-title", text: "角色管理" }),
-          U.el("div", { class: "li-sub", text: "创建 / 编辑 / 切换 AI 角色" }),
-        ]),
-        U.el("div", { class: "li-right", html: global.Phone.IconLibrary.get("chevron-right", { size: 18 }) }),
-      ]);
-      charLink.addEventListener("click", () => {
-        if (global.Phone.Characters) global.Phone.Characters.open();
-      });
-      content.appendChild(charLink);
-    }, 0);
+    const charLink = U.el("div", { class: "list-item", style: { marginTop: "20px" } }, [
+      U.el("div", { class: "li-avatar", style: { background: "var(--color-accent-ultralight)", color: "var(--color-accent)" }, html: global.Phone.IconLibrary.get("app-characters", { size: 18 }) }),
+      U.el("div", { class: "li-main" }, [
+        U.el("div", { class: "li-title", text: "角色管理" }),
+        U.el("div", { class: "li-sub", text: "创建 / 编辑 / 切换 AI 角色" }),
+      ]),
+      U.el("div", { class: "li-right", html: global.Phone.IconLibrary.get("chevron-right", { size: 18 }) }),
+    ]);
+    charLink.addEventListener("click", () => {
+      if (global.Phone.Characters) global.Phone.Characters.open();
+    });
+    content.appendChild(charLink);
   }
 
   function _nav(title) {

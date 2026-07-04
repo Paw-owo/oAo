@@ -13,6 +13,7 @@
    * @param {HTMLElement} container
    */
   async function mount(container) {
+    if (_unsub) { _unsub(); _unsub = null; }
     const U = global.Phone.Utils;
     const State = global.Phone.State;
 
