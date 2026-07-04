@@ -208,7 +208,9 @@
   // ---------- 周年纪念当天我会主动提及 ----------
   async function _checkAnniversary(characterId, now) {
     try {
-      const list = await global.Phone.Storage.getByIndex("anniversaries", "characterId", characterId);
+      // anniversaries 表没有 characterId 索引，我用 getAll 再过滤
+      const all = await global.Phone.Storage.getAll("anniversaries");
+      const list = (all || []).filter((a) => a.characterId === characterId);
       if (!list || list.length === 0) return;
       const today = new Date();
       const todayKey = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
