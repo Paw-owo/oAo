@@ -484,6 +484,26 @@
           State.set("aiThinkTag", tt || "<think >...</think >"),
           State.set("ttsVoice", tv || ""),
         ]);
+        // 同步到默认 API 分组（保持新分组系统与老配置一致）
+        if (global.Phone.AIClient && global.Phone.AIClient.saveApiGroup) {
+          try {
+            const groups = await global.Phone.AIClient.getApiGroups();
+            const def = groups.find((g) => g.isDefault) || groups[0];
+            if (def) {
+              const models = def.models || [];
+              const newModels = (m && models.indexOf(m) < 0) ? models.concat([m]) : models;
+              await global.Phone.AIClient.saveApiGroup({
+                id: def.id,
+                name: def.name,
+                baseUrl: e,
+                apiKey: k,
+                models: newModels,
+                isDefault: true,
+              });
+              await global.Phone.AIClient.setCurrentModel(def.id, m);
+            }
+          } catch (err) { console.warn("[AIConfig] 同步默认分组失败", err); }
+        }
       } catch (err) {
         global.Phone.Notify.push({ appId: "settings", title: "保存失败了，再试一次" });
         return;

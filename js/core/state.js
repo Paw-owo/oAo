@@ -25,6 +25,7 @@
     "aiEndpoint", "aiApiKey", "aiModel", "aiSpeakingStyle", "showThinking",
     "aiFirstPerson", "aiHasOwnLife", "aiSenseWorld", "aiEmotionalResponse", "aiReplyLength", "aiThinkTag",
     "aiTemperature", "aiMaxTokens",
+    "apiGroups", "currentApiGroupId", "currentModel",
     "aiProactiveEnabled", "aiAutoMoment", "aiAutoInteract", "aiAutoChat",
     "lockPassword", "lockWallpaper", "lockAvatar", "lockText",
     "currentCharacterId", "badgeEnabled", "notifyEnabled", "notifyPerApp",

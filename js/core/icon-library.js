@@ -120,6 +120,11 @@
     "gamepad":       '<rect x="3" y="7" width="18" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="15" cy="11" r="0.9" fill="currentColor"/><circle cx="18" cy="14" r="0.9" fill="currentColor"/>',
     "cake":          '<path d="M4 21h16v-7H4zM4 14c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2M12 7V3"/><circle cx="12" cy="6" r="0.8" fill="currentColor"/>',
     "flower":        '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-3 1-5 0-7-1 2 0 4 0 7zM12 14c0 3-1 5 0 7 1-2 0-4 0-7zM10 12c-3 0-5-1-7 0 2 1 4 0 7 0zM14 12c3 0 5 1 7 0-2-1-4 0-7 0z"/>',
+    // ---------- 加号面板功能图标 ----------
+    "wallet":        '<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 9h18"/><circle cx="17" cy="15" r="1.2" fill="currentColor"/><path d="M16 6V4.5A1.5 1.5 0 0 1 17.5 3H19"/>',
+    "map-pin":       '<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
+    "hand":          '<path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11M12 11V4.5a1.5 1.5 0 0 1 3 0V11M15 11V6.5a1.5 1.5 0 0 1 3 0v6.5a7 7 0 0 1-7 7h-1a7 7 0 0 1-6.6-4.6L4 14.5a1.5 1.5 0 0 1 2.6-1.5L9 16M9 11V5.5a1.5 1.5 0 0 0-3 0V13"/>',
+    "sticker":       '<path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8l6-6V6a2 2 0 0 0-2-2z"/><path d="M14 20v-6h6"/><circle cx="9" cy="10" r="0.6" fill="currentColor"/><circle cx="13" cy="10" r="0.6" fill="currentColor"/>',
   };
 
   /**

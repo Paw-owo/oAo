@@ -13,14 +13,164 @@
 (function (global) {
   "use strict";
 
+  // ---------- API 分组管理 ----------
+  // 数据结构：apiGroups 数组，每个分组 {id, name, baseUrl, apiKey, models:[], isDefault}
+  // 默认从现有 aiEndpoint/aiApiKey/aiModel 迁移
+  async function getApiGroups() {
+    const S = global.Phone.Storage;
+    let groups = await S.getSetting("apiGroups");
+    if (!Array.isArray(groups) || groups.length === 0) {
+      // 迁移：从现有单组配置创建默认分组
+      const [endpoint, apiKey, model] = await Promise.all([
+        S.getSetting("aiEndpoint"),
+        S.getSetting("aiApiKey"),
+        S.getSetting("aiModel"),
+      ]);
+      groups = [{
+        id: "default",
+        name: "默认接口",
+        baseUrl: endpoint || "",
+        apiKey: apiKey || "",
+        models: model ? [model] : [],
+        isDefault: true,
+      }];
+      await S.setSetting("apiGroups", groups);
+    }
+    // 始终保证有一个默认分组
+    if (!groups.some((g) => g.isDefault)) {
+      groups[0].isDefault = true;
+      await S.setSetting("apiGroups", groups);
+    }
+    return groups;
+  }
+
+  // 保存/更新分组（group 有 id 则更新无则新增）
+  async function saveApiGroup(group) {
+    const S = global.Phone.Storage;
+    if (!group || typeof group !== "object") return null;
+    const groups = await getApiGroups();
+    if (!group.id) {
+      group.id = global.Phone.Utils.uid("grp");
+      group.isDefault = groups.length === 0 ? true : !!group.isDefault;
+      groups.push(group);
+    } else {
+      const idx = groups.findIndex((g) => g.id === group.id);
+      if (idx >= 0) {
+        groups[idx] = Object.assign({}, groups[idx], group);
+      } else {
+        groups.push(group);
+      }
+    }
+    // 如果新分组被设为默认，取消其他默认
+    if (group.isDefault) {
+      groups.forEach((g) => { if (g.id !== group.id) g.isDefault = false; });
+    }
+    await S.setSetting("apiGroups", groups);
+    // 同步老配置（默认分组的 baseUrl/apiKey/首个 model 写回 aiEndpoint/aiApiKey/aiModel）
+    await _syncLegacyFromDefault(groups);
+    return group;
+  }
+
+  // 删除分组（不能删默认分组）
+  async function deleteApiGroup(id) {
+    const S = global.Phone.Storage;
+    const State = global.Phone.State;
+    const groups = await getApiGroups();
+    const target = groups.find((g) => g.id === id);
+    if (!target) return false;
+    if (target.isDefault) {
+      throw new Error("默认分组不能删除哦");
+    }
+    const filtered = groups.filter((g) => g.id !== id);
+    await S.setSetting("apiGroups", filtered);
+    // 如果当前分组是被删的那个，切回默认
+    const currentId = State.get("currentApiGroupId");
+    if (currentId === id) {
+      const def = filtered.find((g) => g.isDefault) || filtered[0];
+      if (def) await State.set("currentApiGroupId", def.id);
+    }
+    return true;
+  }
+
+  // 设置默认分组（取消其他 isDefault）
+  async function setDefaultGroup(id) {
+    const S = global.Phone.Storage;
+    const State = global.Phone.State;
+    const groups = await getApiGroups();
+    const target = groups.find((g) => g.id === id);
+    if (!target) throw new Error("找不到这个分组");
+    groups.forEach((g) => { g.isDefault = (g.id === id); });
+    await S.setSetting("apiGroups", groups);
+    // 同步老配置
+    await _syncLegacyFromDefault(groups);
+    // 默认分组也是当前分组（如果当前没选过）
+    if (!State.get("currentApiGroupId")) {
+      await State.set("currentApiGroupId", id);
+    }
+    return true;
+  }
+
+  // 获取当前使用的分组（含当前 model）
+  // 从 State.currentApiGroupId + State.currentModel 读取
+  async function getCurrentGroup() {
+    const S = global.Phone.Storage;
+    const State = global.Phone.State;
+    const groups = await getApiGroups();
+    if (!groups.length) return null;
+    let currentId = State.get("currentApiGroupId");
+    let group = currentId ? groups.find((g) => g.id === currentId) : null;
+    if (!group) {
+      // 兼容：没设置 currentApiGroupId 时用默认分组
+      group = groups.find((g) => g.isDefault) || groups[0];
+      try { await State.set("currentApiGroupId", group.id); } catch {}
+    }
+    // 当前模型：优先 currentModel，回退 aiModel，再回退分组首个
+    let currentModel = State.get("currentModel");
+    if (!currentModel) {
+      currentModel = await S.getSetting("aiModel");
+    }
+    if (!currentModel && group.models && group.models.length) {
+      currentModel = group.models[0];
+    }
+    return Object.assign({}, group, { model: currentModel || "" });
+  }
+
+  // 设置当前模型（全局当前模型）
+  async function setCurrentModel(groupId, model) {
+    const State = global.Phone.State;
+    await State.set("currentModel", model || "");
+    // 若分组非当前分组，也切到该分组
+    if (groupId) {
+      const cur = State.get("currentApiGroupId");
+      if (cur !== groupId) {
+        await State.set("currentApiGroupId", groupId);
+      }
+    }
+    return true;
+  }
+
+  // 把默认分组的配置同步到老的 aiEndpoint/aiApiKey/aiModel，保持向后兼容
+  async function _syncLegacyFromDefault(groups) {
+    const S = global.Phone.Storage;
+    const def = groups.find((g) => g.isDefault) || groups[0];
+    if (!def) return;
+    try {
+      await S.setSetting("aiEndpoint", def.baseUrl || "");
+      await S.setSetting("aiApiKey", def.apiKey || "");
+      const firstModel = (def.models && def.models[0]) || "";
+      if (firstModel) await S.setSetting("aiModel", firstModel);
+    } catch {}
+  }
+
   // ---------- 配置读取 ----------
   // overrides: 可选的 per-conv 覆盖（endpoint / apiKey / model / showThinking 等）
   async function getConfig(overrides) {
     const S = global.Phone.Storage;
-    const [endpoint, apiKey, model, temperature, maxTokens, showThinking] = await Promise.all([
-      S.getSetting("aiEndpoint"),
-      S.getSetting("aiApiKey"),
-      S.getSetting("aiModel"),
+    const group = await getCurrentGroup();
+    const endpoint = group ? (group.baseUrl || "") : "";
+    const apiKey = group ? (group.apiKey || "") : "";
+    const model = group ? (group.model || "") : "";
+    const [temperature, maxTokens, showThinking] = await Promise.all([
       S.getSetting("aiTemperature"),
       S.getSetting("aiMaxTokens"),
       S.getSetting("showThinking"),
@@ -678,5 +828,12 @@
     listCharacters,
     switchCharacter,
     getCharacter,
+    // API 分组管理
+    getApiGroups,
+    saveApiGroup,
+    deleteApiGroup,
+    setDefaultGroup,
+    getCurrentGroup,
+    setCurrentModel,
   };
 })(window);

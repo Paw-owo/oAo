@@ -208,6 +208,9 @@
     const inputBar = global.Phone.InputBar.mount({
       initialDraft: conversation.draft || "",
       enterToSend: enterToSend,
+      conversationId: conversationId,
+      characterId: characterId,
+      character: character,
       onDraft: async (text) => {
         conversation.draft = text;
         await Storage.put("conversations", conversation);
@@ -281,7 +284,30 @@
         userMsg.name = msg.name;
         userMsg.icon = msg.icon || "gift";
         userMsg.content = msg.name;
+      } else if (msg.type === "dice") {
+        // renderer 用 msg.point；规范字段 value 也保留
+        userMsg.point = msg.point != null ? msg.point : (msg.value != null ? msg.value : 1);
+        userMsg.value = msg.value != null ? msg.value : userMsg.point;
+        userMsg.content = String(userMsg.point);
+      } else if (msg.type === "rps") {
+        // renderer 用 msg.userHand / msg.aiHand / msg.result；规范字段 userChoice 也保留
+        userMsg.userHand = msg.userHand || msg.userChoice || "rock";
+        userMsg.userChoice = msg.userChoice || userMsg.userHand;
+        userMsg.aiHand = msg.aiHand || global.Phone.Utils.pick(["rock", "paper", "scissors"]);
+        // 兜底计算结果（input-bar 通常已带上 result）
+        if (msg.result) {
+          userMsg.result = msg.result;
+        } else {
+          const u = userMsg.userHand, a = userMsg.aiHand;
+          userMsg.result = (u === a) ? "draw"
+            : ((u === "rock" && a === "scissors") || (u === "scissors" && a === "paper") || (u === "paper" && a === "rock") ? "win" : "lose");
+        }
+        userMsg.content = userMsg.userHand;
+      } else if (msg.type === "card") {
+        userMsg.character = msg.character || character;
+        userMsg.content = (msg.character && msg.character.name) || character.name || "角色名片";
       }
+      // sticker / location / image / file / text 直接用 msg.content，无需额外字段
       conversation.messages.push(userMsg);
       conversation.updatedAt = Date.now();
       currentQuote = null;
@@ -574,11 +600,19 @@
           conv.messages = []; await Storage.put("conversations", conv); refresh();
         }},
         { icon: "app-settings", label: "AI 接口切换", fn: () => {
-          // 跳转到 AI 接口配置页
-          if (global.Phone.AIConfig && global.Phone.AIConfig.mount) {
-            global.Phone.Router.push("ai-config", global.Phone.AIConfig.mount, {});
+          // 在聊天内弹出接口切换小弹窗，不再跳转设置页
+          if (global.Phone.ApiSwitcher && global.Phone.ApiSwitcher.show) {
+            global.Phone.ApiSwitcher.show({
+              conversationId: conv.id,
+              characterId: conv.characterId,
+            });
           } else {
-            global.Phone.Notify.push({ appId: "chat", title: "AI 接口配置页暂不可用" });
+            // 兜底：模块没加载时再回退到设置页
+            if (global.Phone.AIConfig && global.Phone.AIConfig.mount) {
+              global.Phone.Router.push("ai-config", global.Phone.AIConfig.mount, {});
+            } else {
+              global.Phone.Notify.push({ appId: "chat", title: "AI 接口切换暂不可用" });
+            }
           }
         }},
         { icon: "trash", label: "删除聊天", danger: true, fn: async () => {

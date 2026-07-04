@@ -644,7 +644,7 @@
 .ibq-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ibq-cancel { color: var(--text-placeholder); display: inline-flex; }
 
-.ib-main { display: flex; align-items: flex-end; gap: 6px; }
+.ib-main { display: flex; align-items: flex-end; gap: 8px; }
 .ib-btn {
   width: 36px; height: 36px;
   border-radius: var(--radius-full);
@@ -655,13 +655,23 @@
   transition: transform var(--dur-fast) var(--ease-soft), background var(--dur-fast) var(--ease-soft);
 }
 .ib-btn:active { transform: scale(0.92); background: var(--bg-hover); }
-.ib-btn.recording { background: var(--color-danger); color: var(--text-on-danger); animation: pulse 1s ease-in-out infinite; }
+
+/* 发送按钮：44x44 主色渐变圆形，纸飞机白色，scale(0.97) 点击效果 */
 .ib-send {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-full);
   background: var(--grad-primary);
   color: var(--text-on-primary);
   box-shadow: var(--shadow-soft);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-soft), opacity var(--dur-fast) var(--ease-soft);
 }
+.ib-send:active { transform: scale(0.97); }
 .ib-send.disabled { opacity: 0.4; pointer-events: none; }
+.ib-send svg { color: var(--text-on-primary); }
 
 .ib-input-wrap { flex: 1; }
 .ib-input {
@@ -680,35 +690,150 @@
 }
 .ib-input:focus { border-color: var(--color-primary); }
 
-/* 表情面板 */
-.ib-emoji-panel {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 4px;
-  padding: 10px;
+/* ---------- 通用面板基类（表情 / 加号共用） ---------- */
+.ib-panel {
   background: var(--bg-surface);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
+  box-shadow: var(--shadow-card);
   margin-bottom: 6px;
   max-height: 0;
   overflow: hidden;
   opacity: 0;
-  transition: max-height var(--dur-base) var(--ease-soft), opacity var(--dur-base) var(--ease-soft), padding var(--dur-base) var(--ease-soft);
-  padding-top: 0; padding-bottom: 0;
+  padding: 0;
+  transition: max-height var(--dur-base) var(--ease-soft),
+              opacity var(--dur-base) var(--ease-soft),
+              padding var(--dur-base) var(--ease-soft);
 }
-.ib-emoji-panel.open {
-  max-height: 200px;
+.ib-panel.open {
   opacity: 1;
-  padding-top: 10px; padding-bottom: 10px;
+  animation: panelSlideUp var(--dur-base) var(--ease-soft);
 }
-.ib-emoji-item {
-  font-size: 22px;
+
+/* ---------- 表情 / 表情包面板 ---------- */
+.ib-emoji-panel.open { max-height: 40vh; padding: 8px; }
+.ibe-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px 4px 8px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 8px;
+}
+.ibe-tab {
+  flex: 1;
   text-align: center;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  transition: background var(--dur-fast) var(--ease-soft);
+  padding: 6px 8px;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-soft), color var(--dur-fast) var(--ease-soft);
 }
-.ib-emoji-item:active { background: var(--bg-hover); transform: scale(1.2); }
+.ibe-tab.active {
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  font-weight: 600;
+}
+.ibe-body { position: relative; }
+.ibe-view { display: none; }
+.ibe-view.active { display: block; animation: fadeIn var(--dur-fast) var(--ease-soft); }
+
+/* 颜文字网格 */
+.ibe-view .ibe-emoji-item {
+  font-size: 20px;
+  text-align: center;
+  padding: 6px 2px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-soft), transform var(--dur-fast) var(--ease-soft);
+  cursor: pointer;
+}
+.ibe-view.active:not(.ibe-add-view) {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  max-height: calc(40vh - 60px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px;
+}
+.ibe-emoji-item:active { background: var(--bg-hover); transform: scale(1.15); }
+
+/* 收藏表情包网格（3-4 列） */
+.ibe-sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  max-height: calc(40vh - 60px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px;
+}
+.ibe-sticker-item {
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  padding: 2px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--border-soft);
+  transition: transform var(--dur-fast) var(--ease-soft);
+}
+.ibe-sticker-item:active { transform: scale(0.94); }
+.ibe-sticker-item img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+.ibe-empty {
+  text-align: center;
+  padding: 28px 12px;
+  color: var(--text-placeholder);
+  font-size: var(--font-sm);
+}
+.ibe-add-hint {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 12px;
+  padding: 4px 2px;
+}
+
+/* ---------- 加号功能面板 ---------- */
+.ib-plus-panel.open { max-height: 35vh; padding: 12px; }
+.ibp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px 6px;
+}
+.ibp-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-soft), transform var(--dur-fast) var(--ease-soft);
+}
+.ibp-item:active { background: var(--bg-hover); transform: scale(0.94); }
+.ibp-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  display: flex; align-items: center; justify-content: center;
+}
+.ibp-label {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
 
 /* ---------- 角色资料弹层 ---------- */
 .char-profile .cp-row { margin-bottom: 6px; font-size: var(--font-sm); line-height: 1.5; }
@@ -1279,9 +1404,7 @@
   from { transform: translateY(24px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
-.ib-emoji-panel.open {
-  animation: panelSlideUp var(--dur-base) var(--ease-soft);
-}
+/* 面板打开时统一应用滑入动画（.ib-panel.open 在面板基类里已经声明） */
 
 /* 5. 发送按钮淡入淡出（输入有内容时淡入，空时淡出） */
 @keyframes sendFade {
@@ -1335,10 +1458,196 @@
   bottom: 0;
 }
 /* 表情/功能面板：键盘弹出时限制最大高度为可视区一半 */
-.conv-page.keyboard-open .ib-emoji-panel.open {
+.conv-page.keyboard-open .ib-emoji-panel.open,
+.conv-page.keyboard-open .ib-plus-panel.open {
   max-height: 30dvh;
 }
 /* 输入框 focus 高亮（视觉提示用户当前位置） */
 .ib-input:focus {
   box-shadow: 0 0 0 3px var(--color-primary-ultralight), var(--shadow-neu-in);
+}
+
+/* ============================================================
+   API 接口切换小弹窗（聊天内快速切换）
+   ============================================================ */
+.api-switcher-mask {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-mask);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-soft);
+}
+.api-switcher-mask.open { opacity: 1; }
+.api-switcher-mask.closing { opacity: 0; }
+.api-switcher-card {
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-float);
+  padding: 16px 16px 12px;
+  overflow: hidden;
+  animation: softPop var(--dur-base) var(--ease-soft);
+}
+.api-switcher-card.anim-pop { animation: softPop var(--dur-base) var(--ease-soft); }
+.as-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.as-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.as-close {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+.as-close:active { background: var(--bg-hover); }
+.as-fail-hint {
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--color-danger-ultralight, rgba(255, 90, 90, 0.1));
+  border-left: 3px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  color: var(--color-danger);
+}
+.as-section { margin-bottom: 12px; }
+.as-section-label {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  padding-left: 4px;
+}
+.as-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.as-model-list { max-height: 40vh; }
+.as-empty {
+  text-align: center;
+  padding: 20px 12px;
+  color: var(--text-placeholder);
+  font-size: var(--font-sm);
+}
+.as-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-2);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-soft);
+}
+.as-item:active { background: var(--bg-hover); }
+.as-item.active { background: var(--color-primary-ultralight); }
+.asi-icon {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--color-primary-deep);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.asi-main { flex: 1; min-width: 0; }
+.asi-title {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asi-sub {
+  font-size: var(--font-xs);
+  color: var(--text-placeholder);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asi-tag {
+  font-size: var(--font-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  flex-shrink: 0;
+}
+.asi-check {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  color: transparent;
+  flex-shrink: 0;
+}
+.asi-check.on { color: var(--color-primary); }
+.as-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+.as-chip {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-soft), color var(--dur-fast) var(--ease-soft);
+}
+.as-chip:active { transform: scale(0.96); }
+.as-chip.active {
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  font-weight: 500;
+}
+.as-divider {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 4px 0;
+}
+.as-add-model {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.as-add-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+}
+.as-add-input:focus { border-color: var(--color-primary); }
+.as-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
 }
