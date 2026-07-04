@@ -1,0 +1,186 @@
+/* ============================================================
+   settings.css — 设置中心样式
+   ============================================================ */
+.settings-page { background: var(--bg-base); }
+.settings-section { margin-bottom: 20px; }
+.settings-section-title {
+  font-size: var(--font-xs);
+  color: var(--text-placeholder);
+  padding: 0 16px;
+  margin: 16px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.settings-group {
+  margin: 0 16px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  position: relative;
+  transition: background var(--dur-fast) var(--ease-soft);
+}
+.settings-row:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 50px; right: 16px; bottom: 0;
+  height: 1px;
+  background: var(--border-soft);
+  transform: scaleY(0.5);
+}
+.settings-row:active { background: var(--bg-hover); }
+.sr-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sr-main { flex: 1; min-width: 0; }
+.sr-title { font-size: var(--font-base); color: var(--text-primary); }
+.sr-sub { font-size: var(--font-xs); color: var(--text-secondary); margin-top: 2px; }
+.sr-right {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--font-sm); color: var(--text-placeholder);
+  flex-shrink: 0;
+}
+.sr-right .chevron { color: var(--text-placeholder); display: inline-flex; }
+
+/* 主题选择卡 */
+.theme-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+.theme-card {
+  text-align: center;
+  cursor: pointer;
+}
+.theme-preview {
+  width: 100%;
+  aspect-ratio: 9/16;
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+  border: 2px solid transparent;
+  box-shadow: var(--shadow-soft);
+  transition: border-color var(--dur-fast) var(--ease-soft), transform var(--dur-fast) var(--ease-soft);
+}
+.theme-card.active .theme-preview { border-color: var(--color-primary); }
+.theme-card:active .theme-preview { transform: scale(0.96); }
+.theme-card[data-theme="honey"] .theme-preview { background: linear-gradient(135deg, #FFE9B0 0%, #FFD66E 100%); }
+.theme-card[data-theme="pink"] .theme-preview { background: linear-gradient(135deg, #FFC4D2 0%, #F38BA0 100%); }
+.theme-card[data-theme="sky"] .theme-preview { background: linear-gradient(135deg, #B9DAFB 0%, #6FB5F0 100%); }
+.theme-name { font-size: var(--font-sm); color: var(--text-secondary); }
+.theme-card.active .theme-name { color: var(--color-primary-deep); font-weight: 500; }
+
+/* 壁纸选择 */
+.wallpaper-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 16px;
+}
+.wp-item {
+  aspect-ratio: 9/16;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  border: 2px solid transparent;
+  background: var(--grad-bg-soft);
+  box-shadow: var(--shadow-soft);
+}
+.wp-item.active { border-color: var(--color-primary); }
+.wp-item img { width: 100%; height: 100%; object-fit: cover; }
+.wp-item .wp-label {
+  position: absolute;
+  bottom: 4px; left: 4px;
+  background: rgba(255,255,255,0.7);
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  color: var(--text-primary);
+}
+
+/* 颜色色板 */
+.color-swatch-row {
+  display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 16px;
+}
+.color-swatch {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  border: 2px solid transparent;
+  box-shadow: var(--shadow-soft);
+}
+.color-swatch.active { border-color: var(--color-primary-deep); transform: scale(1.1); }
+
+/* 关于页 */
+.about-card {
+  margin: 24px 16px;
+  padding: 30px 16px;
+  text-align: center;
+  background: var(--bg-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+}
+.about-logo {
+  width: 72px; height: 72px;
+  border-radius: var(--radius-full);
+  background: var(--grad-primary);
+  margin: 0 auto 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  box-shadow: var(--shadow-card);
+}
+.about-name { font-size: var(--font-lg); font-weight: 600; color: var(--text-primary); }
+.about-version { font-size: var(--font-sm); color: var(--text-secondary); margin-top: 4px; }
+.about-desc { font-size: var(--font-sm); color: var(--text-placeholder); margin-top: 12px; line-height: 1.6; }
+
+/* 输入页（用于系统名等） */
+.input-page-content { padding: 16px; }
+
+/* Dock 编辑 */
+.dock-editor {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 16px;
+}
+.dock-slot {
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-2);
+  border: 2px dashed var(--border-strong);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  position: relative;
+}
+.dock-slot.filled { border-style: solid; background: var(--bg-surface); box-shadow: var(--shadow-neu-out); }
+.dock-slot .ds-icon { width: 50%; height: 50%; color: var(--color-primary); }
+.dock-slot .ds-name { position: absolute; bottom: 4px; font-size: 10px; color: var(--text-secondary); }
+.dock-slot .ds-clear {
+  position: absolute;
+  top: -6px; right: -6px;
+  width: 18px; height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* 危险区 */
+.danger-zone {
+  margin: 24px 16px;
+}
+.danger-zone .btn { margin-bottom: 8px; }
