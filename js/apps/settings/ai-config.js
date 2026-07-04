@@ -65,6 +65,92 @@
     thinkRow.appendChild(thinkSwitch);
     content.appendChild(thinkRow);
 
+    // ---------- AI 主动行为 ----------
+    content.appendChild(U.el("div", { class: "settings-section-title", text: "AI 主动行为", style: { marginTop: "16px" } }));
+    content.appendChild(U.el("div", { class: "form-hint", text: "让 AI 像真人一样会主动找你、发朋友圈、给你点赞评论", style: { marginBottom: "8px" } }));
+
+    const proactiveSettings = await Storage.getAllSettings();
+    const pEnabled = proactiveSettings.aiProactiveEnabled !== false;
+    const pMoment = proactiveSettings.aiAutoMoment !== false;
+    const pInteract = proactiveSettings.aiAutoInteract !== false;
+    const pChat = proactiveSettings.aiAutoChat !== false;
+
+    // 总开关
+    const pRow = U.el("div", { class: "list-item" }, [
+      U.el("div", { class: "li-main" }, [
+        U.el("div", { class: "li-title", text: "启用主动行为" }),
+        U.el("div", { class: "li-sub", text: "关闭后 AI 不会主动打扰你" }),
+      ]),
+    ]);
+    const pSwitch = U.el("div", { class: "switch" + (pEnabled ? " on" : "") });
+    pSwitch.addEventListener("click", async () => {
+      const v = !pEnabled;
+      await Storage.setSetting("aiProactiveEnabled", v);
+      pSwitch.classList.toggle("on", v);
+      if (!v && global.Phone.AIProactive) global.Phone.AIProactive.stop();
+      else if (v && global.Phone.AIProactive) global.Phone.AIProactive.start();
+    });
+    pRow.appendChild(pSwitch);
+    content.appendChild(pRow);
+
+    // 子开关：自动发朋友圈
+    const mRow = U.el("div", { class: "list-item" }, [
+      U.el("div", { class: "li-main" }, [
+        U.el("div", { class: "li-title", text: "自动发朋友圈" }),
+        U.el("div", { class: "li-sub", text: "每 6 小时发一条" }),
+      ]),
+    ]);
+    const mSwitch = U.el("div", { class: "switch" + (pMoment ? " on" : "") });
+    mSwitch.addEventListener("click", async () => {
+      const v = !pMoment;
+      await Storage.setSetting("aiAutoMoment", v);
+      mSwitch.classList.toggle("on", v);
+    });
+    mRow.appendChild(mSwitch);
+    content.appendChild(mRow);
+
+    // 子开关：点赞评论
+    const iRow = U.el("div", { class: "list-item" }, [
+      U.el("div", { class: "li-main" }, [
+        U.el("div", { class: "li-title", text: "点赞评论朋友圈" }),
+        U.el("div", { class: "li-sub", text: "每 2 小时互动一次" }),
+      ]),
+    ]);
+    const iSwitch = U.el("div", { class: "switch" + (pInteract ? " on" : "") });
+    iSwitch.addEventListener("click", async () => {
+      const v = !pInteract;
+      await Storage.setSetting("aiAutoInteract", v);
+      iSwitch.classList.toggle("on", v);
+    });
+    iRow.appendChild(iSwitch);
+    content.appendChild(iRow);
+
+    // 子开关：主动聊天
+    const cRow = U.el("div", { class: "list-item" }, [
+      U.el("div", { class: "li-main" }, [
+        U.el("div", { class: "li-title", text: "主动找你聊天" }),
+        U.el("div", { class: "li-sub", text: "每 4 小时来打个招呼（1小时内聊过则不打扰）" }),
+      ]),
+    ]);
+    const cSwitch = U.el("div", { class: "switch" + (pChat ? " on" : "") });
+    cSwitch.addEventListener("click", async () => {
+      const v = !pChat;
+      await Storage.setSetting("aiAutoChat", v);
+      cSwitch.classList.toggle("on", v);
+    });
+    cRow.appendChild(cSwitch);
+    content.appendChild(cRow);
+
+    // 立即触发按钮（调试用）
+    const triggerBtn = U.el("button", { class: "btn btn-ghost btn-sm", text: "立即触发一次（测试）", style: { marginTop: "8px", width: "100%" } });
+    triggerBtn.addEventListener("click", () => {
+      if (global.Phone.AIProactive) {
+        global.Phone.AIProactive.trigger();
+        global.Phone.Notify.push({ appId: "settings", title: "已触发，去看朋友圈/消息列表" });
+      }
+    });
+    content.appendChild(triggerBtn);
+
     // 温度
     content.appendChild(U.el("div", { class: "form-group", style: { marginTop: "16px" } }, [
       U.el("div", { class: "form-label", text: "温度（创造性）：" + (temperature != null ? temperature : 0.7) }),
