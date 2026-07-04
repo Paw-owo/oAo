@@ -98,12 +98,12 @@
         const cnt = map[id] || 0;
         let badge = node.querySelector(".ai-badge");
         if (cnt > 0) {
-          // 有数量才显示，没有 badge 元素就创建
+          // 有未读才显示主色小圆点（8px，不显示数字）
           if (!badge) {
             badge = U.el("div", { class: "ai-badge" });
             if (box) box.appendChild(badge);
           }
-          badge.textContent = cnt > 99 ? "99+" : String(cnt);
+          // 不设 textContent，:empty 时 CSS 自动渲染为 8px 圆点
           badge.classList.remove("hidden");
         } else if (badge) {
           // 数量归 0，直接移除 badge 元素（不留空红点）
@@ -154,7 +154,8 @@
       html: global.Phone.IconLibrary.get(spec.icon || "app-memo", { size: 32 })
     });
     if (badgeCount > 0) {
-      const badge = U.el("div", { class: "ai-badge", text: badgeCount > 99 ? "99+" : String(badgeCount) });
+      // 主色小圆点（8px，不显示数字）：空 div，由 CSS :empty 渲染
+      const badge = U.el("div", { class: "ai-badge" });
       box.appendChild(badge);
     }
     icon.appendChild(box);

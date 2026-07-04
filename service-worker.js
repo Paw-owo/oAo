@@ -2,7 +2,7 @@
    service-worker.js — PWA 离线缓存
    缓存策略：stale-while-revalidate
    ============================================================ */
-const CACHE_VERSION = "phone-v20260705u";
+const CACHE_VERSION = "phone-v20260705v";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const PRECACHE = [
   "./css/chat.css",
   "./css/settings.css",
   "./css/apps.css",
+  "./css/notification-bar.css",
   "./js/core/utils.js",
   "./js/core/icon-library.js",
   "./js/core/storage.js",
@@ -30,6 +31,7 @@ const PRECACHE = [
   "./js/desktop/app-grid.js",
   "./js/desktop/dock.js",
   "./js/desktop/desktop.js",
+  "./js/desktop/notification-bar.js",
   "./js/main.js",
 ];
 

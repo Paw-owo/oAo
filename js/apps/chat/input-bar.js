@@ -31,12 +31,14 @@
    * 我（输入栏）渲染到容器
    * @param {object} opts {
    *   initialDraft, onSend(text|{type,content}), onTyping, quote,
-   *   onCancelQuote, onDraft, onCommand
+   *   onCancelQuote, onDraft, onCommand, enterToSend
    * }
+   *   enterToSend: 默认 true；false 时回车换行，点按钮才发送
    */
   function mount(opts) {
     opts = opts || {};
     const U = global.Phone.Utils;
+    const enterToSend = opts.enterToSend !== false;
 
     const bar = U.el("div", { class: "input-bar" });
 
@@ -302,6 +304,8 @@
         }
       }
       if (e.key === "Enter" && !e.shiftKey) {
+        // 回车发送开关：关闭时回车换行（默认行为），点按钮才发送
+        if (!enterToSend) return;
         e.preventDefault();
         _send();
       }

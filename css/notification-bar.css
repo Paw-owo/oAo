@@ -1,0 +1,106 @@
+/* ============================================================
+   notification-bar.css — 桌面顶部站内通知条样式
+   固定顶部 / 毛玻璃 / 主色系 / 滑入动画
+   ============================================================ */
+
+.notif-bar-host {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
+  z-index: 8500;
+  pointer-events: none; /* 宿主不拦截，子条目单独启用 */
+}
+
+.notif-bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255, 253, 250, 0.86);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  /* 初始状态：在屏幕上方外侧 + 透明 */
+  opacity: 0;
+  transform: translateY(-24px);
+  transition: opacity var(--dur-base) var(--ease-soft),
+              transform var(--dur-base) var(--ease-soft);
+  will-change: opacity, transform;
+}
+
+/* 滑入 */
+.notif-bar.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 滑出（自动消失 / 点击进入） */
+.notif-bar.leaving {
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity var(--dur-fast) var(--ease-soft),
+              transform var(--dur-fast) var(--ease-soft);
+}
+
+/* 头像：圆形 40x40，主色系底 */
+.notif-bar .nb-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-ultralight);
+  color: var(--color-primary-deep);
+  font-size: var(--font-md);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-soft);
+}
+.notif-bar .nb-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 文本区：名字 + 预览 */
+.notif-bar .nb-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.notif-bar .nb-name {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notif-bar .nb-preview {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 减少动效：直接显示，不滑入 */
+@media (prefers-reduced-motion: reduce) {
+  .notif-bar,
+  .notif-bar.show,
+  .notif-bar.leaving {
+    transition: opacity var(--dur-fast) var(--ease-soft);
+    transform: none;
+  }
+}

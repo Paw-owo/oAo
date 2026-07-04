@@ -50,37 +50,46 @@
 
   /**
    * 我（渲染器）渲染单条消息
-   * @param {object} msg { id, role, content, type, createdAt, status, quote }
-   * @param {object} ctx { mode: 'bubble'|'dialog', character, onAction }
+   * @param {object} msg { id, role, content, type, createdAt, status, quote, thinking }
+   * @param {object} ctx { mode: 'bubble'|'dialog', character, onAction, showAvatar, showThinking }
+   *   showAvatar: 默认 true；false 时不渲染 .msg-avatar
+   *   showThinking: 默认 false；true 时若 msg.thinking 有内容则渲染思维链折叠区
    */
   function render(msg, ctx) {
     ctx = ctx || {};
     const U = global.Phone.Utils;
     const isMe = msg.role === "user";
     const mode = ctx.mode || "bubble";
+    const showAvatar = ctx.showAvatar !== false;
+
+    // 系统消息：居中胶囊，无头像无 meta
+    if (msg.type === "system") {
+      return U.el("div", {
+        class: "msg msg-system",
+        dataset: { id: msg.id, role: msg.role }
+      }, [ U.el("span", { text: msg.content || "" }) ]);
+    }
 
     const wrap = U.el("div", {
       class: "msg " + (mode === "bubble" ? "msg-bubble" : "msg-dialog")
         + (isMe ? " msg-me" : " msg-them")
-        + (msg.pending ? " msg-pending" : ""),
+        + (msg.pending ? " msg-pending" : "")
+        + (msg.type ? " msg-type-" + msg.type : ""),
       dataset: { id: msg.id, role: msg.role }
     });
 
     // 时间分组提示由上层处理，这里只渲染单条
 
-    // 头像（仅气泡模式）
-    if (mode === "bubble") {
+    // 头像（仅气泡模式且 showAvatar=true 时渲染；圆形 36x36）
+    if (mode === "bubble" && showAvatar) {
       const avatar = U.el("div", { class: "msg-avatar" });
       if (isMe) {
         avatar.textContent = "我";
-        avatar.style.background = "var(--grad-accent)";
-        avatar.style.color = "#FFF";
       } else if (ctx.character) {
         if (ctx.character.avatar) {
           avatar.innerHTML = '<img src="' + ctx.character.avatar + '" alt=""/>';
         } else {
           avatar.textContent = (ctx.character.name || "AI").slice(0, 1);
-          avatar.style.background = "var(--grad-primary)";
         }
       }
       wrap.appendChild(avatar);
@@ -89,6 +98,11 @@
     // 主体
     const body = U.el("div", { class: "msg-body" });
 
+    // dialog 模式：卡片头部（AI 头像+名字 / 用户"我"标识）
+    if (mode === "dialog") {
+      body.appendChild(_renderDialogHead(msg, ctx));
+    }
+
     // 引用（如果有）
     if (msg.quote) {
       const quote = U.el("div", { class: "msg-quote" }, [
@@ -96,6 +110,12 @@
         U.el("div", { class: "mq-text", text: msg.quote.content })
       ]);
       body.appendChild(quote);
+    }
+
+    // 思维链区域（AI 文本消息且开启 showThinking 时显示；优先用 per-conv 设置）
+    if (!isMe && msg.thinking && ctx.showThinking) {
+      body.appendChild(_renderThinking(msg.thinking, msg.thinkingStreaming));
+      body.appendChild(U.el("div", { class: "msg-thinking-divider" }));
     }
 
     // 内容气泡
@@ -107,6 +127,44 @@
       bubble.appendChild(_renderVoice(msg));
     } else if (msg.type === "file") {
       bubble.appendChild(_renderFile(msg));
+    } else if (msg.type === "transfer") {
+      bubble.classList.add("msg-bubble-card");
+      bubble.style.padding = "0";
+      bubble.style.background = "transparent";
+      bubble.style.boxShadow = "none";
+      bubble.appendChild(_renderTransfer(msg, ctx));
+    } else if (msg.type === "gift") {
+      bubble.classList.add("msg-bubble-card");
+      bubble.style.padding = "0";
+      bubble.style.background = "transparent";
+      bubble.style.boxShadow = "none";
+      bubble.appendChild(_renderGift(msg, ctx));
+    } else if (msg.type === "location") {
+      bubble.classList.add("msg-bubble-card");
+      bubble.style.padding = "0";
+      bubble.style.background = "transparent";
+      bubble.style.boxShadow = "none";
+      bubble.appendChild(_renderLocation(msg));
+    } else if (msg.type === "card") {
+      bubble.classList.add("msg-bubble-card");
+      bubble.style.padding = "0";
+      bubble.style.background = "transparent";
+      bubble.style.boxShadow = "none";
+      bubble.appendChild(_renderCharCard(msg, ctx));
+    } else if (msg.type === "dice") {
+      bubble.classList.add("msg-bubble-card");
+      bubble.style.padding = "0";
+      bubble.style.background = "transparent";
+      bubble.style.boxShadow = "none";
+      bubble.appendChild(_renderDice(msg));
+    } else if (msg.type === "rps") {
+      bubble.classList.add("msg-bubble-card");
+      bubble.style.padding = "0";
+      bubble.style.background = "transparent";
+      bubble.style.boxShadow = "none";
+      bubble.appendChild(_renderRps(msg));
+    } else if (msg.type === "sticker") {
+      bubble.appendChild(_renderSticker(msg));
     } else {
       // 文本消息：dialog 模式用完整 Markdown；bubble 模式只解析行内 md（粗体/斜体/行内代码）
       if (mode === "dialog") {
@@ -116,7 +174,7 @@
         bubble.innerHTML = _renderInlineOnly(msg.content || "");
       }
     }
-    if (msg.pending && (msg.content === "" || msg.content == null)) {
+    if (msg.pending && (msg.content === "" || msg.content == null) && msg.type === "text") {
       bubble.appendChild(U.el("div", { class: "msg-typing-dots" }, [
         U.el("span"), U.el("span"), U.el("span")
       ]));
@@ -140,15 +198,20 @@
     if (isMe && msg.status === "sending") {
       meta.appendChild(U.el("span", {
         class: "msg-status msg-status-sending",
-        html: global.Phone.IconLibrary.get("clock", { size: 12 }),
+        html: global.Phone.IconLibrary.get("refresh", { size: 12 }),
         title: "发送中"
       }));
     } else if (isMe && msg.status === "failed") {
-      meta.appendChild(U.el("span", {
+      const failBtn = U.el("button", {
         class: "msg-status msg-status-fail",
         html: global.Phone.IconLibrary.get("warning", { size: 14 }),
-        title: "发送失败"
-      }));
+        title: "发送失败，点击重发"
+      });
+      failBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (ctx.onAction) ctx.onAction("resend", msg);
+      });
+      meta.appendChild(failBtn);
     }
     meta.appendChild(U.el("span", { class: "msg-time", text: U.fmtHM(msg.createdAt || Date.now()) }));
 
@@ -540,27 +603,40 @@
     const isMe = msg.role === "user";
     const actions = [];
 
-    actions.push({ icon: "copy", label: "复制", fn: () => {
-      _copyText(msg.content);
-      global.Phone.Notify.push({ appId: "chat", title: "已复制到剪贴板" });
-    }});
+    // 复制：仅对有文本内容的消息（text / 未指定类型）
+    if (msg.type === "text" || !msg.type) {
+      actions.push({ icon: "copy", label: "复制", fn: () => {
+        _copyText(msg.content);
+        global.Phone.Notify.push({ appId: "chat", title: "已复制到剪贴板" });
+      }});
+    }
     actions.push({ icon: "quote", label: "引用回复", fn: () => {
       if (ctx.onAction) ctx.onAction("quote", msg);
     }});
-    actions.push({ icon: "forward", label: "转发", fn: () => {
+    actions.push({ icon: "forward", label: "转发到朋友圈", fn: () => {
       if (ctx.onAction) ctx.onAction("forward", msg);
     }});
+    // 撤回：仅自己的消息，且 2 分钟内
     if (isMe && !msg.pending) {
-      actions.push({ icon: "refresh", label: "撤回", fn: () => {
-        if (ctx.onAction) ctx.onAction("recall", msg);
-      }});
+      const age = Date.now() - (msg.createdAt || 0);
+      if (age < 120000) {
+        actions.push({ icon: "refresh", label: "撤回", fn: () => {
+          if (ctx.onAction) ctx.onAction("recall", msg);
+        }});
+      }
     }
     actions.push({ icon: "archive", label: "收藏", fn: () => {
       if (ctx.onAction) ctx.onAction("favorite", msg);
       global.Phone.Notify.push({ appId: "chat", title: "已收藏" });
     }});
+    // 删除：二次确认
     actions.push({ icon: "trash", label: "删除", danger: true, fn: () => {
-      if (ctx.onAction) ctx.onAction("delete", msg);
+      if (!ctx.onAction) return;
+      global.Phone.Modal.confirm({
+        title: "删除消息", message: "确定删除这条消息吗？", danger: true, okText: "删除",
+      }).then((ok) => {
+        if (ok) ctx.onAction("delete", msg);
+      });
     }});
 
     const mask = U.el("div", { class: "sheet-mask" });
@@ -595,6 +671,189 @@
     }
   }
 
+  // ============================================================
+  // 思维链区域（AI 消息上方，可折叠）
+  // thinking: 当前累计的思考文本
+  // isStreaming: 是否仍在流式思考中（true 时默认展开）
+  // ============================================================
+  function _renderThinking(thinking, isStreaming) {
+    const U = global.Phone.Utils;
+    const wrap = U.el("div", { class: "msg-thinking" + (isStreaming ? " open streaming" : "") });
+    const header = U.el("div", { class: "msg-thinking-header" }, [
+      U.el("span", { class: "mth-label", text: isStreaming ? "我正在思考" : "我的思考过程" }),
+      U.el("span", { class: "mth-chevron", html: global.Phone.IconLibrary.get("chevron-down", { size: 14 }) }),
+    ]);
+    const body = U.el("div", { class: "msg-thinking-body", text: thinking || "" });
+    header.addEventListener("click", (e) => {
+      e.stopPropagation();
+      wrap.classList.toggle("open");
+    });
+    wrap.appendChild(header);
+    wrap.appendChild(body);
+    return wrap;
+  }
+
+  // ============================================================
+  // dialog 模式卡片头部（AI：头像+名字；用户："我"标识）
+  // ============================================================
+  function _renderDialogHead(msg, ctx) {
+    const U = global.Phone.Utils;
+    const isMe = msg.role === "user";
+    const head = U.el("div", { class: "msg-dialog-head" });
+    if (isMe) {
+      head.appendChild(U.el("span", { class: "msg-dialog-name", text: "我" }));
+      return head;
+    }
+    const char = ctx.character || {};
+    const avatar = U.el("div", { class: "msg-dialog-avatar" });
+    if (char.avatar) {
+      avatar.innerHTML = '<img src="' + char.avatar + '" alt=""/>';
+    } else {
+      avatar.textContent = (char.name || "AI").slice(0, 1);
+    }
+    head.appendChild(avatar);
+    head.appendChild(U.el("span", { class: "msg-dialog-name", text: char.name || "AI" }));
+    return head;
+  }
+
+  // 小尺寸角色头像（用于转账/名片卡片）
+  function _charAvatar(character, className) {
+    const U = global.Phone.Utils;
+    const char = character || {};
+    const node = U.el("div", { class: className });
+    if (char.avatar) {
+      node.innerHTML = '<img src="' + char.avatar + '" alt=""/>';
+    } else {
+      node.textContent = (char.name || "AI").slice(0, 1);
+    }
+    return node;
+  }
+
+  // ============================================================
+  // 新增消息类型渲染
+  // ============================================================
+
+  // 转账消息：金额 + 角色头像 + 转账给{角色名}，点击查看详情（钱包）
+  function _renderTransfer(msg, ctx) {
+    const U = global.Phone.Utils;
+    const amount = msg.amount != null ? msg.amount : (msg.content || 0);
+    const charName = (ctx.character && ctx.character.name) || "AI";
+    const isMe = msg.role === "user";
+    const toLabel = isMe ? ("转账给" + charName) : "转账给你";
+    const card = U.el("div", { class: "msg-transfer" }, [
+      U.el("div", { class: "mt-row" }, [
+        U.el("div", { class: "mt-amount", text: String(amount) }),
+        U.el("div", { class: "mt-currency", text: "元" }),
+      ]),
+      U.el("div", { class: "mt-row" }, [
+        _charAvatar(ctx.character, "mt-icon"),
+        U.el("div", { class: "mt-to", text: toLabel }),
+      ]),
+      U.el("div", { class: "mt-tip", text: "点击查看详情" }),
+    ]);
+    card.addEventListener("click", () => {
+      if (global.Phone.Wallet && global.Phone.Wallet.open) global.Phone.Wallet.open();
+    });
+    return card;
+  }
+
+  // 礼物消息：礼物图标 + 名称 + 送给{角色名}，点击查看详情（商店）
+  function _renderGift(msg, ctx) {
+    const U = global.Phone.Utils;
+    const giftName = msg.name || msg.content || "礼物";
+    const charName = (ctx.character && ctx.character.name) || "AI";
+    const isMe = msg.role === "user";
+    const toLabel = isMe ? ("送给" + charName) : "送给你";
+    const iconKey = msg.icon || "gift";
+    const card = U.el("div", { class: "msg-gift" }, [
+      U.el("div", { class: "mg-icon", html: global.Phone.IconLibrary.get(iconKey, { size: 22 }) }),
+      U.el("div", { class: "mg-info" }, [
+        U.el("div", { class: "mg-name", text: giftName }),
+        U.el("div", { class: "mg-to", text: toLabel }),
+      ]),
+    ]);
+    card.addEventListener("click", () => {
+      if (global.Phone.Shop && global.Phone.Shop.open) global.Phone.Shop.open();
+    });
+    return card;
+  }
+
+  // 位置消息：位置图标 + 文字（预设可爱位置）
+  function _renderLocation(msg) {
+    const U = global.Phone.Utils;
+    const text = msg.content || "未知地点";
+    return U.el("div", { class: "msg-location" }, [
+      U.el("div", { class: "ml-icon", html: global.Phone.IconLibrary.get("pin", { size: 22 }) }),
+      U.el("div", { class: "ml-text", text: text }),
+    ]);
+  }
+
+  // 角色名片：头像 + 名字 + 简介，点击查看详情
+  function _renderCharCard(msg, ctx) {
+    const U = global.Phone.Utils;
+    const char = msg.character || ctx.character || {};
+    const name = char.name || "AI";
+    const desc = char.description || "点击查看角色详情";
+    const card = U.el("div", { class: "msg-card" }, [
+      _charAvatar(char, "mc-avatar"),
+      U.el("div", { class: "mc-info" }, [
+        U.el("div", { class: "mc-name", text: name }),
+        U.el("div", { class: "mc-desc", text: desc }),
+      ]),
+    ]);
+    card.addEventListener("click", () => {
+      if (ctx.onAction) ctx.onAction("viewCard", msg);
+    });
+    return card;
+  }
+
+  // 骰子消息：3D 感骰子 + 点数（1-6），CSS 旋转动画
+  function _renderDice(msg) {
+    const U = global.Phone.Utils;
+    const point = msg.point != null ? msg.point : (msg.content || 1);
+    const dots = ["", "\u00b7", "\u00b7\u00b7", "\u00b7\u00b7\u00b7", "\u00b7\u00b7\u00b7\u00b7", "\u00b7\u00b7\u00b7\u00b7\u00b7", "\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7"];
+    const face = dots[point] || String(point);
+    return U.el("div", { class: "msg-dice" }, [
+      U.el("div", { class: "md-cube", text: face }),
+      U.el("div", { class: "md-text", text: "掷出 " + point + " 点" }),
+    ]);
+  }
+
+  // 石头剪刀布消息：用户手势 + AI 手势 + 结果
+  function _renderRps(msg) {
+    const U = global.Phone.Utils;
+    const userHand = msg.userHand || "rock";
+    const aiHand = msg.aiHand || "scissors";
+    const result = msg.result || _rpsResult(userHand, aiHand);
+    const LABEL = { rock: "石头", paper: "布", scissors: "剪刀" };
+    const resultText = result === "win" ? "你赢啦" : (result === "lose" ? "我赢啦" : "平局");
+    const resultCls = result === "win" ? "win" : (result === "lose" ? "lose" : "");
+    return U.el("div", { class: "msg-rps" }, [
+      U.el("div", { class: "mr-hand user", text: LABEL[userHand] || userHand }),
+      U.el("div", { class: "mr-vs", text: "对" }),
+      U.el("div", { class: "mr-hand ai", text: LABEL[aiHand] || aiHand }),
+      U.el("div", { class: "mr-result " + resultCls, text: resultText }),
+    ]);
+  }
+
+  function _rpsResult(user, ai) {
+    if (user === ai) return "draw";
+    if ((user === "rock" && ai === "scissors") ||
+        (user === "scissors" && ai === "paper") ||
+        (user === "paper" && ai === "rock")) return "win";
+    return "lose";
+  }
+
+  // 表情包消息：图片，最大 40% 屏宽，无文字时不显示气泡背景
+  function _renderSticker(msg) {
+    const U = global.Phone.Utils;
+    const wrap = U.el("div", { class: "msg-sticker-inner" });
+    if (msg.content) {
+      wrap.innerHTML = '<img src="' + msg.content + '" alt="表情包"/>';
+    }
+    return wrap;
+  }
+
   // 渲染时间分组标签
   function renderTimeDivider(ts) {
     const U = global.Phone.Utils;
@@ -608,11 +867,20 @@
     const now = new Date();
     const d = new Date(ts);
     const isToday = now.toDateString() === d.toDateString();
-    const yesterday = new Date(now.getTime() - 86400000).toDateString() === d.toDateString();
     if (isToday) return U.fmtHM(ts);
-    if (yesterday) return "昨天 " + U.fmtHM(ts);
-    if (now.getFullYear() === d.getFullYear()) return (d.getMonth() + 1) + "月" + d.getDate() + "日";
-    return U.fmtDate(ts);
+    const yesterday = new Date(now.getTime() - 86400000);
+    if (yesterday.toDateString() === d.toDateString()) return "昨天 " + U.fmtHM(ts);
+    // 本周（7 天内）：星期几 时:分
+    const weekMs = 7 * 86400000;
+    if (now.getTime() - ts < weekMs && now > d) {
+      const WEEK_CN = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+      return WEEK_CN[d.getDay()] + " " + U.fmtHM(ts);
+    }
+    // 更早：月日 时:分
+    if (now.getFullYear() === d.getFullYear()) {
+      return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + U.fmtHM(ts);
+    }
+    return U.fmtDate(ts) + " " + U.fmtHM(ts);
   }
 
   // ---------- 暴露 ----------
@@ -621,5 +889,6 @@
     render: render,
     renderTimeDivider: renderTimeDivider,
     _renderMarkdown: _renderMarkdown, // 暴露便于验证 / 调试
+    _renderThinking: _renderThinking, // 思维链渲染（便于验证）
   };
 })(window);

@@ -14,7 +14,8 @@
   "use strict";
 
   // ---------- 配置读取 ----------
-  async function getConfig() {
+  // overrides: 可选的 per-conv 覆盖（endpoint / apiKey / model / showThinking 等）
+  async function getConfig(overrides) {
     const S = global.Phone.Storage;
     const [endpoint, apiKey, model, temperature, maxTokens, showThinking] = await Promise.all([
       S.getSetting("aiEndpoint"),
@@ -24,7 +25,14 @@
       S.getSetting("aiMaxTokens"),
       S.getSetting("showThinking"),
     ]);
-    return { endpoint, apiKey, model, temperature, maxTokens, showThinking };
+    const cfg = { endpoint, apiKey, model, temperature, maxTokens, showThinking };
+    if (overrides) {
+      if (overrides.endpoint) cfg.endpoint = overrides.endpoint;
+      if (overrides.apiKey) cfg.apiKey = overrides.apiKey;
+      if (overrides.model) cfg.model = overrides.model;
+      if (typeof overrides.showThinking === "boolean") cfg.showThinking = overrides.showThinking;
+    }
+    return cfg;
   }
 
   // ---------- 错误处理（我用第一人称给用户温暖的提示） ----------
@@ -64,7 +72,7 @@
     // 我累积流式分片过来的 tool_calls
     let _pendingToolCalls = [];
 
-    const cfg = await getConfig();
+    const cfg = await getConfig(params.configOverride);
     if (!cfg.endpoint || !cfg.apiKey) {
       const msg = "我还没接到接口配置，去设置里填一下接口地址和 Key 吧～";
       onError(new Error(msg));
@@ -210,7 +218,7 @@
         }
         // 我把工具结果送回去，递归调用让模型继续生成
         const newMessages = messages.concat([assistantMsg], toolResults);
-        return await streamChat({ messages: newMessages, onDelta, onDone, onError, signal, onThinking, onRetry, _depth: depth + 1 });
+        return await streamChat({ messages: newMessages, configOverride: params.configOverride, onDelta, onDone, onError, signal, onThinking, onRetry, _depth: depth + 1 });
       }
       onDone(fullText);
       return fullText;
@@ -416,8 +424,11 @@
       "[" + global.Phone.Utils.relTime(e.createdAt) + "] " + (e.summary || e.type)
     ).join("\n");
 
-    const speakingStyle = await S.getSetting("aiSpeakingStyle");
-    const showThinking = await S.getSetting("showThinking");
+    const speakingStyle = (opts.overrides && opts.overrides.speakingStyle)
+      || await S.getSetting("aiSpeakingStyle");
+    const showThinking = (opts.overrides && typeof opts.overrides.showThinking === "boolean")
+      ? opts.overrides.showThinking
+      : await S.getSetting("showThinking");
     // 我读取可配置的软约束开关和提示语（默认值见 storage.js 的 DEFAULT_SETTINGS）
     // 走 State 内存缓存，避免每次 buildContext 都查 IndexedDB
     const aiFirstPerson = global.Phone.State.get("aiFirstPerson") !== false;
@@ -455,8 +466,12 @@
     }
     const coreDirective = softDirective.length ? (hardDirective + "\n" + softDirective.join("\n")) : hardDirective;
 
-    // 默认风格：用户没设全局风格时，我才注入默认风格；设了就完全交给用户
-    const styleLine = speakingStyle ? ("全局说话风格补充：" + speakingStyle) : "请用口语化、可爱、有温度的方式回复，保持人设。";
+    // 默认风格：用户没设风格时，我才注入默认风格；设了就完全交给用户
+    // per-conv 覆盖时标注"本聊天专属风格"
+    const hasPerConvStyle = !!(opts.overrides && opts.overrides.speakingStyle);
+    const styleLine = speakingStyle
+      ? ((hasPerConvStyle ? "本聊天专属说话风格补充：" : "全局说话风格补充：") + speakingStyle)
+      : "请用口语化、可爱、有温度的方式回复，保持人设。";
 
     // 回复长度提示：可配置（short / normal / long）
     const replyLenMap = {

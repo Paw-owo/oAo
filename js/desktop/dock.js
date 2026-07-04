@@ -35,7 +35,8 @@
       });
       const cnt = badges[id] || 0;
       if (cnt > 0) {
-        box.appendChild(U.el("div", { class: "ai-badge", text: cnt > 99 ? "99+" : String(cnt) }));
+        // 主色小圆点（8px，不显示数字）：空 div，由 CSS :empty 渲染
+        box.appendChild(U.el("div", { class: "ai-badge" }));
       }
       item.appendChild(box);
       item.addEventListener("click", () => {
@@ -62,11 +63,12 @@
         const cnt = map[id] || 0;
         let badge = node.querySelector(".ai-badge");
         if (cnt > 0) {
+          // 有未读才显示主色小圆点（8px，不显示数字）
           if (!badge) {
             badge = U.el("div", { class: "ai-badge" });
             if (box) box.appendChild(badge);
           }
-          badge.textContent = cnt > 99 ? "99+" : String(cnt);
+          // 不设 textContent，:empty 时 CSS 自动渲染为 8px 圆点
           badge.classList.remove("hidden");
         } else if (badge) {
           badge.remove();

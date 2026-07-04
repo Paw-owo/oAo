@@ -249,8 +249,8 @@
   height: 16px;
   padding: 0 4px;
   border-radius: var(--radius-full);
-  background: var(--color-danger);
-  color: var(--text-on-danger);
+  background: var(--color-primary);
+  color: var(--text-on-primary);
   font-size: 10px;
   font-weight: 600;
   display: flex;
@@ -259,7 +259,8 @@
   box-shadow: 0 0 0 2px var(--bg-surface);
   z-index: 2;
 }
-.app-icon .ai-badge:empty { width: 8px; min-width: 8px; height: 8px; }
+/* 未读时不显示数字，只显示主色 8px 小圆点 */
+.app-icon .ai-badge:empty { width: 8px; min-width: 8px; height: 8px; padding: 0; }
 
 /* 所有 APP 图标统一跟随主题色（不再五颜六色） */
 .app-icon .ai-box {
@@ -383,8 +384,8 @@
   height: 16px;
   padding: 0 4px;
   border-radius: var(--radius-full);
-  background: var(--color-danger);
-  color: var(--text-on-danger);
+  background: var(--color-primary);
+  color: var(--text-on-primary);
   font-size: 10px;
   font-weight: 600;
   display: flex;
@@ -393,7 +394,8 @@
   box-shadow: 0 0 0 2px var(--bg-surface);
   z-index: 2;
 }
-.dock-item .ai-badge:empty { width: 8px; min-width: 8px; height: 8px; }
+/* 未读时不显示数字，只显示主色 8px 小圆点 */
+.dock-item .ai-badge:empty { width: 8px; min-width: 8px; height: 8px; padding: 0; }
 
 /* 所有 Dock 图标统一跟随主题色（不再五颜五色） */
 .dock-item .di-box {

@@ -74,6 +74,15 @@
         try { global.Phone.Notify.refreshBadges(); } catch {}
       }
     });
+
+    // 启动桌面顶部站内通知条（监听 MESSAGE_RECEIVED）
+    try {
+      if (global.Phone.NotificationBar && global.Phone.NotificationBar.init) {
+        global.Phone.NotificationBar.init();
+      }
+    } catch (e) {
+      console.warn("[Main] 通知条初始化失败", e);
+    }
   }
 
   function _showFatal(msg) {

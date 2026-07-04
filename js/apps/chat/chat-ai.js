@@ -19,8 +19,10 @@
   /**
    * 我（AI）根据当前对话历史生成回复
    * @param {object} opts {
-   *   characterId, conversationId, messages, onDelta, onDone, onError, onThinking, signal
+   *   characterId, conversationId, conversation, messages,
+   *   onDelta, onDone, onError, onThinking, signal
    * }
+   *   conversation: 整个会话对象，我从中读取 per-conv AI 配置覆盖全局
    * @returns {Promise<string>} 我的完整回复
    */
   async function reply(opts) {
@@ -28,8 +30,24 @@
     const AIClient = global.Phone.AIClient;
     const Storage = global.Phone.Storage;
 
-    // 我组装上下文：人设 + 世界书 + 记忆 + 最近事件
-    const ctx = await AIClient.buildContext({ characterId: opts.characterId });
+    // 我从 conversation 上读取 per-conv AI 配置（覆盖全局）
+    const conv = opts.conversation || {};
+    const aiOverrides = {};
+    if (conv.apiEndpoint) aiOverrides.endpoint = conv.apiEndpoint;
+    if (conv.apiKey) aiOverrides.apiKey = conv.apiKey;
+    if (conv.aiModel) aiOverrides.model = conv.aiModel;
+    if (typeof conv.aiSpeakingStyle === "string" && conv.aiSpeakingStyle.trim()) {
+      aiOverrides.speakingStyle = conv.aiSpeakingStyle.trim();
+    }
+    if (typeof conv.showThinking === "boolean") {
+      aiOverrides.showThinking = conv.showThinking;
+    }
+
+    // 我组装上下文：人设 + 世界书 + 记忆 + 最近事件（带 per-conv 覆盖）
+    const ctx = await AIClient.buildContext({
+      characterId: opts.characterId,
+      overrides: aiOverrides,
+    });
 
     // 把对话历史传给我（只保留近 20 条避免太长）
     const history = (opts.messages || []).slice(-20).map((m) => ({
@@ -41,9 +59,10 @@
     // 我严格按角色隔离，绝不混入其他角色的历史
     myMessages.push.apply(myMessages, history);
 
-    // 我开始流式回复
+    // 我开始流式回复（带 per-conv 接口配置覆盖）
     const fullText = await AIClient.streamChat({
       messages: myMessages,
+      configOverride: aiOverrides,
       onDelta: opts.onDelta || function () {},
       onDone: opts.onDone || function () {},
       onError: opts.onError || function () {},
