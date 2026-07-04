@@ -60,6 +60,7 @@
     "repeat":        '<path d="M4 9V7a3 3 0 0 1 3-3h11M20 15v2a3 3 0 0 1-3 3H6"/><path d="M16 2l3 2-3 2M8 22l-3-2 3-2"/>',
     "repeat-one":    '<path d="M4 9V7a3 3 0 0 1 3-3h11M20 15v2a3 3 0 0 1-3 3H6"/><path d="M16 2l3 2-3 2M8 22l-3-2 3-2"/><text x="12" y="14" font-size="8" text-anchor="middle" fill="currentColor" stroke="none">1</text>',
     "volume":        '<path d="M5 9h3l5-4v14l-5-4H5z"/><path d="M16 9a4 4 0 0 1 0 6"/>',
+    "volume-mute":   '<path d="M5 9h3l5-4v14l-5-4H5z"/><path d="M16 9l5 5M21 9l-5 5"/>',
     "heart":         '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
     "heart-fill":    '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z" fill="currentColor" stroke="none"/>',
     "comment":       '<path d="M20 11.5a8 8 0 0 1-11.5 7.2L4 20l1.4-4.2A8 8 0 1 1 20 11.5z"/>',

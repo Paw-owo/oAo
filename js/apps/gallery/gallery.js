@@ -125,7 +125,10 @@
               const b = U.el("button", { class: "icon-btn" });
               b.innerHTML = global.Phone.IconLibrary.get("trash", { size: 16 });
               b.addEventListener("click", async () => {
-                if (!confirm("把这条记仇删掉？")) return;
+                const ok = await global.Phone.Modal.confirm({
+                  title: "删除记仇", message: "把这条记仇删掉？", danger: true, okText: "删除",
+                });
+                if (!ok) return;
                 await Storage.del("grudges", g.id);
                 _load();
               });

@@ -49,6 +49,17 @@
     cache[key] = val;
     if (PERSISTED_KEYS.indexOf(key) >= 0) {
       try { await global.Phone.Storage.setSetting(key, val); } catch (e) { console.warn("[State] 落库失败", e); }
+      // 持久化设置变更进事件中心，供消息中心 / AI 读取
+      try {
+        const EC = global.Phone.EventCenter;
+        if (EC) {
+          EC.emit(EC.TYPES.SETTINGS_CHANGED, {
+            sourceApp: "settings",
+            data: { key, value: val },
+            summary: "设置变更：" + key,
+          });
+        }
+      } catch (e) { console.warn("[State] emit SETTINGS_CHANGED 失败", e); }
     }
     _notify(key, val);
     // 主题/字号/系统名联动 DOM

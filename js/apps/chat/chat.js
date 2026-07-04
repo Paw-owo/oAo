@@ -231,7 +231,10 @@
     });
     actDel.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (!confirm("删除这条聊天记录吗？不可恢复哦")) return;
+      const ok = await global.Phone.Modal.confirm({
+        title: "删除聊天", message: "删除这条聊天记录吗？不可恢复哦", danger: true, okText: "删除",
+      });
+      if (!ok) return;
       await global.Phone.Storage.del("conversations", conv.id);
       // 删除关联消息
       try {
