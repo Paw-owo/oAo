@@ -40,15 +40,9 @@
     const widgets = global.Phone.Widgets.mount(content);
     _destroyers.push(() => widgets.destroy && widgets.destroy());
 
-    // APP 网格
+    // APP 网格（内含分页与页面指示器）
     const grid = await global.Phone.AppGrid.mount(content);
     _destroyers.push(() => grid.destroy && grid.destroy());
-
-    // 页面指示器（2 圆点）
-    const dots = U.el("div", { class: "page-dots" }, [
-      U.el("span", { class: "active" }), U.el("span")
-    ]);
-    content.appendChild(dots);
 
     // Dock
     const dock = await global.Phone.Dock.mount(content);

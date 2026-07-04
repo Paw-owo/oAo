@@ -83,6 +83,7 @@
                   inset -4px -4px 8px rgba(255, 255, 255, 0.92);
 
   --grad-primary: linear-gradient(135deg, #FFD66E 0%, #F5B945 100%);
+  --grad-primary-ultralight: linear-gradient(135deg, #FFF8E2 0%, #FFF0C4 100%);
   --grad-accent: linear-gradient(135deg, #FFC4D2 0%, #F38BA0 100%);
   --grad-bg-soft: linear-gradient(180deg, #FFFDFA 0%, #FFF6E2 100%);
   --grad-danger: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);
@@ -130,6 +131,7 @@
                   inset -4px -4px 8px rgba(255, 255, 255, 0.92);
 
   --grad-primary: linear-gradient(135deg, #FFA8B9 0%, #F38BA0 100%);
+  --grad-primary-ultralight: linear-gradient(135deg, #FFEFF3 0%, #FFE0E8 100%);
   --grad-accent: linear-gradient(135deg, #E0B7F2 0%, #C792EA 100%);
   --grad-bg-soft: linear-gradient(180deg, #FFFCFD 0%, #FFE7EC 100%);
   --grad-danger: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);
@@ -177,6 +179,7 @@
                   inset -4px -4px 8px rgba(255, 255, 255, 0.92);
 
   --grad-primary: linear-gradient(135deg, #94C8F5 0%, #6FB5F0 100%);
+  --grad-primary-ultralight: linear-gradient(135deg, #ECF5FF 0%, #D6EAFF 100%);
   --grad-accent: linear-gradient(135deg, #B4DEC9 0%, #8AC9B4 100%);
   --grad-bg-soft: linear-gradient(180deg, #FDFFFF 0%, #E2EEFF 100%);
   --grad-danger: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);

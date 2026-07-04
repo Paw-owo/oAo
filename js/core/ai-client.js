@@ -353,15 +353,20 @@
     memories.sort((a, b) => (b.importance || 0) - (a.importance || 0));
     const memoryText = memories.slice(0, 20).map((m) => "- " + m.content).join("\n");
 
-    // 我读取角色关联的世界书条目
+    // 我读取世界书条目：未关联任何角色的世界书视为全局（所有角色都能用），
+    // 关联到当前角色的也注入，关联到其他角色但不关联当前的跳过
     let worldbookText = "";
     try {
-      const wbs = await S.getAll("worldbooks");
+      const [wbs, allChars] = await Promise.all([S.getAll("worldbooks"), S.getAll("characters")]);
       const linkedIds = character.worldbookIds || [];
       const allEntries = [];
       wbs.forEach((wb) => {
-        if (linkedIds.length === 0 || linkedIds.includes(wb.id)) {
-          (wb.entries || []).forEach((e) => { if (e.enabled) allEntries.push(e); });
+        // 检查这个世界书是否被任何角色关联
+        const linkedByAnyone = allChars.some((c) => (c.worldbookIds || []).includes(wb.id));
+        // 注入条件：当前角色显式关联，或未被任何角色关联（全局世界书）
+        const shouldInject = linkedIds.includes(wb.id) || !linkedByAnyone;
+        if (shouldInject) {
+          (wb.entries || []).forEach((e) => { if (e.enabled !== false) allEntries.push(e); });
         }
       });
       allEntries.sort((a, b) => (b.priority || 0) - (a.priority || 0));

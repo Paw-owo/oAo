@@ -33,6 +33,14 @@
     page.appendChild(nav);
 
     const content = U.el("div", { class: "scroll page-content" });
+
+    // 我加一条提示告诉用户世界书会自动生效
+    const hint = U.el("div", { class: "about-hint", style: { margin: "0 16px 12px" } }, [
+      U.el("div", { class: "ah-icon", html: global.Phone.IconLibrary.get("info", { size: 16 }) }),
+      U.el("div", { class: "ah-text", text: "世界书保存后会自动应用到聊天中，我（AI）会知道这些背景设定。" }),
+    ]);
+    content.appendChild(hint);
+
     const list = U.el("div", {});
     content.appendChild(list);
     page.appendChild(content);
@@ -149,7 +157,7 @@
       global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.WORLDBOOK_UPDATED, {
         sourceApp: "worldbook", data: data, summary: "更新了世界书：" + name
       });
-      global.Phone.Notify.push({ appId: "worldbook", title: "已保存" });
+      global.Phone.Notify.push({ appId: "worldbook", title: "已保存，我会在聊天中应用这些设定" });
       global.Phone.Router.back();
     });
     form.appendChild(saveBtn);

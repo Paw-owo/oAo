@@ -36,12 +36,10 @@
       const cnt = badges[id] || 0;
       if (cnt > 0) {
         box.appendChild(U.el("div", { class: "ai-badge", text: cnt > 99 ? "99+" : String(cnt) }));
-      } else {
-        box.appendChild(U.el("div", { class: "ai-badge hidden" }));
       }
       item.appendChild(box);
       item.addEventListener("click", () => {
-        if (_editing) return;
+        if (global.Phone.AppGrid && global.Phone.AppGrid.isEditing && global.Phone.AppGrid.isEditing()) return;
         global.Phone.AppRegistry.open(id);
       });
       dock.appendChild(item);
@@ -60,15 +58,18 @@
       dock.querySelectorAll(".dock-item").forEach((node) => {
         const id = node.dataset.id;
         if (!id) return;
-        const badge = node.querySelector(".ai-badge");
-        if (!badge) return;
+        const box = node.querySelector(".di-box");
         const cnt = map[id] || 0;
+        let badge = node.querySelector(".ai-badge");
         if (cnt > 0) {
+          if (!badge) {
+            badge = U.el("div", { class: "ai-badge" });
+            if (box) box.appendChild(badge);
+          }
           badge.textContent = cnt > 99 ? "99+" : String(cnt);
           badge.classList.remove("hidden");
-        } else {
-          badge.textContent = "";
-          badge.classList.add("hidden");
+        } else if (badge) {
+          badge.remove();
         }
       });
     });
