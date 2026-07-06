@@ -1,13 +1,13 @@
 /* ============================================================
    icon-library.js — 线条风 SVG 图标库
-   所有图标 stroke-width 1.5，禁止填充实心
+   所有图标 stroke-width 2.0，粗线条软萌，禁止填充实心
    挂在 window.Phone.IconLibrary
    ============================================================ */
 (function (global) {
   "use strict";
 
   // 内置图标集合：key -> svg inner
-  // 所有图标 viewBox=0 0 24 24，stroke="currentColor" fill="none" stroke-width="1.5"
+  // 所有图标 viewBox=0 0 24 24，stroke="currentColor" fill="none" stroke-width="2.0"
   const ICONS = {
     // ---------- 状态栏 9 个装饰图标 ----------
     "sb-heart": '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
@@ -130,7 +130,7 @@
   function get(key, opts) {
     opts = opts || {};
     const size = opts.size || 24;
-    const sw = opts.strokeWidth || 1.5;
+    const sw = opts.strokeWidth || 2.0;
     const cls = opts.className ? ' class="' + opts.className + '"' : "";
     const colorStyle = opts.color ? ' style="color:' + opts.color + '"' : "";
     const inner = ICONS[key] || ICONS["dot"];

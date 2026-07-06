@@ -203,7 +203,7 @@
   margin-bottom: 4px;
   border-left: 2px solid var(--color-primary);
 }
-.msg.msg-me .msg-quote { background: rgba(255,255,255,0.2); }
+.msg.msg-me .msg-quote { background: var(--surface-alpha-20); }
 .mq-text { color: var(--text-secondary); margin-top: 2px; }
 
 .msg-meta {
@@ -263,7 +263,7 @@
 
 /* ---------- 输入栏 ---------- */
 .input-bar {
-  background: rgba(255, 253, 250, 0.92);
+  background: var(--surface-alpha-92);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border-top: 1px solid var(--border-soft);

@@ -39,6 +39,45 @@
 
   /* 字号档位（受设置控制，初始 base） */
   --font-scale: 1;
+
+  /* 功能色半透明背景（三主题功能色一致，放通用层）
+     组件层禁止再写 rgba 有色值，统一引用这些变量 */
+  --color-success-soft: rgba(139, 194, 138, 0.20);
+  --color-danger-soft: rgba(232, 130, 107, 0.20);
+  --color-danger-softer: rgba(232, 130, 107, 0.12);
+  --color-danger-near: rgba(232, 130, 107, 0.18);
+  --color-danger-ring: rgba(232, 130, 107, 0.30);
+
+  /* surface 半透明（毛玻璃 / 高光 / 渐变叠加用）
+     62/78 走暖白 255,253,250（用于毛玻璃面板 / dock / widget 底色）；
+     40 以下用纯白（高光 / 顶部反光层更通透，不显脏）；
+     85+ 用暖白（更接近 --bg-surface 色调，毛玻璃边缘不偏冷） */
+  --surface-alpha-12: rgba(255, 255, 255, 0.12);
+  --surface-alpha-20: rgba(255, 255, 255, 0.20);
+  --surface-alpha-40: rgba(255, 255, 255, 0.40);
+  --surface-alpha-50: rgba(255, 255, 255, 0.50);
+  --surface-alpha-60: rgba(255, 255, 255, 0.60);
+  --surface-alpha-62: rgba(255, 253, 250, 0.62);
+  --surface-alpha-70: rgba(255, 255, 255, 0.70);
+  --surface-alpha-78: rgba(255, 253, 250, 0.78);
+  --surface-alpha-80: rgba(255, 255, 255, 0.80);
+  --surface-alpha-85: rgba(255, 253, 250, 0.85);
+  --surface-alpha-92: rgba(255, 253, 250, 0.92);
+  --surface-alpha-95: rgba(255, 253, 250, 0.95);
+
+  /* 主题预览色卡快照（设置页展示三套主题代表色，跨主题稳定）
+     不是"当前主题色"，是"三套主题各自的代表色样本"，所以放通用层 */
+  --theme-swatch-honey: linear-gradient(135deg, #FFE9B0 0%, #FFD66E 100%);
+  --theme-swatch-pink: linear-gradient(135deg, #FFC4D2 0%, #F38BA0 100%);
+  --theme-swatch-sky: linear-gradient(135deg, #B9DAFB 0%, #6FB5F0 100%);
+
+  /* 黑胶唱片纹路色（唱片材质本身的深褐色，跨主题稳定，不是主题色） */
+  --vinyl-groove-dark: #2A2018;
+  --vinyl-groove-light: #4A3C28;
+  --vinyl-disc-grad: radial-gradient(circle at 50% 50%,
+    var(--vinyl-groove-light) 0%, var(--vinyl-groove-dark) 30%,
+    var(--vinyl-groove-light) 31%, var(--vinyl-groove-dark) 60%,
+    var(--vinyl-groove-light) 61%, var(--vinyl-groove-dark) 100%);
 }
 
 /* ---------- 主题：honey 奶黄（默认） ---------- */
@@ -49,6 +88,7 @@
   --bg-surface-2: #FFF6E2;
   --bg-hover: #FFF1CC;
   --bg-mask: rgba(74, 60, 40, 0.32);
+  --bg-mask-heavy: rgba(74, 60, 40, 0.92);
 
   --color-primary: #F5B945;
   --color-primary-light: #FFD66E;
@@ -96,6 +136,7 @@
   --bg-surface-2: #FFE7EC;
   --bg-hover: #FFD8E2;
   --bg-mask: rgba(74, 40, 50, 0.32);
+  --bg-mask-heavy: rgba(74, 40, 50, 0.92);
 
   --color-primary: #F38BA0;
   --color-primary-light: #FFA8B9;
@@ -143,6 +184,7 @@
   --bg-surface-2: #E2EEFF;
   --bg-hover: #D2E4FF;
   --bg-mask: rgba(40, 60, 90, 0.32);
+  --bg-mask-heavy: rgba(40, 60, 90, 0.92);
 
   --color-primary: #6FB5F0;
   --color-primary-light: #94C8F5;

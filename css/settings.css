@@ -76,9 +76,9 @@
 }
 .theme-card.active .theme-preview { border-color: var(--color-primary); }
 .theme-card:active .theme-preview { transform: scale(0.96); }
-.theme-card[data-theme="honey"] .theme-preview { background: linear-gradient(135deg, #FFE9B0 0%, #FFD66E 100%); }
-.theme-card[data-theme="pink"] .theme-preview { background: linear-gradient(135deg, #FFC4D2 0%, #F38BA0 100%); }
-.theme-card[data-theme="sky"] .theme-preview { background: linear-gradient(135deg, #B9DAFB 0%, #6FB5F0 100%); }
+.theme-card[data-theme="honey"] .theme-preview { background: var(--theme-swatch-honey); }
+.theme-card[data-theme="pink"] .theme-preview { background: var(--theme-swatch-pink); }
+.theme-card[data-theme="sky"] .theme-preview { background: var(--theme-swatch-sky); }
 .theme-name { font-size: var(--font-sm); color: var(--text-secondary); }
 .theme-card.active .theme-name { color: var(--color-primary-deep); font-weight: 500; }
 
@@ -104,7 +104,7 @@
 .wp-item .wp-label {
   position: absolute;
   bottom: 4px; left: 4px;
-  background: rgba(255,255,255,0.7);
+  background: var(--surface-alpha-70);
   padding: 2px 6px;
   border-radius: var(--radius-full);
   font-size: 10px;

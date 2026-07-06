@@ -155,7 +155,7 @@
   top: -30px; right: -30px;
   width: 120px; height: 120px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.12);
+  background: var(--surface-alpha-12);
 }
 .wallet-card .wc-label { font-size: var(--font-xs); opacity: 0.85; }
 .wallet-card .wc-amount { font-size: 32px; font-weight: 600; letter-spacing: -1px; margin-top: 4px; }
@@ -205,8 +205,8 @@
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.tx-item.income .ti-icon { background: rgba(139, 194, 138, 0.2); color: var(--color-success); }
-.tx-item.expense .ti-icon { background: rgba(232, 130, 107, 0.2); color: var(--color-danger); }
+.tx-item.income .ti-icon { background: var(--color-success-soft); color: var(--color-success); }
+.tx-item.expense .ti-icon { background: var(--color-danger-soft); color: var(--color-danger); }
 .tx-item .ti-main { flex: 1; }
 .tx-item .ti-title { font-size: var(--font-sm); color: var(--text-primary); }
 .tx-item .ti-time { font-size: var(--font-xs); color: var(--text-placeholder); }
@@ -366,7 +366,7 @@
   top: 8px; right: 8px;
   width: 28px; height: 28px;
   border-radius: var(--radius-full);
-  background: rgba(255, 253, 250, 0.85);
+  background: var(--surface-alpha-85);
   backdrop-filter: blur(8px);
   border: none;
   display: flex; align-items: center; justify-content: center;
@@ -452,35 +452,7 @@
   gap: 8px;
 }
 
-/* ---------- 朋友圈 ---------- */
-.moment {
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  margin: 0 16px 12px;
-  padding: 14px;
-}
-.moment .m-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.moment .m-avatar {
-  width: 40px; height: 40px;
-  border-radius: var(--radius-full);
-  background: var(--grad-primary);
-  color: var(--text-on-primary);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 600; overflow: hidden;
-}
-.moment .m-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.moment .m-name { font-size: var(--font-base); font-weight: 500; color: var(--text-primary); }
-.moment .m-time { font-size: var(--font-xs); color: var(--text-placeholder); }
-.moment .m-content { font-size: var(--font-base); color: var(--text-primary); line-height: 1.6; margin-bottom: 8px; word-break: break-word; }
-.moment .m-images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 8px; }
-.moment .m-images img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm); }
-.moment .m-actions { display: flex; gap: 16px; padding-top: 8px; border-top: 1px solid var(--border-soft); }
-.moment .m-action { display: flex; align-items: center; gap: 4px; color: var(--text-secondary); font-size: var(--font-sm); cursor: pointer; }
-.moment .m-action.liked { color: var(--color-accent); }
-.moment .m-comments { background: var(--bg-surface-2); border-radius: var(--radius-md); padding: 8px 12px; margin-top: 8px; }
-.moment .m-comment { font-size: var(--font-sm); color: var(--text-primary); line-height: 1.6; }
-.moment .m-comment .mc-name { color: var(--color-primary-deep); font-weight: 500; }
+/* 朋友圈 .moment 旧死 CSS 已删，正式样式见 .mo-card 块 */
 
 /* ---------- 备忘录 ---------- */
 .memo-item {
@@ -516,7 +488,7 @@
 .memo-item .mi-remind.overdue { color: var(--color-danger); font-weight: 500; }
 .memo-item.pinned { border-left: 3px solid var(--color-primary); }
 .memo-item.archived { opacity: 0.6; }
-.memo-item.overdue { box-shadow: 0 0 0 1px var(--color-danger-light, rgba(232,130,107,0.3)); }
+.memo-item.overdue { box-shadow: 0 0 0 1px var(--color-danger-ring); }
 .memo-item .mi-top {
   display: flex;
   align-items: flex-start;
@@ -529,8 +501,13 @@
 }
 .memo-item .icon-btn { padding: 4px; }
 
-/* ---------- 备忘录 - 统计概览栏 ---------- */
-.memo-stats-bar {
+/* ---------- 通用统计概览栏（备忘录/音乐/游戏/朋友圈共用） ----------
+   .msb-card 是全局通用类，子选择器不要再重复定义同款样式
+   anniversary 用 .asb-card 独立命名（带 .today 变体，不并入通用） */
+.memo-stats-bar,
+.mu-stats-bar,
+.gm-stats-bar,
+.mo-stats-bar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
@@ -547,7 +524,7 @@
 .msb-card .msb-label { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
 .msb-card.highlight { background: var(--color-primary-ultralight); }
 .msb-card.highlight .msb-num { color: var(--color-primary-deep); }
-.msb-card.danger { background: rgba(232,130,107,0.12); }
+.msb-card.danger { background: var(--color-danger-softer); }
 .msb-card.danger .msb-num { color: var(--color-danger); }
 
 /* ---------- 备忘录 - 子任务进度 ---------- */
@@ -575,46 +552,15 @@
   font-weight: 500;
 }
 
-/* ---------- 周年纪念 ---------- */
-.anni-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  margin-bottom: 12px;
-}
-.anni-item .a-countdown {
-  width: 64px; height: 64px;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--color-primary-ultralight), var(--color-primary-light));
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  color: var(--color-primary-deep);
-  flex-shrink: 0;
-}
-.anni-item .a-countdown .ac-num { font-size: 22px; font-weight: 600; line-height: 1; }
-.anni-item .a-countdown .ac-unit { font-size: 10px; }
-.anni-item.today .a-countdown { background: var(--grad-primary); color: var(--text-on-primary); }
-.anni-item .a-main { flex: 1; min-width: 0; }
-.anni-item .a-name { font-size: var(--font-md); font-weight: 500; color: var(--text-primary); }
-.anni-item .a-date { font-size: var(--font-sm); color: var(--text-secondary); margin-top: 2px; }
-.anni-item .a-desc { font-size: var(--font-xs); color: var(--text-placeholder); margin-top: 4px; }
+/* 周年纪念 .anni-item 旧死 CSS 已删，正式样式见 .an-card 块 */
 
-/* ---------- 音乐 - 统计概览 ---------- */
-.mu-stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-.mu-stats-bar .msb-card { padding: 10px 6px; background: var(--bg-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); text-align: center; }
-.mu-stats-bar .msb-card .msb-num { font-size: var(--font-md); font-weight: 600; color: var(--text-primary); }
-.mu-stats-bar .msb-card .msb-label { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
-.mu-stats-bar .msb-card.highlight { background: var(--color-primary-ultralight); }
-.mu-stats-bar .msb-card.highlight .msb-num { color: var(--color-primary-deep); }
+/* 音乐/游戏/朋友圈的 .xxx-stats-bar 通用布局见 .msb-card 块，不在此重复 */
 
 /* ---------- 音乐播放器 ---------- */
 .music-player-bar {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  background: rgba(255, 253, 250, 0.95);
+  background: var(--surface-alpha-95);
   backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-soft);
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
@@ -684,23 +630,15 @@
   box-shadow: var(--shadow-float);
   overflow: hidden;
 }
+/* 唱片/封面物理匀速旋转，linear 是正确的；UI 反馈动效才禁 linear */
 .music-full .mf-cover.spinning { animation: spin 8s linear infinite; }
 .music-full .mf-cover img { width: 100%; height: 100%; object-fit: cover; }
 .music-full .mf-info { text-align: center; margin-bottom: 24px; }
 .music-full .mf-name { font-size: var(--font-lg); font-weight: 600; color: var(--text-primary); }
 .music-full .mf-artist { font-size: var(--font-sm); color: var(--text-secondary); margin-top: 4px; }
 
-/* ---------- 游戏 - 统计概览 ---------- */
-.gm-stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-.gm-stats-bar .msb-card { padding: 10px 6px; background: var(--bg-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-soft); text-align: center; }
-.gm-stats-bar .msb-card .msb-num { font-size: var(--font-md); font-weight: 600; color: var(--text-primary); }
-.gm-stats-bar .msb-card .msb-label { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
-.gm-stats-bar .msb-card.highlight { background: var(--color-primary-ultralight); }
-.gm-stats-bar .msb-card.highlight .msb-num { color: var(--color-primary-deep); }
-.gm-stats-bar .msb-card.danger { background: rgba(232,130,107,0.12); }
-.gm-stats-bar .msb-card.danger .msb-num { color: var(--color-danger); }
-
 /* ---------- 游戏 ---------- */
+/* .gm-stats-bar 通用布局见 .msb-card 块，不在此重复 */
 .game-card {
   display: flex;
   align-items: center;
@@ -763,7 +701,7 @@
   padding: 12px;
   text-align: center;
 }
-.tarot-card .tc-back { background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-deep)); color: rgba(255,255,255,0.4); }
+.tarot-card .tc-back { background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-deep)); color: var(--surface-alpha-40); }
 .tarot-card .tc-face { background: var(--bg-surface); transform: rotateY(180deg); color: var(--text-primary); font-size: var(--font-sm); }
 
 /* ---------- 通用分段控件（seg-bar） ---------- */
@@ -807,7 +745,7 @@
 }
 .an-card.past { border-left-color: var(--text-placeholder); opacity: 0.85; }
 .an-card.has-cover .an-body {
-  background: linear-gradient(180deg, rgba(255,253,250,0.4) 0%, rgba(255,253,250,0.92) 40%, var(--bg-surface) 100%);
+  background: linear-gradient(180deg, var(--surface-alpha-40) 0%, var(--surface-alpha-92) 40%, var(--bg-surface) 100%);
 }
 .an-body { padding: 14px 16px; }
 .an-title { font-size: var(--font-md); font-weight: 600; color: var(--text-primary); }
@@ -879,7 +817,7 @@
 
 /* ---------- 周年纪念 - 倒计时 ---------- */
 .an-countdown.near {
-  background: rgba(232, 130, 107, 0.18);
+  background: var(--color-danger-near);
   color: var(--color-danger);
 }
 
@@ -1030,24 +968,7 @@
   background: var(--bg-surface-2);
 }
 
-/* ---------- 朋友圈 - 统计概览栏 ---------- */
-.mo-stats-bar {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.mo-stats-bar .msb-card {
-  padding: 10px 6px;
-  background: var(--bg-surface);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-soft);
-  text-align: center;
-}
-.mo-stats-bar .msb-card .msb-num { font-size: var(--font-md); font-weight: 600; color: var(--text-primary); }
-.mo-stats-bar .msb-card .msb-label { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
-.mo-stats-bar .msb-card.highlight { background: var(--color-primary-ultralight); }
-.mo-stats-bar .msb-card.highlight .msb-num { color: var(--color-primary-deep); }
+/* 朋友圈 .mo-stats-bar 通用布局见 .msb-card 块，不在此重复 */
 
 /* ---------- 朋友圈 - 标签 / 可见性 / 操作 ---------- */
 .mo-card.pinned { box-shadow: var(--shadow-card), 0 0 0 1px var(--color-primary); }
@@ -1078,7 +999,7 @@
 .mo-preview-mask {
   position: fixed;
   inset: 0;
-  background: var(--bg-mask-heavy, rgba(40, 30, 20, 0.92));
+  background: var(--bg-mask-heavy);
   display: flex;
   align-items: center;
   justify-content: center;
