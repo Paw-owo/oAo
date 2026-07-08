@@ -39,7 +39,7 @@
     const characterId = conversation.characterId || params.characterId;
     const character = (await Storage.getAll("characters")).find((c) => c.id === characterId) || { name: "AI" };
 
-    let mode = conversation.mode || (await State.get("bubbleStyle")) === "dialog" ? "dialog" : "bubble";
+    let mode = conversation.mode || (await State.get("chatDefaultMode")) || "bubble";
 
     // 容器
     const page = U.el("div", { class: "conv-page" });
@@ -77,6 +77,12 @@
     // 滚动到底部按钮
     const toBottomBtn = U.el("button", { class: "conv-to-bottom hidden", html: global.Phone.IconLibrary.get("chevron-down", { size: 22 }) });
     page.appendChild(toBottomBtn);
+
+    // 停止生成按钮（AI 流式回复时浮现，点击 abort）
+    const stopBtn = U.el("button", { class: "conv-stop-btn hidden" });
+    stopBtn.innerHTML = '<span class="csb-icon">' + global.Phone.IconLibrary.get("pause", { size: 14 }) + '</span><span>停止生成</span>';
+    stopBtn.addEventListener("click", () => { try { if (abortCtrl) abortCtrl.abort(); } catch {} });
+    page.appendChild(stopBtn);
 
     let isNearBottom = true;
     listWrap.addEventListener("scroll", () => {
@@ -161,6 +167,7 @@
 
       // 2. AI 占位消息（pending）
       sending = true;
+      stopBtn.classList.remove("hidden");
       const aiMsg = {
         id: U.uid("msg"),
         role: "assistant",
@@ -176,14 +183,38 @@
       list.appendChild(aiNode);
       _scrollToBottom(true);
 
-      // 3. 调用 AI 流式回复
+      // 3. 调用 AI 流式回复（逻辑抽到 _streamAI，regenerate 复用）
+      await _streamAI(aiMsg, aiNode);
+
+      // 触发发送事件
+      global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MESSAGE_SENT, {
+        sourceApp: "chat",
+        data: { conversationId: conversationId, content: userMsg.content },
+        summary: "用户发了一条消息",
+      });
+    }
+
+    // 流式请求 AI 回复（_onSend 和 _regenerate 共用）
+    async function _streamAI(aiMsg, aiNode) {
+      sending = true;
+      stopBtn.classList.remove("hidden");
       abortCtrl = new AbortController();
+      let thinkingRaf = null;
       try {
-        const fullText = await global.Phone.ChatAI.reply({
+        await global.Phone.ChatAI.reply({
           characterId: characterId,
           conversationId: conversationId,
           messages: conversation.messages.filter((m) => !m.pending).slice(-20),
           signal: abortCtrl.signal,
+          onThinking: (t) => {
+            // 我把模型的真实推理存进消息，渲染层用它生成思维链（不裸露原文）
+            aiMsg.thinking = t;
+            if (thinkingRaf) return;
+            thinkingRaf = requestAnimationFrame(() => {
+              thinkingRaf = null;
+              _updateNode(aiNode, aiMsg);
+            });
+          },
           onDelta: (delta, full) => {
             aiMsg.content = full;
             aiMsg.pending = false;
@@ -197,13 +228,12 @@
             conversation.updatedAt = Date.now();
             await Storage.put("conversations", conversation);
             _updateNode(aiNode, aiMsg);
-
-            // 触发事件
             global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MESSAGE_RECEIVED, {
               sourceApp: "chat",
               data: { conversationId: conversationId, characterId: characterId, content: full },
               summary: character.name + " 回复了消息",
             });
+            stopBtn.classList.add("hidden");
             sending = false;
           },
           onError: (err) => {
@@ -211,23 +241,39 @@
             aiMsg.content = global.Phone.AIClient.friendlyError(err);
             aiMsg.status = "failed";
             _updateNode(aiNode, aiMsg);
+            stopBtn.classList.add("hidden");
             sending = false;
           },
-        });
-
-        // 触发发送事件
-        global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.MESSAGE_SENT, {
-          sourceApp: "chat",
-          data: { conversationId: conversationId, content: userMsg.content },
-          summary: "用户发了一条消息",
         });
       } catch (e) {
         aiMsg.pending = false;
         aiMsg.content = global.Phone.AIClient.friendlyError(e);
         aiMsg.status = "failed";
         _updateNode(aiNode, aiMsg);
+        stopBtn.classList.add("hidden");
         sending = false;
       }
+    }
+
+    // 重新生成：删除原 AI 回复，基于同一条 user 消息重新请求
+    async function _regenerate(oldAiMsg) {
+      if (sending) return;
+      const idx = conversation.messages.findIndex((m) => m.id === oldAiMsg.id);
+      if (idx < 0) return;
+      conversation.messages.splice(idx, 1);
+      await Storage.put("conversations", conversation);
+      _rerenderMessages();
+      const aiMsg = {
+        id: U.uid("msg"), role: "assistant", type: "text",
+        content: "", createdAt: Date.now(), pending: true,
+      };
+      conversation.messages.push(aiMsg);
+      const aiNode = global.Phone.MessageRenderer.render(aiMsg, {
+        mode: mode, character: character, onAction: (a, m) => _handleAction(a, m)
+      });
+      list.appendChild(aiNode);
+      _scrollToBottom(true);
+      await _streamAI(aiMsg, aiNode);
     }
 
     function _updateNode(node, msg) {
@@ -272,6 +318,8 @@
         const favorites = (await Storage.getSetting("chatFavorites")) || [];
         favorites.push({ id: U.uid("fav"), content: msg.content, from: character.name, createdAt: Date.now() });
         await Storage.setSetting("chatFavorites", favorites);
+      } else if (action === "regenerate") {
+        _regenerate(msg);
       }
     }
 

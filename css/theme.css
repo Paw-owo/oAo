@@ -39,6 +39,26 @@
 
   /* 字号档位（受设置控制，初始 base） */
   --font-scale: 1;
+
+  /* ---------- 思维链变量（映射到主题变量，三套主题自动跟随） ---------- */
+  --chain-bg: var(--bg-surface-2);
+  --chain-bg-hover: var(--bg-hover);
+  --chain-card-bg: var(--bg-surface);
+  --chain-card-border: var(--border-soft);
+  --chain-line: var(--border-strong);
+  --chain-dot: var(--color-primary-light);
+  --chain-text-title: var(--text-primary);
+  --chain-text-body: var(--text-secondary);
+  --chain-text-muted: var(--text-placeholder);
+  --chain-status-running: var(--color-primary);
+  --chain-status-done: var(--color-success);
+  --chain-status-skipped: var(--text-placeholder);
+  --chain-status-failed: var(--color-danger);
+  --chain-status-closed: var(--text-secondary);
+  --chain-shadow: var(--shadow-soft);
+  --chain-radius: var(--radius-md);
+  --chain-summary-bg: var(--color-primary-ultralight);
+  --chain-summary-border: var(--border-soft);
 }
 
 /* ---------- 主题：honey 奶黄（默认） ---------- */

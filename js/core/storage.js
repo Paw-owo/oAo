@@ -155,6 +155,7 @@
     appOrder: null,         // null = 默认顺序
     appBackgrounds: {},     // appId -> 背景 css
     bubbleStyle: "rounded",
+    chatDefaultMode: "bubble",   // 新会话默认模式：bubble / dialog
     chatBackground: "",
     aiEndpoint: "",
     aiApiKey: "",
