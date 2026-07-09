@@ -127,6 +127,104 @@
     } catch (e) { return null; }
   }
 
+  // ---------- GitHub 联动辅助 ----------
+  // 配置读取：优先会话级（chat.githubXxx_<conversationId>，chat-ai.js 在 args 里带 conversationId），
+  // 缺失时回退全局默认（githubXxx，用户在设置 APP 里配的）。
+  // 返回 { ok, owner, repo, branch, pat } 或 { ok:false, error }
+  async function _githubConfig(args) {
+    const S = global.Phone && global.Phone.Storage;
+    if (!S || typeof S.getSetting !== "function") {
+      return { ok: false, error: "存储还没准备好，等一下再试～" };
+    }
+    const convId = args && args.conversationId;
+    let repo, branch, pat;
+    if (convId) {
+      repo = await S.getSetting("chat.githubRepo_" + convId);
+      branch = await S.getSetting("chat.githubBranch_" + convId);
+      pat = await S.getSetting("chat.githubPat_" + convId);
+    }
+    if (!repo) repo = await S.getSetting("githubRepo");
+    if (!branch) branch = await S.getSetting("githubBranch");
+    if (!pat) pat = await S.getSetting("githubPat");
+    if (!repo || !pat) {
+      return { ok: false, error: "还没配置 GitHub 仓库，去聊天设置里关联一下吧～" };
+    }
+    const parts = String(repo).split("/");
+    if (parts.length < 2 || !parts[0] || !parts[1]) {
+      return { ok: false, error: "仓库格式不对，要写成 owner/repo 哦" };
+    }
+    return {
+      ok: true,
+      owner: parts[0].trim(),
+      repo: parts.slice(1).join("/").trim(),
+      branch: branch || "main",
+      pat: pat, // PAT 只在请求头里用，绝不写进日志或返回体
+    };
+  }
+
+  // 我统一发 GitHub REST 请求：baseUrl = https://api.github.com/repos/{owner}/{repo}
+  // 返回 { ok:true, data, status } 或 { ok:false, error, status }
+  async function _githubRequest(cfg, path, method, body) {
+    const url = "https://api.github.com/repos/" + cfg.owner + "/" + cfg.repo + path;
+    let resp;
+    try {
+      resp = await fetch(url, {
+        method: method || "GET",
+        headers: {
+          "Authorization": "token " + cfg.pat,
+          "Accept": "application/vnd.github+json",
+          "Content-Type": "application/json",
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (e) {
+      return { ok: false, status: 0, error: "网络连不上 GitHub，检查一下网络再试～" };
+    }
+    let data = null;
+    const text = await resp.text();
+    if (text) {
+      try { data = JSON.parse(text); } catch (e) { data = text; }
+    }
+    if (!resp.ok) {
+      let msg = (data && data.message) ? String(data.message) : ("GitHub 返回 " + resp.status);
+      if (resp.status === 401) msg = "GitHub 认证失败了，PAT 可能过期或写错了";
+      else if (resp.status === 403) msg = "GitHub 拒绝了操作，可能 PAT 权限不够或被限流啦";
+      else if (resp.status === 404) msg = "找不到这个资源，仓库地址或分支可能不对";
+      else if (resp.status === 422) msg = "GitHub 说参数有问题：" + msg;
+      return { ok: false, status: resp.status, error: msg };
+    }
+    return { ok: true, status: resp.status, data: data };
+  }
+
+  // 我把错误消息统一包装成 ghError 卡片格式（喂给 message-renderer 的 _renderGithub）
+  function _ghErr(message) {
+    return { kind: "ghError", error: message };
+  }
+
+  // 写操作 hook 点：__dryRun=true 时只返回计划不实际执行（chat-ai.js 二次确认 UI 用，本次不实现 UI）
+  function _ghDryRun(action, payload) {
+    return Object.assign({ dryRun: true, action: action }, payload || {});
+  }
+
+  // UTF-8 安全的 base64 编解码（GitHub Contents API 要求 base64）
+  function _ghB64Encode(str) {
+    try { return btoa(unescape(encodeURIComponent(str))); }
+    catch (e) { try { return btoa(str); } catch (e2) { return ""; } }
+  }
+  function _ghB64Decode(b64) {
+    try { return decodeURIComponent(escape(atob(b64))); }
+    catch (e) { try { return atob(b64); } catch (e2) { return b64; } }
+  }
+
+  // 我把分支名或 commit SHA 解析成 SHA（from 是分支名时拉一次 branches API）
+  async function _ghResolveSha(cfg, from) {
+    if (/^[0-9a-f]{40}$/i.test(from)) return { ok: true, sha: from };
+    const r = await _githubRequest(cfg, "/branches/" + encodeURIComponent(from));
+    if (!r.ok) return r;
+    const sha = r.data && r.data.commit && r.data.commit.sha;
+    return sha ? { ok: true, sha: sha } : { ok: false, error: "解析不到 " + from + " 的 SHA" };
+  }
+
   // ---------- 内置工具集 ----------
   // 每个工具的 handler 我都做 args 兜底（args 可能为 undefined）
   const _builtins = [
@@ -621,6 +719,480 @@
       parameters: { type: "object", properties: {}, required: [] },
       handler: async (args) => {
         return await global.Phone.AIClient.getCharacter();
+      },
+    },
+
+    // ===== GitHub 联动类 =====
+    // 配置：会话级 chat.githubXxx_<conversationId> 优先，回退全局 githubXxx
+    // 返回 payload 喂给 message-renderer._renderGithub（ghPR/ghMerge/ghFile/ghError/ghList）
+    // 写操作支持 __dryRun=true 只预览不执行（chat-ai.js 二次确认 UI 用，本次不实现 UI）
+    {
+      name: "github_list_prs",
+      description: "看看当前 GitHub 仓库有哪些 Pull Request",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          state: { type: "string", enum: ["open", "closed", "all"], description: "PR 状态筛选，默认 open" },
+          limit: { type: "number", description: "最多返回几条，默认 20" },
+          conversationId: { type: "string", description: "会话 id（读会话级 GitHub 配置用，可选）" },
+        },
+        required: [],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        const state = a.state || "open";
+        const limit = Math.min(a.limit || 20, 100);
+        const r = await _githubRequest(cfg, "/pulls?state=" + encodeURIComponent(state) + "&per_page=" + limit);
+        if (!r.ok) return _ghErr(r.error);
+        const arr = Array.isArray(r.data) ? r.data : [];
+        const list = arr.slice(0, limit).map((p) => ({
+          number: p.number,
+          title: p.title,
+          state: p.state,
+          head: p.head && p.head.ref,
+          base: p.base && p.base.ref,
+          html_url: p.html_url,
+        }));
+        return { kind: "ghPR", count: list.length, list: list };
+      },
+    },
+    {
+      name: "github_view_pr",
+      description: "看某个 Pull Request 的详情",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          number: { type: "number", description: "PR 编号" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+        },
+        required: ["number"],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        const number = Number(a.number);
+        if (!isFinite(number) || number <= 0) return _ghErr("PR 编号得是正数呀");
+        const r = await _githubRequest(cfg, "/pulls/" + number);
+        if (!r.ok) return _ghErr("PR #" + number + " " + r.error);
+        const p = r.data || {};
+        const head = p.head && p.head.ref;
+        return {
+          kind: "ghPR",
+          number: p.number,
+          title: p.title,
+          state: p.state,
+          head: head,
+          base: p.base && p.base.ref,
+          branch: head, // 兼容 message-renderer._ghPR 读 p.branch
+          commits: p.commits,
+          additions: p.additions,
+          deletions: p.deletions,
+          html_url: p.html_url,
+          body: p.body || "",
+        };
+      },
+    },
+    {
+      name: "github_merge_pr",
+      description: "把一个 Pull Request 合并到目标分支",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          number: { type: "number", description: "PR 编号" },
+          method: { type: "string", enum: ["merge", "squash", "rebase"], description: "合并方式，默认 merge" },
+          commit_title: { type: "string", description: "合并 commit 的标题（可选）" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+          __dryRun: { type: "boolean", description: "true 时只返回计划不实际执行（二次确认用）" },
+        },
+        required: ["number"],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        const number = Number(a.number);
+        if (!isFinite(number) || number <= 0) return _ghErr("PR 编号得是正数呀");
+        const method = a.method || "merge";
+        if (["merge", "squash", "rebase"].indexOf(method) < 0) return _ghErr("合并方式只能是 merge/squash/rebase");
+        if (a.__dryRun === true) return _ghDryRun("merge_pr", { number: number, method: method });
+        const body = { merge_method: method };
+        if (a.commit_title) body.commit_title = a.commit_title;
+        const r = await _githubRequest(cfg, "/pulls/" + number + "/merge", "PUT", body);
+        if (!r.ok) return _ghErr("合并 PR #" + number + " 失败：" + r.error);
+        // merge 接口只返回 sha，我再拉一次 PR 拿 head/base 用于回执
+        let head, base;
+        const pr2 = await _githubRequest(cfg, "/pulls/" + number);
+        if (pr2.ok && pr2.data) {
+          head = pr2.data.head && pr2.data.head.ref;
+          base = pr2.data.base && pr2.data.base.ref;
+        }
+        const sha = (r.data && r.data.sha) || "";
+        return {
+          kind: "ghMerge",
+          number: number,
+          sha: sha,
+          commit: sha, // 兼容 message-renderer._ghMerge 读 p.commit
+          method: method,
+          head: head,
+          base: base,
+          branch: head, // 兼容 message-renderer._ghMerge 读 p.branch
+          html_url: sha ? ("https://github.com/" + cfg.owner + "/" + cfg.repo + "/commits/" + sha) : "",
+        };
+      },
+    },
+    {
+      name: "github_close_pr",
+      description: "关掉一个 Pull Request（不合并）",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          number: { type: "number", description: "PR 编号" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+          __dryRun: { type: "boolean", description: "true 时只返回计划不实际执行（二次确认用）" },
+        },
+        required: ["number"],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        const number = Number(a.number);
+        if (!isFinite(number) || number <= 0) return _ghErr("PR 编号得是正数呀");
+        if (a.__dryRun === true) return _ghDryRun("close_pr", { number: number });
+        const r = await _githubRequest(cfg, "/pulls/" + number, "PATCH", { state: "closed" });
+        if (!r.ok) return _ghErr("关闭 PR #" + number + " 失败：" + r.error);
+        const p = r.data || {};
+        const head = p.head && p.head.ref;
+        return {
+          kind: "ghPR",
+          number: p.number,
+          title: p.title,
+          state: p.state,
+          head: head,
+          base: p.base && p.base.ref,
+          branch: head,
+          html_url: p.html_url,
+        };
+      },
+    },
+    {
+      name: "github_create_pr",
+      description: "从一个分支向另一个分支发起 Pull Request",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "PR 标题" },
+          head: { type: "string", description: "源分支（要合并的内容来源）" },
+          base: { type: "string", description: "目标分支（合并到哪）" },
+          body: { type: "string", description: "PR 描述（可选）" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+          __dryRun: { type: "boolean", description: "true 时只返回计划不实际执行（二次确认用）" },
+        },
+        required: ["title", "head", "base"],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        if (!a.title || !a.head || !a.base) return _ghErr("标题、源分支、目标分支都得填");
+        if (a.__dryRun === true) return _ghDryRun("create_pr", { title: a.title, head: a.head, base: a.base });
+        const body = { title: a.title, head: a.head, base: a.base };
+        if (a.body) body.body = a.body;
+        const r = await _githubRequest(cfg, "/pulls", "POST", body);
+        if (!r.ok) return _ghErr("创建 PR 失败：" + r.error);
+        const p = r.data || {};
+        const head = p.head && p.head.ref;
+        return {
+          kind: "ghPR",
+          number: p.number,
+          title: p.title,
+          state: p.state,
+          head: head,
+          base: p.base && p.base.ref,
+          branch: head,
+          html_url: p.html_url,
+        };
+      },
+    },
+    {
+      name: "github_list_branches",
+      description: "看看仓库里有哪些分支",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "最多返回几条，默认 20" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+        },
+        required: [],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        const limit = Math.min(a.limit || 20, 100);
+        const r = await _githubRequest(cfg, "/branches?per_page=" + limit);
+        if (!r.ok) return _ghErr(r.error);
+        const arr = Array.isArray(r.data) ? r.data : [];
+        const items = arr.slice(0, limit).map((b) => ({
+          name: b.name,
+          sha: b.commit && b.commit.sha,
+          protected: !!b.protected,
+        }));
+        return { kind: "ghList", type: "branches", count: items.length, items: items };
+      },
+    },
+    {
+      name: "github_create_branch",
+      description: "从某个分支或 commit 新建一个分支",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          branch: { type: "string", description: "新分支名" },
+          from: { type: "string", description: "起点分支名或 commit SHA，默认仓库主分支" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+          __dryRun: { type: "boolean", description: "true 时只返回计划不实际执行（二次确认用）" },
+        },
+        required: ["branch"],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        if (!a.branch) return _ghErr("新分支名不能为空");
+        const from = a.from || cfg.branch;
+        if (a.__dryRun === true) return _ghDryRun("create_branch", { branch: a.branch, from: from });
+        const shaRes = await _ghResolveSha(cfg, from);
+        if (!shaRes.ok) return _ghErr("解析起点 " + from + " 失败：" + shaRes.error);
+        const r = await _githubRequest(cfg, "/git/refs", "POST", {
+          ref: "refs/heads/" + a.branch,
+          sha: shaRes.sha,
+        });
+        if (!r.ok) return _ghErr("创建分支 " + a.branch + " 失败：" + r.error);
+        return {
+          ok: true,
+          branch: a.branch,
+          from: from,
+          sha: shaRes.sha,
+          html_url: "https://github.com/" + cfg.owner + "/" + cfg.repo + "/tree/" + encodeURIComponent(a.branch),
+        };
+      },
+    },
+    {
+      name: "github_list_commits",
+      description: "看看最近的提交记录",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          branch: { type: "string", description: "分支名或 SHA，默认仓库主分支" },
+          limit: { type: "number", description: "最多返回几条，默认 20" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+        },
+        required: [],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        const branch = a.branch || cfg.branch;
+        const limit = Math.min(a.limit || 20, 100);
+        const r = await _githubRequest(cfg, "/commits?sha=" + encodeURIComponent(branch) + "&per_page=" + limit);
+        if (!r.ok) return _ghErr(r.error);
+        const arr = Array.isArray(r.data) ? r.data : [];
+        const items = arr.slice(0, limit).map((c) => ({
+          sha: c.sha,
+          message: c.commit && c.commit.message,
+          author: (c.commit && c.commit.author && c.commit.author.name) || (c.author && c.author.login),
+          date: c.commit && c.commit.author && c.commit.author.date,
+          html_url: c.html_url,
+        }));
+        return { kind: "ghList", type: "commits", count: items.length, items: items };
+      },
+    },
+    {
+      name: "github_view_file",
+      description: "看看仓库里某个文件的内容",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "文件路径，如 src/index.js" },
+          branch: { type: "string", description: "分支名，默认仓库主分支" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+        },
+        required: ["path"],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        if (!a.path) return _ghErr("文件路径不能为空");
+        const branch = a.branch || cfg.branch;
+        const r = await _githubRequest(cfg, "/contents/" + encodeURIComponent(a.path) + "?ref=" + encodeURIComponent(branch));
+        if (!r.ok) return _ghErr("读不到 " + a.path + "：" + r.error);
+        const d = r.data || {};
+        let content = "";
+        if (d.content && d.encoding === "base64") content = _ghB64Decode(d.content);
+        else if (typeof d.content === "string") content = d.content;
+        return {
+          ok: true,
+          path: d.path || a.path,
+          branch: branch,
+          sha: d.sha,
+          size: d.size,
+          html_url: d.html_url,
+          content: content,
+        };
+      },
+    },
+    {
+      name: "github_update_file",
+      description: "修改仓库里某个文件的内容（会生成一个 commit）",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "文件路径" },
+          content: { type: "string", description: "文件新内容（完整覆盖）" },
+          message: { type: "string", description: "commit 信息" },
+          branch: { type: "string", description: "提交到哪个分支，默认仓库主分支" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+          __dryRun: { type: "boolean", description: "true 时只返回计划不实际执行（二次确认用）" },
+        },
+        required: ["path", "content", "message"],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        if (!a.path) return _ghErr("文件路径不能为空");
+        if (typeof a.content !== "string") return _ghErr("文件内容得是字符串");
+        if (!a.message) return _ghErr("commit 信息不能为空");
+        const branch = a.branch || cfg.branch;
+        if (a.__dryRun === true) return _ghDryRun("update_file", { path: a.path, branch: branch, message: a.message });
+        // 我先拿到当前文件的 sha（GitHub 更新文件要乐观锁）
+        const cur = await _githubRequest(cfg, "/contents/" + encodeURIComponent(a.path) + "?ref=" + encodeURIComponent(branch));
+        if (!cur.ok) return _ghErr("读不到原文件 " + a.path + "：" + cur.error);
+        const fileSha = cur.data && cur.data.sha;
+        if (!fileSha) return _ghErr("拿不到原文件的 sha，没法更新");
+        const r = await _githubRequest(cfg, "/contents/" + encodeURIComponent(a.path), "PUT", {
+          message: a.message,
+          content: _ghB64Encode(a.content),
+          sha: fileSha,
+          branch: branch,
+        });
+        if (!r.ok) return _ghErr("更新 " + a.path + " 失败：" + r.error);
+        const commit = (r.data && r.data.commit) || {};
+        const stats = commit.stats || {};
+        return {
+          kind: "ghFile",
+          path: a.path,
+          additions: stats.additions != null ? stats.additions : 0,
+          deletions: stats.deletions != null ? stats.deletions : 0,
+          branch: branch,
+          message: a.message,
+          sha: commit.sha || "",
+          html_url: commit.html_url || "",
+        };
+      },
+    },
+    {
+      name: "github_list_issues",
+      description: "看看仓库里有哪些 Issue",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          state: { type: "string", enum: ["open", "closed", "all"], description: "Issue 状态筛选，默认 open" },
+          limit: { type: "number", description: "最多返回几条，默认 20" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+        },
+        required: [],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        const state = a.state || "open";
+        const limit = Math.min(a.limit || 20, 100);
+        const r = await _githubRequest(cfg, "/issues?state=" + encodeURIComponent(state) + "&per_page=" + limit);
+        if (!r.ok) return _ghErr(r.error);
+        const arr = Array.isArray(r.data) ? r.data : [];
+        // GitHub 的 /issues 接口会混入 PR，我用 pull_request 字段把 PR 滤掉
+        const items = arr.slice(0, limit).filter((i) => !i.pull_request).map((i) => ({
+          number: i.number,
+          title: i.title,
+          state: i.state,
+          html_url: i.html_url,
+        }));
+        return { kind: "ghList", type: "issues", count: items.length, items: items };
+      },
+    },
+    {
+      name: "github_create_issue",
+      description: "在仓库里提一个新 Issue",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Issue 标题" },
+          body: { type: "string", description: "Issue 描述（可选）" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+          __dryRun: { type: "boolean", description: "true 时只返回计划不实际执行（二次确认用）" },
+        },
+        required: ["title"],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        if (!a.title) return _ghErr("Issue 标题不能为空");
+        if (a.__dryRun === true) return _ghDryRun("create_issue", { title: a.title });
+        const body = { title: a.title };
+        if (a.body) body.body = a.body;
+        const r = await _githubRequest(cfg, "/issues", "POST", body);
+        if (!r.ok) return _ghErr("创建 Issue 失败：" + r.error);
+        const i = r.data || {};
+        return { ok: true, number: i.number, title: i.title, html_url: i.html_url };
+      },
+    },
+    {
+      name: "github_add_pr_comment",
+      description: "在一个 Pull Request 下面留个评论",
+      category: "github",
+      parameters: {
+        type: "object",
+        properties: {
+          number: { type: "number", description: "PR 编号" },
+          body: { type: "string", description: "评论内容" },
+          conversationId: { type: "string", description: "会话 id（可选）" },
+          __dryRun: { type: "boolean", description: "true 时只返回计划不实际执行（二次确认用）" },
+        },
+        required: ["number", "body"],
+      },
+      handler: async (args) => {
+        const a = args || {};
+        const cfg = await _githubConfig(a);
+        if (!cfg.ok) return { ok: false, error: cfg.error };
+        const number = Number(a.number);
+        if (!isFinite(number) || number <= 0) return _ghErr("PR 编号得是正数呀");
+        if (!a.body) return _ghErr("评论内容不能为空");
+        if (a.__dryRun === true) return _ghDryRun("add_pr_comment", { number: number });
+        // PR 评论用 issues 评论接口（GitHub 里 PR 也是 issue）
+        const r = await _githubRequest(cfg, "/issues/" + number + "/comments", "POST", { body: a.body });
+        if (!r.ok) return _ghErr("评论 PR #" + number + " 失败：" + r.error);
+        const c = r.data || {};
+        return { ok: true, comment_id: c.id, pr_number: number, html_url: c.html_url };
       },
     },
   ];

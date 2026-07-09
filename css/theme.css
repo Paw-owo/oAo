@@ -59,6 +59,64 @@
   --chain-radius: var(--radius-md);
   --chain-summary-bg: var(--color-primary-ultralight);
   --chain-summary-border: var(--border-soft);
+
+  /* ---------- 消息APP规范 v2 补充变量（不覆盖现有同名） ---------- */
+  /* 卡片 / 页面 / 危险文字（映射到现有体系） */
+  --card-bg: var(--bg-surface);
+  --text-danger: var(--color-danger);
+
+  /* 透明度语义层 */
+  --opacity-secondary: 0.55;
+  --opacity-timestamp: 0.4;
+  --opacity-disabled: 0.3;
+
+  /* 气泡 */
+  --bubble-ai-bg: var(--bg-surface-2);
+  --bubble-user-bg: var(--color-primary-ultralight, var(--color-primary-light));
+  --bubble-github-bg: var(--github-bg);
+
+  /* 输入栏 / 遮罩 */
+  --input-bar-bg: var(--bg-surface-2);
+  --overlay-bg: var(--bg-mask);
+
+  /* 代码块（深色，官方固定色，唯一允许的深色硬编码） */
+  --code-bg: #1e1e2e;
+  --code-text: #cdd6f4;
+  --code-header-bg: #313244;
+
+  /* diff 展示（官方固定色） */
+  --diff-add-bg: rgba(34, 197, 94, 0.15);
+  --diff-del-bg: rgba(239, 68, 68, 0.15);
+
+  /* GitHub 卡片（官方固定色，不随主题变） */
+  --github-bg: #f6f8fa;
+  --github-border: #d0d7de;
+  --github-merge-color: #8250df;
+  --github-open-color: #1f883d;
+  --github-closed-color: #cf222e;
+
+  /* 思维链 */
+  --cot-bg: var(--bg-surface-2);
+  --cot-border: var(--color-primary-light);
+
+  /* 圆角（规范档位） */
+  --radius-bubble: 18px;
+  --radius-bubble-corner: 6px;
+  --radius-card: 20px;
+  --radius-button: 100px;
+  --radius-input: 20px;
+
+  /* 边框（输入框语义） */
+  --border-input: var(--border-strong);
+  --border-input-focus: var(--color-primary);
+  /* 对话模式用户侧竖线（介于 soft 与 strong 之间，按规范 rgba(0,0,0,0.15) 语义） */
+  --border-medium: color-mix(in srgb, var(--border-soft) 50%, var(--border-strong));
+
+  /* 动效（规范档位；--ease-out 已存在不覆盖，--spring 映射到 --ease-soft） */
+  --spring: var(--ease-soft);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-spring: 320ms;
 }
 
 /* ---------- 主题：honey 奶黄（默认） ---------- */

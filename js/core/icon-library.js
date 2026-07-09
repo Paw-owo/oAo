@@ -120,6 +120,23 @@
     "gamepad":       '<rect x="3" y="7" width="18" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="15" cy="11" r="0.9" fill="currentColor"/><circle cx="18" cy="14" r="0.9" fill="currentColor"/>',
     "cake":          '<path d="M4 21h16v-7H4zM4 14c2 0 2-2 4-2s2 2 4 2 2-2 4-2 2 2 4 2M12 7V3"/><circle cx="12" cy="6" r="0.8" fill="currentColor"/>',
     "flower":        '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-3 1-5 0-7-1 2 0 4 0 7zM12 14c0 3-1 5 0 7 1-2 0-4 0-7zM10 12c-3 0-5-1-7 0 2 1 4 0 7 0zM14 12c3 0 5 1 7 0-2-1-4 0-7 0z"/>',
+
+    // ---------- 工具箱小抽屉图标（线条风） ----------
+    "sliders":       '<path d="M4 6h9M19 6h1M4 12h2M10 12h10M4 18h6M16 18h4"/><circle cx="16" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="13" cy="18" r="2" fill="currentColor" stroke="none"/>',
+    "thermometer":   '<path d="M14 14.5V5a2 2 0 0 0-4 0v9.5a4 4 0 1 0 4 0z"/><path d="M12 9v6"/>',
+    "github":        '<path d="M9 19c-4 1.5-4-2-6-2.5M15 22v-3.6a3 3 0 0 0-.9-2.2c3-.3 6-1.5 6-6.6a5 5 0 0 0-1.4-3.5 4.6 4.6 0 0 0-.1-3.5s-1.1-.3-3.6 1.4a12.3 12.3 0 0 0-6.4 0C5.6 1.8 4.5 2.1 4.5 2.1A4.6 4.6 0 0 0 4.4 5.6 5 5 0 0 0 3 9.1c0 5.1 3 6.3 6 6.6a3 3 0 0 0-.9 2.2V22"/>',
+    "cpu":           '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/>',
+    "file-text":     '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+    "command":       '<path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z"/>',
+    "brain":         '<path d="M9.5 4A2.5 2.5 0 0 0 7 6.5 2.5 2.5 0 0 0 5 9a2.5 2.5 0 0 0 1 2 2.5 2.5 0 0 0-1 2 2.5 2.5 0 0 0 2.5 2.5A2 2 0 0 0 12 17V5a1 1 0 0 0-1-1z"/><path d="M14.5 4A2.5 2.5 0 0 1 17 6.5 2.5 2.5 0 0 1 19 9a2.5 2.5 0 0 1-1 2 2.5 2.5 0 0 1 1 2 2.5 2.5 0 0 1-2.5 2.5A2 2 0 0 1 12 17"/>',
+    "tool":          '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4l-6 6a2 2 0 0 0 2.8 2.8l6-6a4 4 0 0 0 5.4-5.4l-2.7 2.7-2.1-2.1z"/>',
+    "eraser":        '<path d="M5 14l6-6 7 7-5 5H8z"/><path d="M11 8l7 7M3 21h18"/>',
+    "square":        '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+    "alert-circle":  '<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16v.5"/>',
+    "stop":          '<rect x="6" y="6" width="12" height="12"/>',
+    "star-fill":     '<path d="M12 4l2.2 5 5.3.5-4 3.5 1.2 5.2L12 16.8 7.3 18.2l1.2-5.2-4-3.5 5.3-.5z" fill="currentColor" stroke="none"/>',
+    "external-link": '<path d="M10 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/><path d="M14 4h6v6M20 4l-8 8"/>',
+    "x":             '<path d="M6 6l12 12M18 6L6 18"/>',
   };
 
   /**

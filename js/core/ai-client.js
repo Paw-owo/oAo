@@ -13,6 +13,18 @@
 (function (global) {
   "use strict";
 
+  // GitHub 写操作工具名单：执行前需要二次确认（onWriteTool 回调）
+  // 只列写操作，读操作（list_prs/view_pr/list_branches/list_commits/view_file/list_issues）不需要确认
+  const GITHUB_WRITE_TOOLS = [
+    "github_merge_pr",
+    "github_close_pr",
+    "github_create_pr",
+    "github_create_branch",
+    "github_update_file",
+    "github_create_issue",
+    "github_add_pr_comment",
+  ];
+
   // ---------- 配置读取 ----------
   async function getConfig() {
     const S = global.Phone.Storage;
@@ -46,7 +58,18 @@
   // ---------- 流式聊天 ----------
   /**
    * 我（AI）的流式聊天接口
-   * @param {object} params { messages, onDelta, onDone, onError, signal, onThinking }
+   * @param {object} params { messages, onDelta, onDone, onError, signal, onThinking,
+   *   tools?, model?, temperature?, thinking?, streamUsage?, onToolResult?, onWriteTool? }
+   *   - tools: 显式传入的 OpenAI tools 数组；传了就用它（空数组=不带工具），不传走 McpClient 默认
+   *   - model: 覆盖默认模型
+   *   - temperature: 覆盖默认温度
+   *   - thinking: true 时带 extended_thinking 参数（会话级思维链）
+   *   - streamUsage: 默认 true，请求带 stream_options.include_usage 让最后一帧返回 usage
+   *   - onToolResult?: (toolName, args, result) => void  每次工具执行完回调（含被取消的）
+   *       result 是工具返回的数据对象（已 JSON.parse）。可选，不传时行为不变
+   *   - onWriteTool?: (toolName, args) => Promise<boolean>  写操作执行前二次确认
+   *       返回 true=确认执行，false=取消（构造取消的 tool result 继续递归）。可选，不传时不拦截
+   *   onDone 签名：(fullText, usage?)  usage = { prompt_tokens, completion_tokens, total_tokens }
    * @returns {Promise<string>} 完整回复文本
    */
   async function streamChat(params) {
@@ -61,6 +84,8 @@
     const depth = params._depth || 0;
     // 我累积流式分片过来的 tool_calls
     let _pendingToolCalls = [];
+    // 我累积最后一帧的 token 用量（OpenAI 在 stream_options.include_usage 时随 [DONE] 前一帧返回）
+    let _usage = null;
 
     const cfg = await getConfig();
     if (!cfg.endpoint || !cfg.apiKey) {
@@ -70,19 +95,32 @@
     }
 
     const body = {
-      model: cfg.model || "gpt-4o-mini",
+      model: params.model || cfg.model || "gpt-4o-mini",
       messages: messages,
       stream: true,
-      temperature: cfg.temperature != null ? cfg.temperature : 0.7,
+      temperature: params.temperature != null ? params.temperature : (cfg.temperature != null ? cfg.temperature : 0.7),
       max_tokens: cfg.maxTokens || 2000,
     };
-    // 我注入 MCP 工具（启用且有工具时才加，否则完全兼容原行为）
-    if (global.Phone.McpClient && global.Phone.McpClient.isEnabled()) {
+    // 会话级思维链：带 extended_thinking 参数（不同中转站兼容性不同，我用通用字段名）
+    if (params.thinking) {
+      body.extended_thinking = true;
+    }
+    // 我注入工具：外部显式传 tools 时以外部为准（空数组=不带工具），否则走 McpClient 默认
+    if (Array.isArray(params.tools)) {
+      if (params.tools.length) {
+        body.tools = params.tools;
+        body.tool_choice = "auto";
+      }
+    } else if (global.Phone.McpClient && global.Phone.McpClient.isEnabled()) {
       const tools = global.Phone.McpClient.toOpenAITools();
       if (tools && tools.length) {
         body.tools = tools;
         body.tool_choice = "auto";
       }
+    }
+    // 我请求带 usage（默认开），好把 token 用量回传给上层
+    if (params.streamUsage !== false) {
+      body.stream_options = { include_usage: true };
     }
 
     let resp;
@@ -136,6 +174,8 @@
             if (dataStr === "[DONE]") break streamLoop;
             try {
               const json = JSON.parse(dataStr);
+              // 我抓最后一帧的 token 用量（OpenAI 在 include_usage 时单独发一帧 usage）
+              if (json.usage) _usage = json.usage;
               const delta = json.choices && json.choices[0] && json.choices[0].delta;
               if (!delta) continue;
               // 思维链
@@ -179,18 +219,53 @@
         // 我执行每个工具，拿到 tool 结果 message
         const toolResults = [];
         for (const otc of openaiToolCalls) {
+          const toolName = otc.function.name;
+          let args = {};
+          try { args = JSON.parse(otc.function.arguments || "{}"); } catch (_) {}
+          // 写操作二次确认：onWriteTool 返回 false 时跳过执行，构造一个取消的 tool result
+          if (GITHUB_WRITE_TOOLS.indexOf(toolName) >= 0 && typeof params.onWriteTool === "function") {
+            let confirmed = true;
+            try { confirmed = await params.onWriteTool(toolName, args); } catch (_) { confirmed = false; }
+            if (!confirmed) {
+              toolResults.push({
+                tool_call_id: otc.id,
+                role: "tool",
+                content: JSON.stringify({ ok: false, cancelled: true, error: "用户取消了此操作" }),
+              });
+              // 取消的操作也通知上层（让 UI 能反映"已取消"）
+              if (typeof params.onToolResult === "function") {
+                try { params.onToolResult(toolName, args, { ok: false, cancelled: true, error: "用户取消了此操作" }); } catch (_) {}
+              }
+              continue;
+            }
+          }
           const result = await global.Phone.McpClient.callToolCall(otc);
           toolResults.push(result);
+          // 新增：通知上层工具执行结果（用于生成 GitHub 卡片等 UI 联动）
+          if (typeof params.onToolResult === "function") {
+            try {
+              const parsed = (result && typeof result.content === "string")
+                ? JSON.parse(result.content)
+                : (result && result.content);
+              params.onToolResult(toolName, args, parsed);
+            } catch (_) {}
+          }
         }
-        // 我把工具结果送回去，递归调用让模型继续生成
+        // 我把工具结果送回去，递归调用让模型继续生成（透传会话级 tools/model/temperature/thinking/streamUsage + onToolResult/onWriteTool）
         const newMessages = messages.concat([assistantMsg], toolResults);
-        return await streamChat({ messages: newMessages, onDelta, onDone, onError, signal, onThinking, _depth: depth + 1 });
+        return await streamChat({
+          messages: newMessages, onDelta, onDone, onError, signal, onThinking,
+          tools: params.tools, model: params.model, temperature: params.temperature,
+          thinking: params.thinking, streamUsage: params.streamUsage,
+          onToolResult: params.onToolResult, onWriteTool: params.onWriteTool,
+          _depth: depth + 1,
+        });
       }
-      onDone(fullText);
+      onDone(fullText, _usage);
       return fullText;
     } catch (e) {
       if (e.name === "AbortError") {
-        onDone(fullText);
+        onDone(fullText, _usage);
         return fullText;
       }
       onError(e);
@@ -199,8 +274,9 @@
   }
 
   // ---------- 非流式聊天（用于内部决策/总结等不需要逐字的场景） ----------
-  async function chat(messages, signal, _depth) {
+  async function chat(messages, signal, _depth, opts) {
     _depth = _depth || 0;
+    opts = opts || {};
     const cfg = await getConfig();
     if (!cfg.endpoint || !cfg.apiKey) {
       throw new Error("还没配置 AI 接口");
@@ -212,8 +288,13 @@
       temperature: cfg.temperature != null ? cfg.temperature : 0.7,
       max_tokens: cfg.maxTokens || 2000,
     };
-    // 我注入 MCP 工具（同 streamChat 的逻辑）
-    if (global.Phone.McpClient && global.Phone.McpClient.isEnabled()) {
+    // 我注入工具：外部显式传 opts.tools 时以外部为准（空数组=不带工具），否则走 McpClient 默认
+    if (Array.isArray(opts.tools)) {
+      if (opts.tools.length) {
+        body.tools = opts.tools;
+        body.tool_choice = "auto";
+      }
+    } else if (global.Phone.McpClient && global.Phone.McpClient.isEnabled()) {
       const tools = global.Phone.McpClient.toOpenAITools();
       if (tools && tools.length) {
         body.tools = tools;
@@ -245,7 +326,7 @@
       }
       // 我把 assistant 的 tool_calls message 和 tool 结果一起送回去，递归调用
       const newMessages = messages.concat([message], toolResults);
-      return await chat(newMessages, signal, _depth + 1);
+      return await chat(newMessages, signal, _depth + 1, opts);
     }
     return message.content || "";
   }
@@ -498,6 +579,31 @@
     return mem;
   }
 
+  // ---------- 我把用户的话改写成角色第一人称（写记忆前用，符合 memory-system 第一人称规范） ----------
+  // 用极短 prompt 调非流式 chat 改写，失败回退原样，绝不阻塞主流程
+  async function rewriteMemoryAsCharacter(characterId, userText) {
+    if (!userText) return userText;
+    try {
+      const character = await getCharacter(characterId);
+      const name = (character && character.name) || "我";
+      const sys = [
+        "你是「" + name + "」。把下面用户说的话，改写成「你（" + name + "）」视角的第一人称记忆陈述。",
+        "只输出改写后的一句话，不要解释，不要加引号，保留关键信息（人名/时间/喜好/事实）。",
+        "示例：用户说「我喜欢吃草莓」→「我喜欢吃草莓」；用户说「小明明天生日」→「小明明天过生日，我要记住」。",
+      ].join("\n");
+      // 改写不带工具，避免触发 MCP 拖慢或副作用
+      const rewritten = await chat([
+        { role: "system", content: sys },
+        { role: "user", content: String(userText).slice(0, 300) },
+      ], null, 0, { tools: [] });
+      const out = (rewritten || "").trim();
+      return out || userText;
+    } catch (e) {
+      console.warn("[AIClient] 记忆第一人称改写失败，回退原样", e);
+      return userText;
+    }
+  }
+
   // ---------- 记忆自动归档（超过 100 条，低重要度归档，归档后不注入上下文） ----------
   async function _archiveMemories(characterId) {
     const S = global.Phone.Storage;
@@ -622,6 +728,7 @@
     friendlyError,
     buildContext,
     remember,
+    rewriteMemoryAsCharacter,
     FALLBACK_REPLIES,
     // 记忆管理
     forget,

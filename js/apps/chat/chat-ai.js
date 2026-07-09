@@ -7,9 +7,11 @@
    - 读取当前角色的对话历史，给出符合人设的回复
    - 流式逐字输出，让用户看到我"正在说话"
    - 读取最近事件，在聊天中自然提及（朋友圈/礼物/游戏/纪念日等）
-   - 根据对话内容自动写入记忆（重要的事我会记住）
+   - 根据对话内容自动写入记忆（重要的事我会记住，且用我的第一人称记）
    - 用户让我不开心时，我会自动写一条记仇本
    - 用户道歉时，我会选择原谅
+   - 支持会话级温度 / 模型 / 思维链 / MCP 工具开关覆盖
+   - 采集 token 用量，通过 onDone(meta) 回传给上层
 
    挂在 window.Phone.ChatAI
    ============================================================ */
@@ -19,14 +21,20 @@
   /**
    * 我（AI）根据当前对话历史生成回复
    * @param {object} opts {
-   *   characterId, conversationId, messages, onDelta, onDone, onError, onThinking, signal
+   *   characterId, conversationId（必需，用于读会话级设置）,
+   *   messages, onDelta, onDone, onError, onThinking, signal,
+   *   onToolResult?, onWriteTool?  (透传给 streamChat，用于 GitHub 工具结果联动 / 写操作二次确认)
    * }
+   *   onDone(meta): meta = { text: 完整回复文本, tokens: {in, out} | null }
+   *   onToolResult?: (toolName, args, result) => void
+   *   onWriteTool?: (toolName, args) => Promise<boolean>
    * @returns {Promise<string>} 我的完整回复
    */
   async function reply(opts) {
     opts = opts || {};
     const AIClient = global.Phone.AIClient;
     const Storage = global.Phone.Storage;
+    const convId = opts.conversationId;
 
     // 我组装上下文：人设 + 世界书 + 记忆 + 最近事件
     const ctx = await AIClient.buildContext({ characterId: opts.characterId });
@@ -41,15 +49,42 @@
     // 我严格按角色隔离，绝不混入其他角色的历史
     myMessages.push.apply(myMessages, history);
 
-    // 我开始流式回复
+    // ---------- 我读取会话级覆盖设置（规范 10） ----------
+    const overrides = await _readConvOverrides(convId);
+
+    // ---------- 我组装 MCP 工具（会话级开关，!== false 即启用） ----------
+    const tools = _buildConvTools(convId, await _readConvToolFlags(convId));
+
+    // 我拦截 streamChat 的 onDone 拿 token 用量，再统一用 meta 调用上层 onDone
+    let _usage = null;
     const fullText = await AIClient.streamChat({
       messages: myMessages,
       onDelta: opts.onDelta || function () {},
-      onDone: opts.onDone || function () {},
+      onDone: (text, usage) => { _usage = usage || null; },
       onError: opts.onError || function () {},
       onThinking: opts.onThinking || function () {},
       signal: opts.signal,
+      // 会话级覆盖
+      tools: tools,
+      temperature: overrides.temperature,
+      thinking: overrides.thinking,
+      model: overrides.model,
+      // GitHub 工具结果联动 / 写操作二次确认（透传给 streamChat，可选）
+      onToolResult: opts.onToolResult,
+      onWriteTool: opts.onWriteTool,
     });
+
+    // 我把完整文本 + token 用量一起回传给上层（meta 约定）
+    if (typeof opts.onDone === "function") {
+      try {
+        await opts.onDone({
+          text: fullText,
+          tokens: _usage ? { in: _usage.prompt_tokens, out: _usage.completion_tokens } : null,
+        });
+      } catch (e) {
+        console.warn("[ChatAI] onDone 回调出错", e);
+      }
+    }
 
     // 回复完成后，我自动判断要不要记仇或记住
     if (fullText && opts.characterId) {
@@ -63,9 +98,70 @@
     return fullText;
   }
 
+  // ---------- 我读取会话级覆盖（温度 / 思维链 / 模型） ----------
+  async function _readConvOverrides(convId) {
+    const out = { temperature: undefined, thinking: undefined, model: undefined };
+    if (!convId) return out;
+    try {
+      // 会话级温度：0~2 的数才覆盖全局 aiTemperature
+      const tempVal = await global.Phone.Storage.getSetting("chat.temp_" + convId);
+      if (typeof tempVal === "number" && isFinite(tempVal) && tempVal >= 0 && tempVal <= 2) {
+        out.temperature = tempVal;
+      }
+      // 会话级思维链：null/undefined=跟随全局 showThinking，true/false=会话级覆盖
+      const thinkVal = await global.Phone.Storage.getSetting("chat.thinking_" + convId);
+      if (thinkVal === true) out.thinking = true;
+      else if (thinkVal === false) out.thinking = false;
+      else out.thinking = global.Phone.State.get("showThinking") === true;
+      // 会话级模型：有值则覆盖默认模型
+      const modelVal = await global.Phone.Storage.getSetting("chat.model_" + convId);
+      if (modelVal) out.model = modelVal;
+    } catch (e) {
+      console.warn("[ChatAI] 读取会话级覆盖失败", e);
+    }
+    return out;
+  }
+
+  // ---------- 我读取会话级 MCP 工具开关 ----------
+  async function _readConvToolFlags(convId) {
+    const flags = {}; // toolName -> true/false
+    if (!convId) return flags;
+    try {
+      const McpClient = global.Phone.McpClient;
+      if (!McpClient || !McpClient.isEnabled()) return flags;
+      const all = McpClient.list() || [];
+      for (const t of all) {
+        // !== false 即启用（默认启用）
+        const v = await global.Phone.Storage.getSetting("chat.mcp_" + convId + "_" + t.name);
+        flags[t.name] = v !== false;
+      }
+    } catch (e) {
+      console.warn("[ChatAI] 读取会话级工具开关失败", e);
+    }
+    return flags;
+  }
+
+  // ---------- 我按开关构造 OpenAI tools 数组 ----------
+  function _buildConvTools(convId, flags) {
+    const McpClient = global.Phone.McpClient;
+    // 全局关时返回空数组（显式传空，覆盖 streamChat 默认注入）
+    if (!McpClient || !McpClient.isEnabled()) return [];
+    const all = McpClient.list() || [];
+    const enabled = all.filter((t) => flags[t.name] !== false);
+    return enabled.map((t) => ({
+      type: "function",
+      function: {
+        name: t.name,
+        description: t.description || "",
+        parameters: t.parameters || { type: "object", properties: {}, required: [] },
+      },
+    }));
+  }
+
   // 我回复完后的自动行为
   async function _afterReply(text, opts, ctx) {
-    const lower = text.toLowerCase();
+    // 修复 AIClient 自由变量：_afterReply 原先引用了 reply 内的 AIClient，会 ReferenceError
+    const AIClient = global.Phone.AIClient;
     const EventCenter = global.Phone.EventCenter;
     const Storage = global.Phone.Storage;
 
@@ -111,9 +207,11 @@
     }
 
     // 重要的事我会记住（简单的启发式：含"记住""别忘了""我喜欢""我叫"等）
+    // 记忆内容我用角色第一人称改写后再 remember（符合 memory-system 第一人称规范）
     if (lastUser && /记住|别忘了|我喜欢|我叫|我的名字|我生日|我是|我最喜欢/.test(lastUser.content)) {
       try {
-        await AIClient.remember(opts.characterId, lastUser.content, "preference", 8);
+        const rewritten = await AIClient.rewriteMemoryAsCharacter(opts.characterId, lastUser.content);
+        await AIClient.remember(opts.characterId, rewritten, "preference", 8);
       } catch (e) { console.warn("[ChatAI] 记忆写入失败", e); }
     }
 
@@ -159,10 +257,123 @@
     return 400 + Math.random() * 600;
   }
 
+  // ============================================================
+  // 群聊回复（规范第 9 节）
+  // 我（某个 AI 成员）在群聊上下文里独立回复
+  // 与 reply() 的区别：
+  //   - systemPrompt 来自 character.systemPrompt（人设管理 APP 写入）或回退 buildContext
+  //   - 上下文消息里 AI 消息保留 role=assistant，但 content 前加 "[角色名]: " 前缀
+  //     让我能区分群里多条 AI 回复分别是谁说的
+  //   - onDone(meta) 签名与 reply() 一致：{ text, tokens: {in, out} | null }
+  // ============================================================
+  async function replyGroup(opts) {
+    opts = opts || {};
+    const AIClient = global.Phone.AIClient;
+    const Storage = global.Phone.Storage;
+    const convId = opts.conversationId;
+    const members = Array.isArray(opts.members) ? opts.members : [];
+    const me = members.find((m) => m.id === opts.characterId) || { id: opts.characterId, name: "AI" };
+
+    // 我组装自己的 system message：
+    // 优先用 character.systemPrompt（人设管理 APP 写入的纯人设），
+    // 没有就走 buildContext 拿到完整 system（含记忆/世界书/记仇/事件）
+    let systemPrompt = "";
+    let ctx = null;
+    try {
+      const char = (await Storage.getAll("characters")).find((c) => c.id === opts.characterId);
+      if (char && char.systemPrompt && String(char.systemPrompt).trim()) {
+        systemPrompt = String(char.systemPrompt);
+      } else {
+        ctx = await AIClient.buildContext({ characterId: opts.characterId });
+        systemPrompt = ctx.system;
+      }
+    } catch (e) {
+      console.warn("[ChatAI] replyGroup 组装 systemPrompt 失败", e);
+    }
+
+    // 群聊上下文提示：告诉我这是群聊，我是谁，还有谁在
+    const otherNames = members.filter((m) => m.id !== me.id).map((m) => m.name || "AI");
+    const groupHint = [
+      "【群聊场景】",
+      "你现在在一个群聊里，群里有用户和其他 AI 成员。",
+      "你是「" + (me.name || "AI") + "」，只代表你自己说话，不要替其他成员发言。",
+      "群里其他 AI 成员：" + (otherNames.length ? otherNames.join("、") : "（无）") + "。",
+      "用户消息可能用 @你的名字 单独点名你，被 @ 到你才必须回复；没被 @ 时按群聊自然节奏判断要不要接话。",
+      "回复时不要在内容里加自己的名字前缀，直接说内容即可。",
+    ].join("\n");
+
+    const finalSystem = systemPrompt ? (systemPrompt + "\n\n" + groupHint) : groupHint;
+
+    // 我把上下文消息做群聊适配：
+    // - 用户消息：原样保留（content 里可能含 @角色名）
+    // - AI 消息：按 msg.senderId 找到对应成员名，content 前加 "[角色名]: " 前缀
+    //   这样我能看清群里每条 AI 消息是谁说的，避免把别人的话当成自己说的
+    const memberMap = {};
+    members.forEach((m) => { memberMap[m.id] = m; });
+    const history = (opts.messages || []).slice(-30).map((m) => {
+      if (m.role === "user") {
+        return { role: "user", content: m.content };
+      }
+      // assistant 消息
+      const sender = m.senderId ? memberMap[m.senderId] : null;
+      const senderName = sender ? (sender.name || "AI") : "AI";
+      return { role: "assistant", content: "[" + senderName + "]: " + (m.content || "") };
+    });
+
+    const myMessages = [{ role: "system", content: finalSystem }];
+    myMessages.push.apply(myMessages, history);
+
+    // ---------- 我复用 reply() 的会话级覆盖（温度/思维链/模型/MCP工具） ----------
+    const overrides = await _readConvOverrides(convId);
+    const tools = _buildConvTools(convId, await _readConvToolFlags(convId));
+
+    let _usage = null;
+    const fullText = await AIClient.streamChat({
+      messages: myMessages,
+      onDelta: opts.onDelta || function () {},
+      onDone: (text, usage) => { _usage = usage || null; },
+      onError: opts.onError || function () {},
+      onThinking: opts.onThinking || function () {},
+      signal: opts.signal,
+      tools: tools,
+      temperature: overrides.temperature,
+      thinking: overrides.thinking,
+      model: overrides.model,
+      // GitHub 工具结果联动 / 写操作二次确认（透传给 streamChat，可选）
+      onToolResult: opts.onToolResult,
+      onWriteTool: opts.onWriteTool,
+    });
+
+    if (typeof opts.onDone === "function") {
+      try {
+        await opts.onDone({
+          text: fullText,
+          tokens: _usage ? { in: _usage.prompt_tokens, out: _usage.completion_tokens } : null,
+        });
+      } catch (e) {
+        console.warn("[ChatAI] replyGroup onDone 回调出错", e);
+      }
+    }
+
+    // 群聊里也复用 _afterReply（记仇/原谅/记忆/钱包/朋友圈联动）
+    // 注意：群聊里 lastUserMsg 从原始 messages 里找，不带前缀
+    if (fullText && opts.characterId) {
+      try {
+        const fakeOpts = Object.assign({}, opts, { messages: (opts.messages || []).map((m) => ({ role: m.role, content: m.content })) });
+        await _afterReply(fullText, fakeOpts, ctx || { character: me });
+      } catch (e) {
+        console.warn("[ChatAI] replyGroup 后续处理出错", e);
+      }
+    }
+
+    return fullText;
+  }
+
   // ---------- 暴露 ----------
   global.Phone = global.Phone || {};
   global.Phone.ChatAI = {
     reply: reply,
+    replyGroup: replyGroup,
     fakeTypingDelay: fakeTypingDelay,
   };
 })(window);
