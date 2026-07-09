@@ -178,16 +178,8 @@
     // ---------- 回到底部胶囊（带文字） ----------
     const toBottomBtn = U.el("button", {
       class: "conv-to-bottom",
-      style: {
-        position: "absolute", bottom: "96px", right: "16px", display: "inline-flex", alignItems: "center",
-        gap: "4px", padding: "8px 14px", borderRadius: "var(--radius-full)",
-        background: "var(--bg-surface)", boxShadow: "var(--shadow-card)",
-        border: "1px solid var(--border-soft)", color: "var(--color-primary)",
-        fontSize: "var(--font-sm)", fontWeight: 500, zIndex: 5,
-      },
     });
     toBottomBtn.innerHTML = global.Phone.IconLibrary.get("chevron-down", { size: 16 }) + "<span>回到底部</span>";
-    toBottomBtn.style.display = "none";
     toBottomBtn.addEventListener("click", () => listWrap.scrollTo({ top: listWrap.scrollHeight, behavior: "smooth" }));
     page.appendChild(toBottomBtn);
 
@@ -195,34 +187,21 @@
     let newMsgCount = 0;
     const newBadge = U.el("button", {
       class: "conv-new-badge",
-      style: {
-        position: "absolute", bottom: "150px", right: "16px", display: "none", alignItems: "center",
-        gap: "4px", padding: "6px 12px", borderRadius: "var(--radius-full)",
-        background: "var(--color-primary)", color: "var(--text-on-primary)",
-        fontSize: "var(--font-xs)", fontWeight: 600, boxShadow: "var(--shadow-card)",
-        zIndex: 5, border: "none",
-      },
     });
     newBadge.innerHTML = global.Phone.IconLibrary.get("chevron-down", { size: 14 }) + "<span>0 条新消息</span>";
     newBadge.addEventListener("click", () => {
       newMsgCount = 0;
-      newBadge.style.display = "none";
+      newBadge.classList.remove("visible");
       listWrap.scrollTo({ top: listWrap.scrollHeight, behavior: "smooth" });
     });
     page.appendChild(newBadge);
 
     // ---------- 停止生成 FAB（右下角圆形，流式时显示） ----------
     const stopFab = U.el("button", {
-      class: "conv-stop-fab",
+      class: "conv-stop",
       title: "停止生成",
-      style: {
-        position: "absolute", bottom: "150px", right: "16px", width: "52px", height: "52px",
-        borderRadius: "var(--radius-full)", background: "var(--color-primary)",
-        color: "var(--text-on-primary)", display: "none", alignItems: "center", justifyContent: "center",
-        boxShadow: "var(--shadow-card)", zIndex: 6, border: "none",
-      },
     });
-    stopFab.innerHTML = global.Phone.IconLibrary.get("pause", { size: 20 });
+    stopFab.innerHTML = global.Phone.IconLibrary.get("square", { size: 16 });
     stopFab.addEventListener("click", () => { try { if (abortCtrl) abortCtrl.abort(); } catch {} });
     page.appendChild(stopFab);
 
@@ -231,10 +210,10 @@
     listWrap.addEventListener("scroll", () => {
       const near = listWrap.scrollHeight - listWrap.scrollTop - listWrap.clientHeight < 80;
       isNearBottom = near;
-      toBottomBtn.style.display = near ? "none" : "inline-flex";
+      toBottomBtn.classList.toggle("visible", !near);
       if (near) {
         newMsgCount = 0;
-        newBadge.style.display = "none";
+        newBadge.classList.remove("visible");
       }
     });
 
@@ -294,22 +273,19 @@
       const ctx = _buildCtx(msg);
       const view = _viewMsg(msg);
       const node = global.Phone.MessageRenderer.render(view, ctx);
-      // 上下文可视化：in-context 加 2px 竖线（内联兜底，MessageRenderer 也可自行渲染）
-      if (ctx.ctxViz && ctx.inContext && msg.role === "assistant") {
-        try { node.style.boxShadow = "inset 2px 0 0 var(--color-primary)"; } catch {}
-      }
       const block = U.el("div", { class: "msg-block", dataset: { msgId: msg.id } });
+      // 上下文可视化：in-context 加 2px 竖线
+      if (ctx.ctxViz && ctx.inContext && msg.role === "assistant") {
+        block.classList.add("ctx-visible");
+      }
       block.appendChild(node);
 
       // 超出上下文：浮水印（不影响阅读）
       if (ctx.ctxViz && !ctx.inContext) {
+        block.classList.add("ctx-outside");
         block.appendChild(U.el("div", {
           class: "ctx-watermark",
           text: "上下文之外",
-          style: {
-            fontSize: "10px", color: "var(--text-placeholder)", opacity: 0.6,
-            paddingLeft: "8px", marginTop: "2px",
-          },
         }));
       }
 
@@ -437,9 +413,7 @@
           if (node) {
             try { node.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {}
             node.classList.add("msg-highlight");
-            try { node.style.transition = "background 1500ms ease-out"; node.style.background = "var(--color-primary-ultralight)"; } catch {}
             setTimeout(() => {
-              try { node.style.background = ""; } catch {}
               node.classList.remove("msg-highlight");
             }, 1500);
           }
@@ -634,7 +608,7 @@
 
       // 2. AI 占位消息（单聊） / 群聊顺序回复
       sending = true;
-      stopFab.style.display = "flex";
+      stopFab.classList.add("visible");
       if (isGroup) {
         // 群聊：按 @ 决定谁回复（有 @ 只有被@者回复；无 @ 全员顺序回复）
         await _streamGroupAI(userMsg);
@@ -686,7 +660,7 @@
     // 无 @ ：所有成员顺序回复（一个回复完下个才看到上下文）
     async function _streamGroupAI(userMsg) {
       sending = true;
-      stopFab.style.display = "flex";
+      stopFab.classList.add("visible");
       abortCtrl = new AbortController();
 
       const mentioned = Array.isArray(userMsg.mentions) ? userMsg.mentions : [];
@@ -704,7 +678,7 @@
         repliers = groupMembers.slice();
       }
       if (repliers.length === 0) {
-        stopFab.style.display = "none";
+        stopFab.classList.remove("visible");
         sending = false;
         return;
       }
@@ -714,7 +688,7 @@
         if (abortCtrl.signal.aborted) break;
         await _streamOneGroupReply(member);
       }
-      stopFab.style.display = "none";
+      stopFab.classList.remove("visible");
       sending = false;
     }
 
@@ -772,7 +746,7 @@
               _scrollToBottom(false);
             } else {
               newMsgCount++;
-              newBadge.style.display = "inline-flex";
+              newBadge.classList.add("visible");
               newBadge.innerHTML = global.Phone.IconLibrary.get("chevron-down", { size: 14 }) + "<span>" + newMsgCount + " 条新消息</span>";
             }
           },
@@ -841,7 +815,7 @@
       _rerenderMessages();
 
       sending = true;
-      stopFab.style.display = "flex";
+      stopFab.classList.add("visible");
       const aiMsg = {
         id: U.uid("msg"), role: "assistant", type: "text",
         content: "", createdAt: Date.now(), pending: true,
@@ -932,7 +906,7 @@
     // ---------- 流式请求 AI（_onSend / _regenerate / 编辑截断共用） ----------
     async function _streamAI(aiMsg) {
       sending = true;
-      stopFab.style.display = "flex";
+      stopFab.classList.add("visible");
       abortCtrl = new AbortController();
       let rafPending = false;
       function scheduleUpdate() {
@@ -976,7 +950,7 @@
             } else {
               // 不在底部时累积新消息角标
               newMsgCount++;
-              newBadge.style.display = "inline-flex";
+              newBadge.classList.add("visible");
               newBadge.innerHTML = global.Phone.IconLibrary.get("chevron-down", { size: 14 }) + "<span>" + newMsgCount + " 条新消息</span>";
             }
           },
@@ -1021,7 +995,7 @@
                 TTS.speak(text, opts);
               } catch {}
             }
-            stopFab.style.display = "none";
+            stopFab.classList.remove("visible");
             sending = false;
           },
           onError: (err) => {
@@ -1030,7 +1004,7 @@
             aiMsg.status = "failed";
             _patchActiveVersion(aiMsg, { content: aiMsg.content });
             _refreshMsgBlock(aiMsg.id);
-            stopFab.style.display = "none";
+            stopFab.classList.remove("visible");
             sending = false;
           },
         });
@@ -1040,7 +1014,7 @@
         aiMsg.status = "failed";
         _patchActiveVersion(aiMsg, { content: aiMsg.content });
         _refreshMsgBlock(aiMsg.id);
-        stopFab.style.display = "none";
+        stopFab.classList.remove("visible");
         sending = false;
       }
     }
@@ -1093,7 +1067,7 @@
     // 群聊重新生成：把流式结果写入已存在的 aiMsg（版本历史场景复用）
     async function _streamGroupReplyInto(aiMsg, member) {
       sending = true;
-      stopFab.style.display = "flex";
+      stopFab.classList.add("visible");
       abortCtrl = new AbortController();
       let rafPending = false;
       function scheduleUpdate() {
@@ -1142,7 +1116,7 @@
             conversation.updatedAt = Date.now();
             await Storage.put("conversations", conversation);
             _refreshMsgBlock(aiMsg.id);
-            stopFab.style.display = "none";
+            stopFab.classList.remove("visible");
             sending = false;
           },
           onError: (err) => {
@@ -1151,7 +1125,7 @@
             aiMsg.status = "failed";
             _patchActiveVersion(aiMsg, { content: aiMsg.content });
             _refreshMsgBlock(aiMsg.id);
-            stopFab.style.display = "none";
+            stopFab.classList.remove("visible");
             sending = false;
           },
         });
@@ -1161,7 +1135,7 @@
         aiMsg.status = "failed";
         _patchActiveVersion(aiMsg, { content: aiMsg.content });
         _refreshMsgBlock(aiMsg.id);
-        stopFab.style.display = "none";
+        stopFab.classList.remove("visible");
         sending = false;
       }
     }
@@ -1873,25 +1847,10 @@
       let on = !!initial;
       const sw = U.el("div", {
         class: "switch" + (on ? " on" : ""),
-        style: {
-          width: "44px", height: "26px", borderRadius: "var(--radius-full)",
-          background: on ? "var(--color-primary)" : "var(--bg-surface-2)",
-          border: "1px solid var(--border-soft)", position: "relative", cursor: "pointer",
-          transition: "background var(--dur-fast) var(--ease-soft)",
-        },
       });
-      const dot = U.el("div", {
-        style: {
-          position: "absolute", top: "2px", left: on ? "20px" : "2px", width: "20px", height: "20px",
-          borderRadius: "var(--radius-full)", background: "var(--bg-surface)",
-          boxShadow: "var(--shadow-soft)", transition: "left var(--dur-fast) var(--ease-soft)",
-        },
-      });
-      sw.appendChild(dot);
       sw.addEventListener("click", () => {
         on = !on;
-        sw.style.background = on ? "var(--color-primary)" : "var(--bg-surface-2)";
-        dot.style.left = on ? "20px" : "2px";
+        sw.classList.toggle("on", on);
         onChange(on);
       });
       return sw;
@@ -1900,10 +1859,7 @@
     // 三态开关：follow / on / off
     function _makeTriSwitch(initial, onChange) {
       const U = global.Phone.Utils;
-      const wrap = U.el("div", {
-        class: "segment",
-        style: { display: "inline-flex", borderRadius: "var(--radius-full)", overflow: "hidden", border: "1px solid var(--border-soft)" },
-      });
+      const wrap = U.el("div", { class: "segment" });
       const opts = [
         { val: "follow", label: "跟随" },
         { val: "on", label: "开" },
@@ -1913,21 +1869,12 @@
         const node = U.el("div", {
           class: "segment-item" + (initial === o.val ? " active" : ""),
           text: o.label,
-          style: {
-            padding: "4px 12px", fontSize: "var(--font-sm)", cursor: "pointer",
-            background: initial === o.val ? "var(--color-primary)" : "transparent",
-            color: initial === o.val ? "var(--text-on-primary)" : "var(--text-secondary)",
-          },
         });
         node.addEventListener("click", () => {
           wrap.querySelectorAll(".segment-item").forEach((n) => {
             n.classList.remove("active");
-            n.style.background = "transparent";
-            n.style.color = "var(--text-secondary)";
           });
           node.classList.add("active");
-          node.style.background = "var(--color-primary)";
-          node.style.color = "var(--text-on-primary)";
           onChange(o.val);
         });
         wrap.appendChild(node);
@@ -1937,29 +1884,17 @@
 
     function _makeSegment(items, current, onPick) {
       const U = global.Phone.Utils;
-      const seg = U.el("div", {
-        class: "segment",
-        style: { display: "inline-flex", flexWrap: "wrap", borderRadius: "var(--radius-full)", overflow: "hidden", border: "1px solid var(--border-soft)" },
-      });
+      const seg = U.el("div", { class: "segment" });
       items.forEach((it) => {
         const node = U.el("div", {
           class: "segment-item" + (current === it.val ? " active" : ""),
           text: it.label,
-          style: {
-            padding: "4px 12px", fontSize: "var(--font-sm)", cursor: "pointer",
-            background: current === it.val ? "var(--color-primary)" : "transparent",
-            color: current === it.val ? "var(--text-on-primary)" : "var(--text-secondary)",
-          },
         });
         node.addEventListener("click", () => {
           seg.querySelectorAll(".segment-item").forEach((n) => {
             n.classList.remove("active");
-            n.style.background = "transparent";
-            n.style.color = "var(--text-secondary)";
           });
           node.classList.add("active");
-          node.style.background = "var(--color-primary)";
-          node.style.color = "var(--text-on-primary)";
           onPick(it.val);
         });
         seg.appendChild(node);
@@ -2039,16 +1974,13 @@
     // ---------- 模式切换（第 4 节，200ms crossfade） ----------
     async function _switchMode(newMode) {
       if (newMode === mode) return;
-      try {
-        list.style.transition = "opacity 200ms ease-out";
-        list.style.opacity = "0";
-      } catch {}
+      list.classList.add("mode-switching");
       setTimeout(async () => {
         mode = newMode;
         conversation.mode = mode;
         await Storage.put("conversations", conversation);
         _rerenderMessages();
-        try { list.style.opacity = "1"; } catch {}
+        list.classList.remove("mode-switching");
         try {
           global.Phone.EventCenter.emit(global.Phone.EventCenter.TYPES.CHAT_MODE_CHANGED, {
             sourceApp: "chat", data: { conversationId: conversationId, mode: mode }, summary: "切换为" + (mode === "bubble" ? "气泡" : "对话") + "模式",

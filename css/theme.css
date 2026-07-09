@@ -61,7 +61,8 @@
   --chain-summary-border: var(--border-soft);
 
   /* ---------- 消息APP规范 v2 补充变量（不覆盖现有同名） ---------- */
-  /* 卡片 / 页面 / 危险文字（映射到现有体系） */
+  /* 页面背景 / 卡片 / 危险文字（映射到现有体系） */
+  --page-bg: var(--bg-base);
   --card-bg: var(--bg-surface);
   --text-danger: var(--color-danger);
 

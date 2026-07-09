@@ -628,16 +628,14 @@
           U.el("div", { class: "li-sub", text: c.description || "", style: { fontSize: "var(--font-xs)", color: "var(--text-secondary)" } }),
         ]));
         // 勾选标记
-        const check = U.el("div", { class: "group-pick-check", html: "", style: { width: "22px", height: "22px", borderRadius: "var(--radius-full)", border: "2px solid var(--border-soft)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-on-primary)", flexShrink: "0", transition: "background var(--dur-fast) var(--ease-soft), border-color var(--dur-fast) var(--ease-soft)" } });
+        const check = U.el("div", { class: "group-pick-check" });
         item.appendChild(check);
         function _syncCheck() {
           if (selected[c.id]) {
-            check.style.background = "var(--color-primary)";
-            check.style.borderColor = "var(--color-primary)";
+            check.classList.add("checked");
             check.innerHTML = global.Phone.IconLibrary.get("check", { size: 14 });
           } else {
-            check.style.background = "transparent";
-            check.style.borderColor = "var(--border-soft)";
+            check.classList.remove("checked");
             check.innerHTML = "";
           }
         }
