@@ -198,16 +198,26 @@
       requestAnimationFrame(() => emojiPanel.classList.add("open"));
     });
 
-    // 图片选择
-    const fileInput = U.el("input", { type: "file", accept: "image/*", style: "display:none" });
+    // 图片选择（支持多选，微信对齐：多图合并为卡片）
+    const fileInput = U.el("input", { type: "file", accept: "image/*", multiple: true, style: "display:none" });
     bar.appendChild(fileInput);
     imgBtn.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", async () => {
-      const f = fileInput.files[0];
-      if (!f) return;
-      const base64 = await U.fileToBase64(f);
-      opts.onSend && opts.onSend({ type: "image", content: base64 });
+      const files = Array.from(fileInput.files || []);
+      if (!files.length) return;
       fileInput.value = "";
+      if (files.length === 1) {
+        const base64 = await U.fileToBase64(files[0]);
+        opts.onSend && opts.onSend({ type: "image", content: base64 });
+      } else {
+        // 多图合并为卡片
+        const images = [];
+        for (const f of files) {
+          const base64 = await U.fileToBase64(f);
+          images.push({ src: base64, name: f.name });
+        }
+        opts.onSend && opts.onSend({ type: "image-card", content: "", images: images });
+      }
     });
 
     // 语音按钮（模拟）

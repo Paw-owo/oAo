@@ -212,7 +212,7 @@
       previewNode.appendChild(U.el("span", { class: "draft-prefix", text: "[草稿]" }));
       previewNode.appendChild(document.createTextNode(U.truncate(conv.draft, 30)));
     } else if (lastMsg) {
-      const subText = lastMsg.type === "image" ? "[图片]" : lastMsg.type === "voice" ? "[语音]" : U.truncate(lastMsg.content || "", 30);
+      const subText = lastMsg.type === "image" ? "[图片]" : lastMsg.type === "image-card" ? "[" + ((lastMsg.images && lastMsg.images.length) || 1) + "张图片]" : lastMsg.type === "voice" ? "[语音]" : U.truncate(lastMsg.content || "", 30);
       previewNode.textContent = subText;
     } else {
       previewNode.textContent = "开始聊天吧～";

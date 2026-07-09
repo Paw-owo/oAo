@@ -320,6 +320,33 @@
     info.appendChild(rate);
     wrap.appendChild(info);
 
+    // 语音转文字按钮（微信对齐）
+    const sttBtn = U.el("button", { class: "msg-voice-stt", type: "button", text: "转文字" });
+    let sttDone = false;
+    sttBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (sttDone) {
+        // 已展开则收起
+        const exist = wrap.querySelector(".mv-stt-text");
+        if (exist) { exist.remove(); sttDone = false; sttBtn.textContent = "转文字"; return; }
+      }
+      sttBtn.textContent = "识别中…";
+      sttBtn.disabled = true;
+      // 模拟语音识别（实际可接本地ASR或云端STT）
+      setTimeout(() => {
+        const sttText = U.el("div", {
+          class: "mv-stt-text",
+          text: msg.sttText || "[语音识别结果（模拟）]",
+          style: { fontSize: "13px", color: "var(--text-secondary)", marginTop: "6px", padding: "6px 8px", background: "var(--bg-surface)", borderRadius: "var(--radius-sm)", lineHeight: "1.5" },
+        });
+        wrap.appendChild(sttText);
+        sttDone = true;
+        sttBtn.textContent = "收起";
+        sttBtn.disabled = false;
+      }, 800);
+    });
+    wrap.appendChild(sttBtn);
+
     // 播放逻辑：有音频 URL 用 HTMLAudioElement，否则只 toggle 图标（UI 骨架）
     let audio = null;
     let playing = false;
@@ -357,6 +384,42 @@
     const img = U.el("img", { class: "msg-image", src: src, alt: "图片" });
     img.addEventListener("click", (e) => { e.stopPropagation(); _showImageViewer(src); });
     return img;
+  }
+
+  // 多图合并卡片（微信对齐：多张图片合并为一张分享卡片）
+  function _renderImageCard(msg) {
+    const images = Array.isArray(msg.images) ? msg.images : [];
+    if (!images.length) return _renderImage(msg);
+    const card = U.el("div", { class: "msg-image-card" });
+    const grid = U.el("div", { class: "mic-grid", style: {
+      display: "grid", gridTemplateColumns: images.length === 2 ? "1fr 1fr" : images.length === 3 ? "1fr 1fr" : "repeat(2, 1fr)",
+      gap: "2px", borderRadius: "var(--radius-sm)", overflow: "hidden", maxHeight: "240px",
+    }});
+    images.forEach((img, i) => {
+      const el = U.el("img", { class: "mic-img", src: img.src || img, alt: img.name || "图片" + (i + 1), style: {
+        width: "100%", height: images.length === 1 ? "auto" : (images.length <= 3 ? "120px" : "80px"),
+        objectFit: "cover", cursor: "pointer",
+      }});
+      el.addEventListener("click", (e) => { e.stopPropagation(); _showImageViewer(img.src || img); });
+      grid.appendChild(el);
+      // 如果超过4张，第4张上显示 "+N" 角标
+      if (i === 3 && images.length > 4) {
+        const overlay = U.el("div", { class: "mic-overlay", text: "+" + (images.length - 4), style: {
+          position: "absolute", bottom: "4px", right: "4px", background: "var(--overlay-bg)", color: "var(--text-on-primary)",
+          borderRadius: "var(--radius-full)", padding: "2px 8px", fontSize: "12px", fontWeight: "600",
+        }});
+        el.style.position = "relative";
+        el.appendChild(overlay);
+      }
+    });
+    card.appendChild(grid);
+    // 图片计数
+    if (images.length > 1) {
+      card.appendChild(U.el("div", { class: "mic-count", text: images.length + " 张图片", style: {
+        fontSize: "11px", color: "var(--text-secondary)", marginTop: "4px", textAlign: "center",
+      }}));
+    }
+    return card;
   }
 
   function _showImageViewer(src) {
@@ -683,17 +746,26 @@
     row.appendChild(_actBtn("copy", "复制", () => {
       _copyText(_plainText(msg.content));
       _toast("已复制");
+    }, () => {
+      // 长按弹出：复制纯文本 / 复制 Markdown
+      _showCopySheet(msg);
     }));
     const more = _actBtn("more", "更多", () => _showActionSheet(msg, ctx));
     row.appendChild(more);
     return row;
   }
 
-  function _actBtn(icon, label, fn) {
+  function _actBtn(icon, label, fn, longPressFn) {
     const b = U.el("button", { class: "msg-action", type: "button" });
     b.appendChild(U.el("span", { class: "msg-action-icon", html: Icons.get(icon, { size: 16 }) }));
     b.appendChild(U.el("span", { class: "msg-action-label", text: label }));
     b.addEventListener("click", (e) => { e.stopPropagation(); try { fn(); } catch (_) {} });
+    if (longPressFn) {
+      let pressTimer = null;
+      b.addEventListener("touchstart", () => { pressTimer = setTimeout(() => { try { longPressFn(); } catch (_) {} }, 400); });
+      b.addEventListener("touchend", () => clearTimeout(pressTimer));
+      b.addEventListener("touchmove", () => clearTimeout(pressTimer));
+    }
     return b;
   }
 
@@ -839,6 +911,8 @@
       const type = msg.type || "text";
       if (type === "image") {
         bubble.appendChild(_renderImage(msg));
+      } else if (type === "image-card") {
+        bubble.appendChild(_renderImageCard(msg));
       } else if (type === "voice") {
         bubble.appendChild(_renderVoice(msg));
       } else if (type === "video") {
@@ -1034,6 +1108,31 @@
       // 兜底（无 Modal 时）
       try { if (global.confirm("确定删除这条消息吗？")) doDelete(); } catch (_) {}
     }
+  }
+
+  // 复制按钮长按：弹出复制纯文本 / 复制 Markdown（微信对齐）
+  function _showCopySheet(msg) {
+    if (document.querySelector(".sheet-mask")) return;
+    const mask = U.el("div", { class: "sheet-mask" });
+    const sheet = U.el("div", { class: "sheet msg-action-sheet" });
+    sheet.appendChild(U.el("div", { class: "sheet-handle" }));
+    const items = [
+      { icon: "copy", label: "复制纯文本", fn: () => { _copyText(_plainText(msg.content)); _toast("已复制纯文本"); } },
+      { icon: "file-text", label: "复制 Markdown", fn: () => { _copyText(msg.content || ""); _toast("已复制 Markdown"); } },
+    ];
+    items.forEach((a) => {
+      const item = U.el("div", { class: "sheet-item" });
+      item.appendChild(U.el("span", { class: "sheet-item-icon", html: Icons.get(a.icon, { size: 20 }) }));
+      item.appendChild(document.createTextNode(a.label));
+      item.addEventListener("click", () => { try { a.fn(); } catch (e) { console.warn(e); } mask.remove(); });
+      sheet.appendChild(item);
+    });
+    const cancel = U.el("div", { class: "sheet-cancel", text: "取消" });
+    cancel.addEventListener("click", () => mask.remove());
+    sheet.appendChild(cancel);
+    mask.appendChild(sheet);
+    mask.addEventListener("click", (e) => { if (e.target === mask) mask.remove(); });
+    document.body.appendChild(mask);
   }
 
   function _copyText(text) {

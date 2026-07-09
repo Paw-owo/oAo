@@ -240,6 +240,13 @@
 
     container.appendChild(page);
 
+    // 进入对话自动清除未读（微信对齐）
+    if (conversation.unread) {
+      conversation.unread = 0;
+      Storage.put("conversations", conversation);
+      try { if (global.Phone.Notify && global.Phone.Notify.refreshBadges) global.Phone.Notify.refreshBadges(); } catch {}
+    }
+
     // ---------- 渲染辅助 ----------
     let renderLimit = PAGE_SIZE; // 当前渲染条数上限
 
@@ -354,7 +361,7 @@
 
     function _rerenderMessages() {
       U.empty(list);
-      let lastDateStr = "";
+      let lastTime = 0;
       const total = conversation.messages.length;
       const showAll = renderLimit >= total;
       const startIdx = showAll ? 0 : total - renderLimit;
@@ -377,11 +384,14 @@
 
       for (let i = startIdx; i < total; i++) {
         const m = conversation.messages[i];
-        const dateStr = new Date(m.createdAt || Date.now()).toDateString();
-        if (dateStr !== lastDateStr) {
-          list.appendChild(global.Phone.MessageRenderer.renderTimeDivider(m.createdAt || Date.now()));
-          lastDateStr = dateStr;
+        const msgTime = m.createdAt || Date.now();
+        // 超过5分钟插入居中浮动时间戳（规范第4节）
+        if (lastTime && msgTime - lastTime > 5 * 60 * 1000) {
+          list.appendChild(global.Phone.MessageRenderer.renderTimeDivider(msgTime));
+        } else if (!lastTime) {
+          list.appendChild(global.Phone.MessageRenderer.renderTimeDivider(msgTime));
         }
+        lastTime = msgTime;
         list.appendChild(_renderMsgBlock(m));
       }
       _scrollToBottom(false);
@@ -606,6 +616,7 @@
         fileName: msg.fileName || null,
         fileSize: msg.fileSize || null,
         mime: msg.mime || null,
+        images: msg.images || null,  // 多图合并卡片（微信对齐）
         createdAt: Date.now(),
         status: "sent",
         quote: currentQuote ? { author: character.name, content: currentQuote.content } : null,

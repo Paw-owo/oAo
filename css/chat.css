@@ -266,6 +266,15 @@
   background: var(--bg-surface-2); color: var(--color-primary);
   font-size: 11px; font-weight: 600; flex-shrink: 0;
 }
+.msg-voice-stt {
+  font-size: 11px; color: var(--text-secondary);
+  background: var(--bg-surface); border: 1px solid var(--border-soft);
+  border-radius: var(--radius-full); padding: 2px 10px;
+  cursor: pointer; flex-shrink: 0;
+  transition: color var(--duration-fast), border-color var(--duration-fast);
+}
+.msg-voice-stt:hover { color: var(--color-primary); border-color: var(--color-primary); }
+.msg-voice-stt:disabled { opacity: var(--opacity-disabled); cursor: not-allowed; }
 
 .msg-quote {
   font-size: var(--font-xs);
