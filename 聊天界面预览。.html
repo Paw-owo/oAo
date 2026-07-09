@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>o3o 消息APP 逐页预览 v4</title>
+  <style>
+    :root {
+      --color-primary: #f4a7b9;
+      --color-primary-light: #fce4ec;
+      --color-primary-dark: #e88fa2;
+      --color-danger: #f87171;
+      --color-success: #86efac;
+      --color-warning: #fbbf24;
+
+      --page-bg: #fdfcfb;
+      --card-bg: #ffffff;
+      --input-bar-bg: #f5f4f2;
+      --overlay-bg: rgba(0, 0, 0, 0.25);
+
+      --bubble-ai-bg: #f0eeec;
+      --bubble-user-bg: #fce4ec;
+
+      --text-primary: #2c2c2c;
+      --text-secondary: #999999;
+      --text-placeholder: #bbbbbb;
+      --text-danger: #ef4444;
+      --text-on-primary: #ffffff;
+
+      --border-soft: rgba(0, 0, 0, 0.06);
+      --border-medium: rgba(0, 0, 0, 0.12);
+      --border-input: rgba(0, 0, 0, 0.1);
+
+      --code-bg: #1e1e2e;
+      --code-text: #cdd6f4;
+      --code-header-bg: #313244;
+
+      --cot-bg: #faf9f8;
+
+      --github-bg: #f6f8fa;
+      --github-border: #d0d7de;
+      --github-merge-color: #8250df;
+      --github-open-color: #1f883d;
+
+      --opacity-secondary: 0.5;
+      --opacity-timestamp: 0.35;
+      --opacity-disabled: 0.3;
+
+      --radius-bubble: 16px;
+      --radius-bubble-corner: 5px;
+      --radius-card: 16px;
+      --radius-button: 100px;
+      --radius-input: 18px;
+      --radius-avatar: 50%;
+
+      --shadow-soft: 0 6px 18px rgba(244, 167, 185, 0.1);
+      --shadow-card: 0 8px 22px rgba(232, 143, 162, 0.1);
+      --shadow-float: 0 14px 30px rgba(232, 143, 162, 0.16);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0; min-height: 100%;
+      background: radial-gradient(circle at top, rgba(252,228,236,0.6), rgba(255,255,255,0) 30%), linear-gradient(180deg, #fffdfc 0%, #fbf7f5 100%);
+      font-family: "PingFang SC", "HarmonyOS Sans SC", "Noto Sans SC", system-ui, sans-serif;
+      color: var(--text-primary);
+    }
+
+    body { padding: 20px 14px 32px; }
+
+    .page-title {
+      width: min(1320px, 100%); margin: 0 auto 18px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    .page-title h1 { margin: 0; font-size: 22px; font-weight: 700; }
+    .page-title p { margin: 6px 0 0; font-size: 12px; color: var(--text-secondary); }
+
+    .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip {
+      height: 32px; padding: 0 12px; border-radius: var(--radius-button);
+      background: rgba(255,255,255,0.82); border: 1px solid var(--border-soft);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; color: var(--text-secondary); box-shadow: var(--shadow-soft);
+    }
+
+    .gallery {
+      width: min(1320px, 100%); margin: 0 auto;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start;
+    }
+
+    .preview-card {
+      background: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.7);
+      border-radius: 28px; box-shadow: var(--shadow-card); padding: 10px; backdrop-filter: blur(14px);
+    }
+    .preview-label { padding: 4px 6px 10px; }
+    .preview-label h2 { margin: 0; font-size: 14px; font-weight: 700; }
+    .preview-label p { margin: 3px 0 0; font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+
+    .phone {
+      width: min(100%, 360px); aspect-ratio: 9 / 19.5;
+      background: var(--page-bg); border-radius: 28px; overflow: hidden; position: relative;
+      border: 1px solid rgba(255,255,255,0.85); box-shadow: inset 0 1px 0 rgba(255,255,255,0.7); margin: 0 auto;
+    }
+
+    .screen {
+      height: 100%; display: flex; flex-direction: column;
+      background: radial-gradient(circle at top right, rgba(252,228,236,0.5), rgba(255,255,255,0) 30%), linear-gradient(180deg, #fffdfc 0%, #faf7f6 100%);
+    }
+
+    /* ── 顶部栏 ── */
+    .topbar {
+      height: 56px; flex: 0 0 56px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 0 10px; border-bottom: 1px solid var(--border-soft);
+      background: rgba(255,255,255,0.72); backdrop-filter: blur(12px);
+    }
+    .topbar-left, .topbar-right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .topbar-info { min-width: 0; }
+    .topbar-name { font-size: 14px; font-weight: 700; line-height: 1.2; }
+    .topbar-sub { margin-top: 2px; font-size: 10px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .app-title { font-size: 18px; font-weight: 700; padding: 14px 14px 6px; flex: 0 0 auto; }
+
+    .searchbar {
+      height: 38px; margin: 0 14px 8px; border-radius: var(--radius-button);
+      background: rgba(255,255,255,0.88); border: 1px solid var(--border-soft);
+      display: flex; align-items: center; gap: 8px; padding: 0 12px;
+      color: var(--text-placeholder); font-size: 12px; flex: 0 0 auto;
+    }
+
+    .tabs {
+      display: inline-flex; gap: 4px; margin: 0 14px 8px; padding: 3px;
+      border-radius: var(--radius-button); background: rgba(255,255,255,0.75);
+      border: 1px solid var(--border-soft); width: fit-content; flex: 0 0 auto;
+    }
+    .tabs span {
+      height: 28px; padding: 0 10px; border-radius: var(--radius-button);
+      display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-secondary);
+    }
+    .tabs .active { background: var(--color-primary); color: var(--text-on-primary); box-shadow: 0 4px 10px rgba(244,167,185,0.24); }
+
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: var(--radius-button);
+      border: 1px solid var(--border-soft); background: rgba(255,255,255,0.9);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: var(--shadow-soft); flex: 0 0 auto; color: var(--text-primary);
+    }
+
+    /* ── 头像 ── */
+    .avatar {
+      width: 44px; height: 44px; border-radius: var(--radius-avatar);
+      background: linear-gradient(135deg, #ffdce8, #f4a7b9); color: white;
+      display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; flex: 0 0 auto;
+    }
+    .avatar.soft { background: linear-gradient(135deg, #f0eeec, #ddd5cf); color: #8e8076; }
+    .avatar.blue { background: linear-gradient(135deg, #dbe8ff, #a4c7ff); color: #3d63a6; }
+    .avatar.warm { background: linear-gradient(135deg, #fff3d6, #f5d4a0); color: #9a7a3e; }
+    .avatar.chat-avatar { width: 32px; height: 32px; font-size: 12px; flex: 0 0 32px; }
+
+    /* ── 列表 ── */
+    .list { padding: 0 8px 10px; overflow: hidden; flex: 1; }
+    .list-item {
+      display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center;
+      padding: 10px; border-radius: 18px; margin-bottom: 4px; position: relative;
+    }
+    .list-item.active { background: rgba(255,255,255,0.92); box-shadow: var(--shadow-soft); }
+    .list-item.pinned::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 999px; background: var(--color-primary); }
+    .list-main { min-width: 0; }
+    .list-top { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 3px; }
+    .list-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .list-time { font-size: 10px; color: var(--text-secondary); flex: 0 0 auto; }
+    .list-preview { font-size: 11px; color: var(--text-primary); opacity: var(--opacity-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .badge { min-width: 18px; height: 18px; padding: 0 6px; border-radius: var(--radius-button); background: var(--color-danger); color: #fff; font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+
+    /* ── 聊天区 ── */
+    .content { overflow: hidden; position: relative; flex: 1; }
+    .time-sep { text-align: center; font-size: 10px; color: var(--text-secondary); opacity: var(--opacity-timestamp); padding: 8px 0; }
+    .messages { padding: 6px 10px 0; }
+
+    .row {
+      display: grid; grid-template-columns: 32px 1fr; column-gap: 7px; align-items: end; margin-bottom: 10px;
+    }
+    .row.user { grid-template-columns: 1fr 32px; }
+    .row.user .avatar { order: 2; }
+    .row.user .bubble-wrap { order: 1; justify-self: end; align-items: flex-end; }
+
+    .bubble-wrap { max-width: 72%; min-width: 0; display: flex; flex-direction: column; }
+    .bubble {
+      width: fit-content; max-width: 100%; padding: 9px 12px;
+      font-size: 13px; line-height: 1.55; border-radius: var(--radius-bubble);
+      word-break: break-word; box-shadow: 0 3px 8px rgba(0,0,0,0.025);
+    }
+    .bubble.ai { background: var(--bubble-ai-bg); border-bottom-left-radius: var(--radius-bubble-corner); }
+    .bubble.user { background: var(--bubble-user-bg); border-bottom-right-radius: var(--radius-bubble-corner); }
+
+    .msg-actions { display: flex; gap: 5px; flex-wrap: wrap; padding: 4px 2px 0 2px; }
+    .action-pill {
+      padding: 4px 7px; border-radius: var(--radius-button); border: 1px solid var(--border-soft);
+      background: rgba(255,255,255,0.8); font-size: 9px; color: var(--text-secondary);
+      display: inline-flex; align-items: center; gap: 3px;
+    }
+
+    .quote-box {
+      margin-bottom: 6px; border-left: 2px solid rgba(136,136,136,0.18);
+      background: rgba(255,255,255,0.4); border-radius: 10px; padding: 6px 8px; font-size: 10px; color: var(--text-secondary);
+    }
+    .quote-preview {
+      margin: 0 10px 6px; background: rgba(252,228,236,0.5); border: 1px solid rgba(244,167,185,0.2);
+      border-radius: 10px; padding: 6px 8px; font-size: 10px; color: var(--text-secondary);
+      display: flex; justify-content: space-between; gap: 6px;
+    }
+
+    .cot-card {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      background: var(--cot-bg); border-radius: 12px; border: 1px solid var(--border-soft);
+      padding: 7px 9px; font-size: 11px; margin-bottom: 6px;
+    }
+    .cot-expanded {
+      background: var(--cot-bg); border-left: 2px solid var(--color-primary-light);
+      border-radius: 10px; padding: 8px 9px; font-size: 11px; line-height: 1.5;
+      opacity: var(--opacity-secondary); margin-bottom: 6px;
+    }
+
+    /* ── 对话模式（重写：和气泡模式一样的左右布局，只是没有气泡） ── */
+    .dialog-row {
+      display: grid; grid-template-columns: 32px 1fr; column-gap: 7px; align-items: start; margin-bottom: 10px;
+    }
+    .dialog-row.user { grid-template-columns: 1fr 32px; }
+    .dialog-row.user .avatar { order: 2; }
+    .dialog-row.user .dialog-content { order: 1; justify-self: end; align-items: flex-end; text-align: right; }
+    .dialog-content { min-width: 0; max-width: 76%; display: flex; flex-direction: column; }
+    .dialog-role-tag {
+      font-size: 9px; font-weight: 700; color: var(--text-secondary); margin-bottom: 3px; padding: 0 2px;
+    }
+    .dialog-text-block {
+      padding: 9px 12px; font-size: 13px; line-height: 1.55; border-radius: 14px;
+      background: rgba(255,255,255,0.88); border: 1px solid var(--border-soft);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.02); word-break: break-word;
+    }
+    .dialog-row.user .dialog-text-block {
+      border-left: 2px solid var(--border-medium);
+    }
+    .dialog-row.ai .dialog-text-block {
+      border-left: 2px solid var(--color-primary);
+    }
+
+    .code-block { margin-top: 8px; border-radius: 12px; overflow: hidden; background: var(--code-bg); color: var(--code-text); }
+    .code-head { height: 28px; background: var(--code-header-bg); padding: 0 9px; display: flex; align-items: center; justify-content: space-between; font-size: 10px; }
+    .code-block pre { margin: 0; padding: 8px 9px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; }
+
+    /* ── GitHub 卡片 ── */
+    .github-card { margin-top: 8px; background: var(--github-bg); border: 1px solid var(--github-border); border-radius: 12px; padding: 10px; }
+    .github-top { display: flex; justify-content: space-between; gap: 6px; align-items: center; font-size: 11px; font-weight: 700; margin-bottom: 5px; }
+    .github-title { font-size: 12px; font-weight: 700; margin-bottom: 4px; line-height: 1.4; }
+    .github-meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--text-secondary); margin-bottom: 8px; }
+    .status-open { color: var(--github-open-color); }
+    .status-merge { color: var(--github-merge-color); }
+    .github-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mini-btn {
+      height: 28px; padding: 0 10px; border-radius: var(--radius-button);
+      border: 1px solid var(--border-soft); background: rgba(255,255,255,0.9);
+      font-size: 10px; display: inline-flex; align-items: center; justify-content: center;
+    }
+
+    /* ── 搜索结果 ── */
+    .search-results { padding: 4px 10px 0; }
+    .search-group-title { font-size: 10px; color: var(--text-secondary); padding: 6px 2px; }
+    .search-item { background: rgba(255,255,255,0.88); border: 1px solid var(--border-soft); border-radius: 14px; padding: 9px 10px; margin-bottom: 6px; }
+    .search-item-top { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; margin-bottom: 4px; }
+    .highlight { background: var(--color-primary-light); color: var(--color-primary-dark); border-radius: 6px; padding: 0 2px; }
+
+    /* ── 工具箱（重写：紧贴输入栏，不再浮高） ── */
+    .toolbox-inline {
+      flex: 0 0 auto;
+      background: rgba(255,255,255,0.92);
+      border-top: 1px solid var(--border-soft);
+      padding: 10px 10px 6px;
+      backdrop-filter: blur(14px);
+    }
+    .toolbox-handle { width: 36px; height: 4px; border-radius: 999px; background: rgba(0,0,0,0.08); margin: 0 auto 8px; }
+    .tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 6px; }
+    .tool-item { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 9px; color: var(--text-secondary); text-align: center; }
+    .tool-icon {
+      width: 40px; height: 40px; border-radius: 14px; background: var(--bubble-ai-bg);
+      border: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: center;
+    }
+    .tool-item.active .tool-icon { background: var(--color-primary-light); }
+
+    /* ── 长按菜单 ── */
+    .menu-sheet {
+      position: absolute; left: 8px; right: 8px; bottom: 72px;
+      background: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.74);
+      border-radius: 20px; box-shadow: var(--shadow-float); backdrop-filter: blur(14px); padding: 8px 10px 12px;
+    }
+    .sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: rgba(0,0,0,0.08); margin: 0 auto 8px; }
+    .sheet-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; padding: 0 2px; }
+    .menu-item { height: 42px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; }
+    .menu-item:last-child { border-bottom: 0; }
+    .menu-left { display: flex; align-items: center; gap: 8px; }
+
+    /* ── 设置页（重写：胶囊包裹的可可爱爱列表） ── */
+    .settings-page { flex: 1; overflow: hidden; padding: 8px 12px 10px; }
+    .settings-group { margin-bottom: 10px; }
+    .group-title { font-size: 10px; color: var(--text-secondary); margin-bottom: 6px; padding: 0 4px; }
+
+    .setting-pill {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+      padding: 11px 14px; border-radius: var(--radius-button);
+      background: rgba(255,255,255,0.88); border: 1px solid var(--border-soft);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.02); margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .setting-pill.active {
+      background: rgba(252,228,236,0.5); border-color: rgba(244,167,185,0.2);
+    }
+    .setting-label { font-size: 12px; font-weight: 600; }
+    .setting-meta { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
+
+    .toggle {
+      width: 40px; height: 24px; border-radius: 999px; background: rgba(0,0,0,0.08); position: relative; flex: 0 0 auto;
+    }
+    .toggle::after { content: ""; width: 18px; height: 18px; background: #fff; border-radius: 50%; position: absolute; top: 3px; left: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+    .toggle.on { background: var(--color-primary); }
+    .toggle.on::after { left: 19px; }
+
+    .danger { color: var(--text-danger); font-weight: 600; }
+
+    .backdrop { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.14)); pointer-events: none; }
+
+    /* ── 输入栏 ── */
+    .input-zone {
+      flex: 0 0 auto; padding: 6px 10px calc(8px + env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,0.9) 20%, rgba(255,255,255,0.98));
+    }
+    .inputbar {
+      min-height: 48px; border-radius: 20px; background: var(--input-bar-bg); border: 1px solid var(--border-input);
+      display: grid; grid-template-columns: 32px 1fr 32px 36px; align-items: end; gap: 7px; padding: 7px;
+    }
+    .textarea {
+      min-height: 36px; border-radius: var(--radius-input); background: rgba(255,255,255,0.82);
+      border: 1px solid rgba(0,0,0,0.03); padding: 8px 10px; font-size: 13px; line-height: 1.5; color: var(--text-primary);
+    }
+    .textarea.placeholder { color: var(--text-placeholder); }
+    .send-btn {
+      width: 36px; height: 36px; border-radius: var(--radius-button); background: var(--color-primary);
+      box-shadow: 0 6px 14px rgba(244,167,185,0.26); display: flex; align-items: center; justify-content: center; color: white;
+    }
+    .send-btn.muted { opacity: var(--opacity-disabled); box-shadow: none; }
+
+    svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; display: block; flex: 0 0 auto; }
+    .tool-icon svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .icon-btn svg { width: 16px; height: 16px; }
+    .send-btn svg { width: 14px; height: 14px; }
+    .action-pill svg { width: 12px; height: 12px; }
+  </style>
+</head>
+<body>
+  <div class="page-title">
+    <div>
+      <h1>消息 APP 逐页原型预览 v4</h1>
+      <p>3 对话模式重写为左右头像布局，4 工具箱紧贴输入栏，7 设置页胶囊包裹列表。</p>
+    </div>
+    <div class="chip-row">
+      <span class="chip">会话列表</span>
+      <span class="chip">气泡聊天</span>
+      <span class="chip" style="background:var(--color-primary-light);color:var(--color-primary-dark);">对话聊天(新)</span>
+      <span class="chip" style="background:var(--color-primary-light);color:var(--color-primary-dark);">工具箱(新)</span>
+      <span class="chip">长按菜单</span>
+      <span class="chip">GitHub卡片</span>
+      <span class="chip" style="background:var(--color-primary-light);color:var(--color-primary-dark);">设置页(新)</span>
+      <span class="chip">搜索页</span>
+    </div>
+  </div>
+
+  <section class="gallery">
+
+    <!-- 1. 会话列表页（不变） -->
+    <article class="preview-card">
+      <div class="preview-label">
+        <h2>1. 会话列表页</h2>
+        <p>微信结构，更软配色，留白充足不挤。</p>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="app-title">消息</div>
+          <div class="searchbar">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+            搜索角色名、消息内容...
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:0 14px 6px;">
+            <div class="tabs">
+              <span class="active">全部</span>
+              <span>未读</span>
+              <span>群聊</span>
+            </div>
+            <div class="icon-btn">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+            </div>
+          </div>
+          <div class="list">
+            <div class="list-item active pinned">
+              <div class="avatar">祈</div>
+              <div class="list-main">
+                <div class="list-top"><div class="list-name">祈祈</div><div class="list-time">14:23</div></div>
+                <div class="list-preview">PR 已经整理好啦，我顺手把 diff 也贴给你看。</div>
+              </div>
+              <div class="badge">3</div>
+            </div>
+            <div class="list-item">
+              <div class="avatar blue">群</div>
+              <div class="list-main">
+                <div class="list-top"><div class="list-name">代码作战室</div><div class="list-time">昨天 22:17</div></div>
+                <div class="list-preview">[思考中…] 这轮我先检查路由，再决定要不要动 app-host。</div>
+              </div>
+              <div class="badge">12</div>
+            </div>
+            <div class="list-item">
+              <div class="avatar soft">灰</div>
+              <div class="list-main">
+                <div class="list-top"><div class="list-name">小冷同学</div><div class="list-time">昨天 18:02</div></div>
+                <div class="list-preview">[草稿] 你刚刚那个想法，其实我觉得可以再收一收…</div>
+              </div>
+            </div>
+            <div class="list-item">
+              <div class="avatar">眠</div>
+              <div class="list-main">
+                <div class="list-top"><div class="list-name">眠眠</div><div class="list-time">周三 09:11</div></div>
+                <div class="list-preview">我记住啦，雷声大的晚上我会多陪陪你一点。</div>
+              </div>
+            </div>
+            <div class="list-item">
+              <div class="avatar warm">设</div>
+              <div class="list-main">
+                <div class="list-top"><div class="list-name">设定整理群</div><div class="list-time">6月18日</div></div>
+                <div class="list-preview">世界书更新了三条，晚点你进来看一眼就行。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 2. 气泡模式聊天页（不变） -->
+    <article class="preview-card">
+      <div class="preview-label">
+        <h2>2. 气泡模式聊天页</h2>
+        <p>AI左用户右，双头像常驻，卡片收小，更软更圆。</p>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">
+            <div class="topbar-left">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></div>
+              <div class="avatar chat-avatar">祈</div>
+              <div class="topbar-info"><div class="topbar-name">祈祈</div><div class="topbar-sub">人设来源 · 晚安恋人</div></div>
+            </div>
+            <div class="topbar-right">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M12 21c4-3.2 7-6 7-10a4 4 0 0 0-7-2.5A4 4 0 0 0 5 11c0 4 3 6.8 7 10z"></path></svg></div>
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="time-sep">今天 14:20</div>
+            <div class="messages">
+              <div class="row ai">
+                <div class="avatar chat-avatar">祈</div>
+                <div class="bubble-wrap">
+                  <div class="cot-card"><span>查看思考过程</span><span>4步</span></div>
+                  <div class="bubble ai">我先把消息 APP 的重写顺序理了一遍，聊天本体得先救活。</div>
+                  <div class="msg-actions">
+                    <span class="action-pill"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.34-5.66"></path><path d="M4 4v6h6"></path></svg>刷新</span>
+                    <span class="action-pill"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path></svg>朗读</span>
+                    <span class="action-pill"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="10" height="10" rx="2"></rect><rect x="5" y="5" width="10" height="10" rx="2"></rect></svg>复制</span>
+                  </div>
+                </div>
+              </div>
+              <div class="row user">
+                <div class="bubble-wrap">
+                  <div class="quote-box">引用 · 祈祈<br>GitHub 是聊天里的工具，不是设置页本体。</div>
+                  <div class="bubble user">嗯，那你先给我做个预览版界面。</div>
+                </div>
+                <div class="avatar chat-avatar soft">醒</div>
+              </div>
+              <div class="row ai">
+                <div class="avatar chat-avatar">祈</div>
+                <div class="bubble-wrap">
+                  <div class="cot-expanded">我先看了一眼需求边界，然后把聊天本体、工具箱、GitHub 写操作确认拆成三层。</div>
+                  <div class="bubble ai">对，先把页面长相钉死，再去接功能。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="input-zone">
+            <div class="quote-preview"><span>正在引用：GitHub 是聊天里的工具，不是设置页本体。</span><span>关闭</span></div>
+            <div class="inputbar">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></div>
+              <div class="textarea">我想先看每个页面该长什么样。</div>
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><path d="M9 10h.01"></path><path d="M15 10h.01"></path><path d="M8.5 14c1 1 2.1 1.5 3.5 1.5s2.5-.5 3.5-1.5"></path></svg></div>
+              <div class="send-btn"><svg viewBox="0 0 24 24"><path d="M5 12h11"></path><path d="M13 6l6 6-6 6"></path></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 3. 对话模式聊天页（重写：AI左用户右，双头像，无气泡，像AI APP聊天界面） -->
+    <article class="preview-card">
+      <div class="preview-label">
+        <h2>3. 对话模式聊天页（重写）</h2>
+        <p>和气泡模式一样的左右头像布局，只是没有气泡底色，像正常AI聊天界面带头像。</p>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">
+            <div class="topbar-left">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></div>
+              <div class="avatar chat-avatar">祈</div>
+              <div class="topbar-info"><div class="topbar-name">祈祈</div><div class="topbar-sub">对话模式 · 代码工作台</div></div>
+            </div>
+            <div class="topbar-right">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M12 21c4-3.2 7-6 7-10a4 4 0 0 0-7-2.5A4 4 0 0 0 5 11c0 4 3 6.8 7 10z"></path></svg></div>
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg></div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="tabs" style="margin:8px 14px 4px;">
+              <span>气泡模式</span>
+              <span class="active">对话模式</span>
+            </div>
+            <div class="messages">
+              <div class="dialog-row user">
+                <div class="dialog-content">
+                  <div class="dialog-role-tag">用户</div>
+                  <div class="dialog-text-block">
+                    GitHub 面板我还是想放在输入栏旁边的加号工具箱里，不要单独变设置页。
+                  </div>
+                </div>
+                <div class="avatar chat-avatar soft">醒</div>
+              </div>
+
+              <div class="dialog-row ai">
+                <div class="avatar chat-avatar">祈</div>
+                <div class="dialog-content">
+                  <div class="dialog-role-tag">AI</div>
+                  <div class="dialog-text-block">
+                    我先把界面层级压清楚：聊天本体、工具箱、GitHub 结果卡片、聊天设置，四块各归各位。
+                  </div>
+                  <div class="cot-card" style="margin-top:8px;">
+                    <span>查看思考过程</span>
+                    <span>展开</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dialog-row ai">
+                <div class="avatar chat-avatar">祈</div>
+                <div class="dialog-content">
+                  <div class="dialog-role-tag">AI</div>
+                  <div class="dialog-text-block">
+                    代码块和 GitHub 卡片在这个模式里会更清楚，适合跑代码。
+                    <div class="code-block">
+                      <div class="code-head"><span>chat-layout.js</span><span>复制</span></div>
+                      <pre>renderChat({
+  mode: "workspace",
+  toolbox: "inline"
+});</pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dialog-row user">
+                <div class="dialog-content">
+                  <div class="dialog-role-tag">用户</div>
+                  <div class="dialog-text-block">
+                    这样就对了，和气泡模式一样的左右布局，只是没有气泡。
+                  </div>
+                </div>
+                <div class="avatar chat-avatar soft">醒</div>
+              </div>
+            </div>
+          </div>
+          <div class="input-zone">
+            <div class="inputbar">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></div>
+              <div class="textarea placeholder">输入消息…</div>
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><path d="M9 10h.01"></path><path d="M15 10h.01"></path><path d="M8.5 14c1 1 2.1 1.5 3.5 1.5s2.5-.5 3.5-1.5"></path></svg></div>
+              <div class="send-btn muted"><svg viewBox="0 0 24 24"><path d="M5 12h11"></path><path d="M13 6l6 6-6 6"></path></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 4. 工具箱（重写：紧贴输入栏上方，不再浮高） -->
+    <article class="preview-card">
+      <div class="preview-label">
+        <h2>4. 工具箱页（重写）</h2>
+        <p>工具箱紧贴输入栏上方展开，不再像弹窗浮在半空。</p>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">
+            <div class="topbar-left">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></div>
+              <div class="avatar chat-avatar">祈</div>
+              <div class="topbar-info"><div class="topbar-name">祈祈</div><div class="topbar-sub">工具箱展开状态</div></div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="messages" style="padding-top:14px;">
+              <div class="row ai">
+                <div class="avatar chat-avatar">祈</div>
+                <div class="bubble-wrap"><div class="bubble ai">GitHub 面板就在这里开，不串到设置。</div></div>
+              </div>
+              <div class="row user">
+                <div class="bubble-wrap"><div class="bubble user">这个位置对。</div></div>
+                <div class="avatar chat-avatar soft">醒</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 工具箱：紧贴输入栏，不再浮空 -->
+          <div class="toolbox-inline">
+            <div class="toolbox-handle"></div>
+            <div class="tool-grid">
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="5"></rect><path d="M9 9h6"></path><path d="M9 12h6"></path><path d="M9 15h3"></path></svg></div>
+                <span>MCP</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="10" r="2.5"></circle><circle cx="15" cy="10" r="2.5"></circle><path d="M7 16c1.5 1.2 3 1.8 5 1.8s3.5-.6 5-1.8"></path></svg></div>
+                <span>表情包</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="4"></rect><path d="M8 14l2-2 3 3 2-2 2 2"></path><circle cx="9" cy="10" r="1"></circle></svg></div>
+                <span>图片</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M14 4H8a2 2 0 0 0-2 2v12l3-2 3 2 3-2 3 2V6z"></path><path d="M10 9h4"></path></svg></div>
+                <span>文件</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M12 17a5 5 0 0 0 5-5V8a5 5 0 0 0-10 0v4a5 5 0 0 0 5 5z"></path><path d="M12 17v3"></path><path d="M9 20h6"></path></svg></div>
+                <span>语音</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M5 8h14"></path><path d="M5 12h9"></path><path d="M5 16h6"></path></svg></div>
+                <span>上下文</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M6 15a6 6 0 0 1 12 0"></path><path d="M12 9v6"></path><path d="M14.5 6h3.5"></path></svg></div>
+                <span>温度</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M6 12h12"></path><path d="M9 8l-4 4 4 4"></path><path d="M15 8l4 4-4 4"></path></svg></div>
+                <span>清空</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M8 9h8"></path><path d="M8 13h5"></path><path d="M8 17h3"></path><path d="M6 4h12a2 2 0 0 1 2 2v10l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2z"></path></svg></div>
+                <span>Slash</span>
+              </div>
+              <div class="tool-item active">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><path d="M9 18c-4 1.3-4-2.2-6-2.8"></path><path d="M15 21v-3.5a3 3 0 0 0-.8-2.3c2.8 0 5.6-1.4 5.6-6.4a5 5 0 0 0-1.4-3.4 4.6 4.6 0 0 0-.1-3.3s-1.1-.4-3.6 1.3a12 12 0 0 0-6.4 0C5.4 1 4.3 1.4 4.3 1.4a4.6 4.6 0 0 0-.1 3.3A5 5 0 0 0 2.8 8c0 5 2.8 6.4 5.6 6.4A3 3 0 0 0 7.6 16.5V21"></path></svg></div>
+                <span>GitHub</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="5"></rect><path d="M9 10h6"></path><path d="M9 14h4"></path><path d="M9 17h3"></path></svg></div>
+                <span>思维链</span>
+              </div>
+              <div class="tool-item">
+                <div class="tool-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="4"></rect><path d="M8 8h8"></path><path d="M8 12h8"></path><path d="M8 16h5"></path></svg></div>
+                <span>模型切换</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="input-zone">
+            <div class="inputbar">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M6 6l12 12"></path><path d="M18 6 6 18"></path></svg></div>
+              <div class="textarea placeholder">输入消息…</div>
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><path d="M9 10h.01"></path><path d="M15 10h.01"></path><path d="M8.5 14c1 1 2.1 1.5 3.5 1.5s2.5-.5 3.5-1.5"></path></svg></div>
+              <div class="send-btn muted"><svg viewBox="0 0 24 24"><path d="M5 12h11"></path><path d="M13 6l6 6-6 6"></path></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 5. 长按消息菜单页（不变） -->
+    <article class="preview-card">
+      <div class="preview-label">
+        <h2>5. 长按消息菜单页</h2>
+        <p>从底部弹出，纯文字标签，不用emoji。</p>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">
+            <div class="topbar-left">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></div>
+              <div class="avatar chat-avatar">祈</div>
+              <div class="topbar-info"><div class="topbar-name">祈祈</div><div class="topbar-sub">长按消息菜单</div></div>
+            </div>
+          </div>
+          <div class="content" style="position:relative;">
+            <div class="messages" style="padding-top:12px;">
+              <div class="row ai">
+                <div class="avatar chat-avatar">祈</div>
+                <div class="bubble-wrap"><div class="bubble ai" style="box-shadow:0 0 0 2px rgba(244,167,185,0.16);">GitHub 是聊天里的工具，不是设置页本体。</div></div>
+              </div>
+              <div class="row user">
+                <div class="bubble-wrap"><div class="bubble user">嗯，那你先给我做个预览版界面。</div></div>
+                <div class="avatar chat-avatar soft">醒</div>
+              </div>
+            </div>
+            <div class="backdrop"></div>
+            <div class="menu-sheet">
+              <div class="sheet-handle"></div>
+              <div class="sheet-title">消息操作</div>
+              <div class="menu-item"><div class="menu-left"><span>重新生成</span></div><span>AI消息</span></div>
+              <div class="menu-item"><div class="menu-left"><span>复制文本</span></div><span>纯文本</span></div>
+              <div class="menu-item"><div class="menu-left"><span>复制 Markdown</span></div><span>原始MD</span></div>
+              <div class="menu-item"><div class="menu-left"><span>引用回复</span></div><span>填入输入栏</span></div>
+              <div class="menu-item"><div class="menu-left"><span>转发</span></div><span>选择会话</span></div>
+              <div class="menu-item"><div class="menu-left"><span class="danger">删除</span></div><span>需确认</span></div>
+            </div>
+          </div>
+          <div class="input-zone">
+            <div class="inputbar">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></div>
+              <div class="textarea placeholder">输入消息…</div>
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><path d="M9 10h.01"></path><path d="M15 10h.01"></path><path d="M8.5 14c1 1 2.1 1.5 3.5 1.5s2.5-.5 3.5-1.5"></path></svg></div>
+              <div class="send-btn muted"><svg viewBox="0 0 24 24"><path d="M5 12h11"></path><path d="M13 6l6 6-6 6"></path></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 6. GitHub 结果卡片页（不变） -->
+    <article class="preview-card">
+      <div class="preview-label">
+        <h2>6. GitHub 结果卡片页</h2>
+        <p>卡片收小，嵌在消息里，AI左用户右双头像。</p>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">
+            <div class="topbar-left">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></div>
+              <div class="avatar blue chat-avatar">群</div>
+              <div class="topbar-info"><div class="topbar-name">代码作战室</div><div class="topbar-sub">群聊 · GitHub 协作</div></div>
+            </div>
+          </div>
+          <div class="content">
+            <div class="time-sep">今天 14:23</div>
+            <div class="messages">
+              <div class="row ai">
+                <div class="avatar chat-avatar">祈</div>
+                <div class="bubble-wrap">
+                  <div style="font-size:9px;color:var(--text-secondary);margin:0 0 3px 2px;">祈祈 · GitHub 操作</div>
+                  <div class="bubble ai">
+                    我把 PR 信息拉出来啦。
+                    <div class="github-card">
+                      <div class="github-top"><span>PR #42</span><span class="status-open">Open</span></div>
+                      <div class="github-title">修复首页滚动卡顿问题</div>
+                      <div class="github-meta"><span>main ← feature/scroll-fix</span><span>+127 -45</span></div>
+                      <div class="github-actions"><span class="mini-btn">查看详情</span><span class="mini-btn">合并</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="row ai">
+                <div class="avatar chat-avatar soft">灰</div>
+                <div class="bubble-wrap">
+                  <div style="font-size:9px;color:var(--text-secondary);margin:0 0 3px 2px;">小冷同学 · 合并结果</div>
+                  <div class="bubble ai">
+                    合并完成。
+                    <div class="github-card">
+                      <div class="github-top"><span>已合并 PR #42</span><span class="status-merge">Merged</span></div>
+                      <div class="github-title">feature/scroll-fix → main</div>
+                      <div class="github-meta"><span>Squash</span><span>abc1234</span></div>
+                      <div class="github-actions"><span class="mini-btn">查看 Commit</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="row user">
+                <div class="bubble-wrap"><div class="bubble user">这个位置对，比跑到设置里正常多了。</div></div>
+                <div class="avatar chat-avatar soft">醒</div>
+              </div>
+            </div>
+          </div>
+          <div class="input-zone">
+            <div class="inputbar">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></div>
+              <div class="textarea">/github pr</div>
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><path d="M9 10h.01"></path><path d="M15 10h.01"></path><path d="M8.5 14c1 1 2.1 1.5 3.5 1.5s2.5-.5 3.5-1.5"></path></svg></div>
+              <div class="send-btn"><svg viewBox="0 0 24 24"><path d="M5 12h11"></path><path d="M13 6l6 6-6 6"></path></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 7. 聊天设置页（重写：胶囊包裹的可可爱爱列表） -->
+    <article class="preview-card">
+      <div class="preview-label">
+        <h2>7. 聊天设置页（重写）</h2>
+        <p>独立页面，每个设置项都是胶囊椭圆框包裹，可爱清爽。</p>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">
+            <div class="topbar-left">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></div>
+              <div class="topbar-info"><div class="topbar-name">聊天设置</div><div class="topbar-sub">祈祈 · 深夜工作台</div></div>
+            </div>
+          </div>
+
+          <div class="settings-page">
+            <div class="settings-group">
+              <div class="group-title">当前对话</div>
+              <div class="setting-pill">
+                <div><div class="setting-label">对话标题</div><div class="setting-meta">祈祈 · 深夜工作台</div></div>
+                <div class="mini-btn">编辑</div>
+              </div>
+              <div class="setting-pill">
+                <div><div class="setting-label">聊天模式</div><div class="setting-meta">气泡 / 对话</div></div>
+                <div class="tabs" style="margin:0;">
+                  <span class="active">气泡</span>
+                  <span>对话</span>
+                </div>
+              </div>
+              <div class="setting-pill">
+                <div><div class="setting-label">模型</div><div class="setting-meta">Claude / O3O-Work</div></div>
+                <div class="mini-btn">切换</div>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <div class="group-title">显示与AI</div>
+              <div class="setting-pill">
+                <div><div class="setting-label">思维链</div><div class="setting-meta">默认折叠显示</div></div>
+                <div class="toggle on"></div>
+              </div>
+              <div class="setting-pill">
+                <div><div class="setting-label">TTS 朗读</div><div class="setting-meta">软一点 · 云端音色</div></div>
+                <div class="toggle"></div>
+              </div>
+              <div class="setting-pill">
+                <div><div class="setting-label">Token 用量显示</div><div class="setting-meta">每条消息底部显示</div></div>
+                <div class="toggle"></div>
+              </div>
+              <div class="setting-pill">
+                <div><div class="setting-label">上下文范围可视化</div><div class="setting-meta">高亮边线标记</div></div>
+                <div class="toggle on"></div>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <div class="group-title">GitHub</div>
+              <div class="setting-pill active">
+                <div><div class="setting-label">关联仓库</div><div class="setting-meta">xingxing/o3o-phone · main</div></div>
+                <div class="mini-btn">进入</div>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <div class="setting-pill">
+                <div class="danger">清空当前对话</div>
+                <div class="mini-btn">确认</div>
+              </div>
+              <div class="setting-pill">
+                <div class="setting-label">导出整段对话</div>
+                <div class="mini-btn">Markdown</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- 8. 搜索结果页（不变） -->
+    <article class="preview-card">
+      <div class="preview-label">
+        <h2>8. 搜索结果页</h2>
+        <p>全屏搜索，结果按会话分组，关键词高亮。</p>
+      </div>
+      <div class="phone">
+        <div class="screen">
+          <div class="topbar">
+            <div class="topbar-left">
+              <div class="icon-btn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg></div>
+              <div class="topbar-info"><div class="topbar-name">搜索消息</div><div class="topbar-sub">跨会话查找角色名 / 内容</div></div>
+            </div>
+          </div>
+          <div class="searchbar" style="margin-top:8px;">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+            github
+          </div>
+          <div class="content">
+            <div class="search-results">
+              <div class="search-group-title">祈祈</div>
+              <div class="search-item">
+                <div class="search-item-top"><strong>祈祈</strong><span style="color:var(--text-secondary);font-size:10px;">今天 14:23</span></div>
+                <div style="font-size:11px;line-height:1.5;">PR 已经整理好啦，我顺手把 <span class="highlight">GitHub</span> 的 diff 也贴给你看。</div>
+              </div>
+              <div class="search-item">
+                <div class="search-item-top"><strong>祈祈</strong><span style="color:var(--text-secondary);font-size:10px;">昨天 21:48</span></div>
+                <div style="font-size:11px;line-height:1.5;"><span class="highlight">GitHub</span> 是聊天里的工具，不是设置页本体。</div>
+              </div>
+              <div class="search-group-title">代码作战室</div>
+              <div class="search-item">
+                <div class="search-item-top"><strong>代码作战室</strong><span style="color:var(--text-secondary);font-size:10px;">昨天 22:17</span></div>
+                <div style="font-size:11px;line-height:1.5;">/<span class="highlight">github</span> pr 之后，结果卡片会直接插进群聊时间线里。</div>
+              </div>
+              <div class="mini-btn" style="width:100%;margin-top:6px;">查看更多结果</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+  </section>
+</body>
+</html>
