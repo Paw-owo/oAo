@@ -1,31 +1,43 @@
 /* ============================================================
-   index.js — 消息APP入口装配
-   只负责 APP 注册和路由挂载
-   挂在 window.Phone.Chat
-   ============================================================ */
+ * index.js — 消息APP 入口装配
+ * 职责：
+ *   1. 注册 chat APP 到 AppRegistry（id / name / icon / entry / events）
+ *   2. 暴露 Phone.Chat.open() 作为打开入口
+ *   3. entry 调用 Router.push 打开会话列表页（Phone.ChatList.mountList）
+ * 依赖（加载顺序由 index.html 保证）：
+ *   Phone.AppRegistry / Phone.Router / Phone.ChatList
+ * ============================================================ */
 (function (global) {
   "use strict";
 
   global.Phone = global.Phone || {};
 
-  // ---------- 注册 APP ----------
-  global.Phone.AppRegistry.register({
-    id: "chat",
-    name: "消息",
-    icon: "app-chat",
-    entry: function () { open(); },
-    events: ["message_received", "message_sent"],
-    order: 1,
-  });
-
-  // ---------- 打开会话列表 ----------
+  // 打开会话列表页（栈式路由压入 chat-list）
   function open() {
-    var container = document.getElementById("app-root");
-    if (!container) return;
-    global.Phone.Router.push("chat-list", global.Phone.Chat.mount, {});
+    var Router = global.Phone.Router;
+    var ChatList = global.Phone.ChatList;
+    if (!Router || !ChatList || typeof ChatList.mountList !== "function") {
+      console.error("[Chat] 依赖未就绪：Router 或 ChatList 缺失");
+      return;
+    }
+    Router.push("chat-list", ChatList.mountList, {});
   }
 
-  // ---------- 暴露 ----------
-  global.Phone.Chat = global.Phone.Chat || {};
-  global.Phone.Chat.open = open;
+  // 注册到 AppRegistry（桌面 / Dock 通过 AppRegistry.open("chat") 调用 entry）
+  if (global.Phone.AppRegistry && typeof global.Phone.AppRegistry.register === "function") {
+    global.Phone.AppRegistry.register({
+      id: "chat",
+      name: "消息",
+      icon: "app-chat",
+      entry: function () { open(); },
+      events: ["message_received", "message_sent", "chat_mode_changed"],
+      settings: [],
+      order: 10,
+    });
+  } else {
+    console.warn("[Chat] AppRegistry 未就绪，跳过注册");
+  }
+
+  // 暴露 Phone.Chat 兼容旧引用（technical-architecture: Phone.Chat.open()）
+  global.Phone.Chat = { open: open };
 })(window);

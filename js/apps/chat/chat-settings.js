@@ -1,152 +1,232 @@
 /* ============================================================
-   chat-settings.js — 聊天相关设置
-   提供给设置中心调用的聊天设置面板
-   气泡样式 / 字号 / 默认聊天背景 / 收藏管理
-   挂在 window.Phone.ChatSettings
-   ============================================================ */
+ * chat-settings.js — 消息APP 聊天设置页（预览稿页面7）
+ * 独立页面，胶囊椭圆框包裹的可爱清爽列表
+ * 挂在 window.Phone.ChatSettings
+ * 入口：Phone.Router.push("chat-settings", Phone.ChatSettings.mount, {conversationId?})
+ *   - conversationId 可选：从聊天页三点菜单进入时传入
+ *   - 未传时（从设置APP进入）显示默认信息
+ * ============================================================ */
 (function (global) {
   "use strict";
 
-  /**
-   * 我（聊天设置）渲染到容器
-   * @param {HTMLElement} container
-   */
-  async function mount(container) {
-    const U = global.Phone.Utils;
-    const State = global.Phone.State;
-    const Storage = global.Phone.Storage;
+  global.Phone = global.Phone || {};
 
-    const page = U.el("div", { class: "page" });
+  // ---------- 数据加载 ----------
+  // 读取会话与对应角色；容错：任一环节失败均回退到默认展示
+  async function _loadContext(params) {
+    var Storage = global.Phone.Storage;
+    var conv = null;
+    var character = null;
 
-    // 导航栏
-    const nav = U.el("div", { class: "navbar" });
-    const navLeft = U.el("div", { class: "nav-left" });
-    const backBtn = U.el("button", { class: "icon-btn" });
-    backBtn.innerHTML = global.Phone.IconLibrary.get("chevron-left", { size: 22 });
-    backBtn.addEventListener("click", () => global.Phone.Router.back());
-    navLeft.appendChild(backBtn);
-    nav.appendChild(navLeft);
-    nav.appendChild(U.el("div", { class: "nav-title", text: "聊天设置" }));
-    nav.appendChild(U.el("div", { class: "nav-right" }));
-    page.appendChild(nav);
+    if (params.conversationId && Storage) {
+      try { conv = await Storage.get("conversations", params.conversationId); } catch (e) {}
+    }
 
-    const content = U.el("div", { class: "page-content" });
+    // 角色定位：优先会话内 characterId，其次全局当前角色
+    var charId = conv && conv.characterId;
+    if (!charId && Storage) {
+      try { charId = await Storage.getSetting("currentCharacterId"); } catch (e) {}
+    }
+    if (charId && Storage) {
+      try {
+        var chars = await Storage.getAll("characters");
+        for (var i = 0; i < chars.length; i++) {
+          if (chars[i].id === charId) { character = chars[i]; break; }
+        }
+      } catch (e) {}
+    }
 
-    const bubbleStyle = (await State.get("bubbleStyle")) || "rounded";
-    const fontSize = (await State.get("fontSize")) || "base";
-    const chatBg = (await State.get("chatBackground")) || "";
-    const favorites = (await Storage.getSetting("chatFavorites")) || [];
-
-    // 气泡样式
-    content.appendChild(U.el("div", { class: "form-group" }, [
-      U.el("div", { class: "form-label", text: "气泡样式" }),
-      _segment([
-        { val: "rounded", label: "圆角" },
-        { val: "square", label: "方角" },
-        { val: "tail", label: "带尾巴" },
-      ], bubbleStyle, (v) => State.set("bubbleStyle", v))
-    ]));
-
-    // 字号
-    content.appendChild(U.el("div", { class: "form-group" }, [
-      U.el("div", { class: "form-label", text: "字号" }),
-      _segment([
-        { val: "sm", label: "小" },
-        { val: "base", label: "标准" },
-        { val: "md", label: "大" },
-        { val: "lg", label: "特大" },
-      ], fontSize, (v) => State.set("fontSize", v))
-    ]));
-
-    // 默认聊天背景
-    content.appendChild(U.el("div", { class: "form-group" }, [
-      U.el("div", { class: "form-label", text: "默认聊天背景" }),
-      U.el("div", { class: "card-soft", style: { display: "flex", gap: "10px", alignItems: "center" } }, [
-        U.el("div", { class: "avatar avatar-sm", style: chatBg ? { backgroundImage: "url(" + chatBg + ")", backgroundSize: "cover", backgroundPosition: "center" } : {}, html: chatBg ? "" : global.Phone.IconLibrary.get("image", { size: 16 }) }),
-        U.el("div", { class: "flex-1" }, [
-          U.el("div", { text: chatBg ? "已设置背景" : "未设置" }),
-          U.el("div", { class: "form-hint", text: "上传图片作为新对话默认背景" }),
-        ]),
-      ]),
-      U.el("div", { class: "row gap-8", style: { marginTop: "8px" } }, [
-        _btn("上传", "btn-ghost btn-sm", async () => {
-          const inp = U.el("input", { type: "file", accept: "image/*", style: "display:none" });
-          document.body.appendChild(inp);
-          inp.addEventListener("change", async () => {
-            const f = inp.files[0]; if (!f) return;
-            const b64 = await U.fileToBase64(f);
-            await State.set("chatBackground", b64);
-            inp.remove();
-            _remount(container);
-          });
-          inp.click();
-        }),
-        chatBg ? _btn("清除", "btn-text btn-sm", async () => {
-          await State.set("chatBackground", "");
-          _remount(container);
-        }) : null,
-      ])
-    ]));
-
-    // 收藏管理
-    content.appendChild(U.el("div", { class: "form-group" }, [
-      U.el("div", { class: "form-label", text: "收藏 (" + favorites.length + ")" }),
-      favorites.length === 0
-        ? U.el("div", { class: "empty-state" }, [
-            U.el("div", { class: "es-icon", html: global.Phone.IconLibrary.get("archive", { size: 28 }) }),
-            U.el("div", { class: "es-title", text: "还没有收藏" }),
-            U.el("div", { class: "es-sub", text: "长按消息可以收藏哦" })
-          ])
-        : U.el("div", { class: "list" }, favorites.map((f) => U.el("div", { class: "list-item" }, [
-            U.el("div", { class: "li-main" }, [
-              U.el("div", { class: "li-title", text: f.content.slice(0, 40) }),
-              U.el("div", { class: "li-sub", text: "来自 " + (f.from || "AI") + " · " + U.relTime(f.createdAt) })
-            ]),
-            (() => {
-              const btn = U.el("button", { class: "icon-btn" });
-              btn.innerHTML = global.Phone.IconLibrary.get("trash", { size: 18 });
-              btn.addEventListener("click", async () => {
-                const next = favorites.filter((x) => x.id !== f.id);
-                await Storage.setSetting("chatFavorites", next);
-                _remount(container);
-              });
-              return btn;
-            })()
-          ])))
-    ]));
-
-    page.appendChild(content);
-    container.appendChild(page);
+    return { conv: conv, character: character };
   }
 
-  function _remount(container) {
-    while (container.firstChild) container.removeChild(container.firstChild);
-    mount(container);
-  }
-
-  function _segment(items, current, onPick) {
-    const U = global.Phone.Utils;
-    const seg = U.el("div", { class: "segment", style: { display: "flex", flexWrap: "wrap" } });
-    items.forEach((it) => {
-      const node = U.el("div", { class: "segment-item" + (current === it.val ? " active" : ""), text: it.label });
-      node.addEventListener("click", () => {
-        seg.querySelectorAll(".segment-item").forEach((n) => n.classList.remove("active"));
-        node.classList.add("active");
-        onPick(it.val);
-      });
-      seg.appendChild(node);
+  // ---------- 轻量提示（骨架阶段诚实反馈，不假造功能） ----------
+  function _hint(screen, msg) {
+    if (!screen) return;
+    var U = global.Phone.Utils;
+    var t = U.el("div", {
+      text: msg,
+      style: {
+        position: "absolute",
+        left: "50%",
+        bottom: "18px",
+        transform: "translateX(-50%)",
+        background: "var(--bg-surface)",
+        color: "var(--text-secondary)",
+        border: "1px solid var(--border-soft)",
+        boxShadow: "var(--shadow-soft)",
+        borderRadius: "var(--radius-button)",
+        padding: "7px 14px",
+        fontSize: "11px",
+        zIndex: "200",
+        opacity: "0",
+        transition: "opacity var(--duration-fast) var(--ease-out)",
+        pointerEvents: "none",
+        whiteSpace: "nowrap",
+      },
     });
-    return seg;
+    screen.appendChild(t);
+    requestAnimationFrame(function () { t.style.opacity = "1"; });
+    setTimeout(function () {
+      t.style.opacity = "0";
+      setTimeout(function () {
+        if (t.parentNode) t.parentNode.removeChild(t);
+      }, 200);
+    }, 1100);
   }
 
-  function _btn(label, cls, onclick) {
-    const U = global.Phone.Utils;
-    const b = U.el("button", { class: "btn " + (cls || ""), text: label });
-    b.addEventListener("click", onclick);
+  // ---------- 组件 ----------
+  // 开关：点击切换 on class（骨架阶段仅切换视觉，不持久化）
+  function _toggle(on) {
+    var U = global.Phone.Utils;
+    var t = U.el("div", { class: "toggle" + (on ? " on" : "") });
+    t.addEventListener("click", function () { t.classList.toggle("on"); });
+    return t;
+  }
+
+  // 模式分段控制器（气泡 / 对话）：骨架阶段仅切换 active，不真实切换模式
+  function _modeTabs(active) {
+    var U = global.Phone.Utils;
+    var tabs = U.el("div", { class: "tabs", style: { margin: "0" } });
+    var bubble = U.el("span", { text: "气泡" });
+    var dialog = U.el("span", { text: "对话" });
+    if (active === "dialog") dialog.classList.add("active");
+    else bubble.classList.add("active");
+    bubble.addEventListener("click", function () {
+      bubble.classList.add("active");
+      dialog.classList.remove("active");
+    });
+    dialog.addEventListener("click", function () {
+      dialog.classList.add("active");
+      bubble.classList.remove("active");
+    });
+    tabs.appendChild(bubble);
+    tabs.appendChild(dialog);
+    return tabs;
+  }
+
+  // 小按钮：骨架阶段不实现真实功能，给予诚实提示
+  function _miniBtn(label, screen, hint) {
+    var U = global.Phone.Utils;
+    var b = U.el("div", { class: "mini-btn", text: label });
+    b.addEventListener("click", function () { _hint(screen, hint || (label + " · 开发中")); });
     return b;
   }
 
-  // ---------- 暴露 ----------
-  global.Phone = global.Phone || {};
-  global.Phone.ChatSettings = { mount };
+  // 通用 pill：左右两个直接子节点
+  function _pill(leftEl, controlEl, extraClass) {
+    var U = global.Phone.Utils;
+    return U.el("div", { class: "setting-pill" + (extraClass ? " " + extraClass : "") }, [leftEl, controlEl]);
+  }
+
+  // 带 label + meta 的 pill（左侧包一层 div）
+  function _labeledPill(label, meta, controlEl, extraClass) {
+    var U = global.Phone.Utils;
+    var left = U.el("div", {}, [
+      U.el("div", { class: "setting-label", text: label }),
+      meta != null ? U.el("div", { class: "setting-meta", text: meta }) : null,
+    ]);
+    return _pill(left, controlEl, extraClass);
+  }
+
+  // ---------- 挂载 ----------
+  async function mount(container, params) {
+    params = params || {};
+    var U = global.Phone.Utils;
+    var Icons = global.Phone.ChatIcons;
+    var Router = global.Phone.Router;
+
+    var ctx = await _loadContext(params);
+    var conv = ctx.conv;
+    var character = ctx.character;
+
+    // 展示文案：角色名 · 对话标题
+    var charName = (character && character.name) || "AI";
+    var convTitle = (conv && conv.title) || "新对话";
+    var displayTitle = charName + " · " + convTitle;
+
+    // 模型：会话级优先，其次全局设置，最后默认
+    var modelText = (conv && conv.model) || "";
+    if (!modelText) {
+      try { modelText = await global.Phone.Storage.getSetting("aiModel"); } catch (e) {}
+    }
+    if (!modelText) modelText = "默认模型";
+
+    // 会话级开关：有则用，无则用预览稿默认（骨架）
+    var s = (conv && conv.settings) || {};
+    var cotOn = s.showThinking !== undefined ? !!s.showThinking : true;
+    var ttsOn = s.ttsEnabled !== undefined ? !!s.ttsEnabled : false;
+    var tokenOn = s.showTokens !== undefined ? !!s.showTokens : false;
+    var ctxOn = s.showContextRange !== undefined ? !!s.showContextRange : true;
+    var mode = s.mode || (conv && conv.mode) || "bubble";
+
+    // GitHub 关联：有配置才标记 active
+    var gh = conv && conv.github ? conv.github : null;
+    var ghText = gh ? (gh.repo + " · " + (gh.branch || "main")) : "未关联仓库";
+    var ghActive = gh ? "active" : "";
+
+    // ---- 页面骨架 ----
+    var screen = U.el("div", { class: "chat-screen", style: { position: "relative" } });
+
+    // 顶部栏
+    var topbar = U.el("div", { class: "topbar" });
+    var topbarLeft = U.el("div", { class: "topbar-left" });
+    var back = U.el("div", { class: "icon-btn", html: Icons.get("chevron-left") });
+    back.addEventListener("click", function () { Router.back(); });
+    topbarLeft.appendChild(back);
+    topbarLeft.appendChild(U.el("div", { class: "topbar-info" }, [
+      U.el("div", { class: "topbar-name", text: "聊天设置" }),
+      U.el("div", { class: "topbar-sub", text: displayTitle }),
+    ]));
+    topbar.appendChild(topbarLeft);
+    screen.appendChild(topbar);
+
+    // 设置列表
+    var page = U.el("div", { class: "settings-page" });
+
+    // 分组1：当前对话
+    var g1 = U.el("div", { class: "settings-group" });
+    g1.appendChild(U.el("div", { class: "group-title", text: "当前对话" }));
+    g1.appendChild(_labeledPill("对话标题", displayTitle,
+      _miniBtn("编辑", screen, "编辑标题 · 开发中")));
+    g1.appendChild(_labeledPill("聊天模式", "气泡 / 对话", _modeTabs(mode)));
+    g1.appendChild(_labeledPill("模型", modelText,
+      _miniBtn("切换", screen, "模型切换 · 开发中")));
+    page.appendChild(g1);
+
+    // 分组2：显示与AI
+    var g2 = U.el("div", { class: "settings-group" });
+    g2.appendChild(U.el("div", { class: "group-title", text: "显示与AI" }));
+    g2.appendChild(_labeledPill("思维链", "默认折叠显示", _toggle(cotOn)));
+    g2.appendChild(_labeledPill("TTS 朗读", "软一点 · 云端音色", _toggle(ttsOn)));
+    g2.appendChild(_labeledPill("Token 用量显示", "每条消息底部显示", _toggle(tokenOn)));
+    g2.appendChild(_labeledPill("上下文范围可视化", "高亮边线标记", _toggle(ctxOn)));
+    page.appendChild(g2);
+
+    // 分组3：GitHub
+    var g3 = U.el("div", { class: "settings-group" });
+    g3.appendChild(U.el("div", { class: "group-title", text: "GitHub" }));
+    g3.appendChild(_labeledPill("关联仓库", ghText,
+      _miniBtn("进入", screen, "GitHub 设置 · 开发中"), ghActive));
+    page.appendChild(g3);
+
+    // 分组4：操作
+    var g4 = U.el("div", { class: "settings-group" });
+    g4.appendChild(_pill(
+      U.el("div", { class: "danger", text: "清空当前对话" }),
+      _miniBtn("确认", screen, "清空对话 · 开发中")
+    ));
+    g4.appendChild(_pill(
+      U.el("div", { class: "setting-label", text: "导出整段对话" }),
+      _miniBtn("Markdown", screen, "导出 Markdown · 开发中")
+    ));
+    page.appendChild(g4);
+
+    screen.appendChild(page);
+
+    // 挂载（路由已清空容器，此处再保险清一次）
+    U.empty(container);
+    container.appendChild(screen);
+  }
+
+  global.Phone.ChatSettings = { mount: mount };
 })(window);
