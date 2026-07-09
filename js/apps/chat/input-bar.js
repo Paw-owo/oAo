@@ -244,7 +244,10 @@
     let lastTyping = 0;
     function _autoResize() {
       input.style.height = "auto";
-      input.style.height = Math.min(input.scrollHeight, 96) + "px";
+      const h = input.scrollHeight;
+      // 元素未插入 DOM 时 scrollHeight 为 0，此时不写 height，靠 CSS min-height 兜底；
+      // 等元素挂载后由 input 事件或 setDraft 触发正确计算
+      if (h > 0) input.style.height = Math.min(h, 96) + "px";
     }
     function _updateSendBtn() {
       sendBtn.classList.toggle("disabled", !input.value.trim());

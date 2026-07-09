@@ -41,7 +41,6 @@
       }
       item.appendChild(box);
       item.addEventListener("click", () => {
-        if (_editing) return;
         global.Phone.AppRegistry.open(id);
       });
       dock.appendChild(item);

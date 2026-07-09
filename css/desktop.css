@@ -218,25 +218,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-primary-deep);
+  color: var(--text-secondary);
   position: relative;
   overflow: hidden;
 }
-/* Stitch 缝线边框：dashed 虚线内缩，营造布料缝线感 */
+/* Stitch 奶白垫片 + 高光 + 缝线（三层合一）：
+   background = 奶白半透明垫片 + 斜向高光，透出底层 conic 拼布；
+   border = dashed 缝线，营造布料手工感 */
 .app-icon .ai-box::before {
   content: "";
   position: absolute;
   inset: 5px;
   border-radius: calc(var(--icon-radius-base, var(--radius-lg)) - 5px);
-  border: 1.5px dashed var(--icon-stitch);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.52), rgba(255,255,255,0.22)),
+    linear-gradient(135deg, rgba(255,255,255,0.46), transparent 50%);
+  border: 1.6px dashed var(--icon-stitch);
   pointer-events: none;
   z-index: 1;
 }
 .app-icon .ai-box svg {
-  width: 56%;
-  height: 56%;
+  width: 58%;
+  height: 58%;
   position: relative;
   z-index: 2;
+  stroke-width: 2.4;
   filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.5));
 }
 .app-icon .ai-name {
@@ -269,7 +275,7 @@
 }
 .app-icon .ai-badge:empty { width: 8px; min-width: 8px; height: 8px; }
 
-/* 不同 APP 图标：统一 Stitch 拼布底盘，靠线条形状区分；保留 --icon-bg-*/--icon-color-* 自定义覆盖 */
+/* 不同 APP 图标：统一 Stitch 拼布底盘，靠线条形状区分；保留 --icon-bg-xxx / --icon-color-xxx 自定义覆盖 */
 .app-icon[data-id="chat"] .ai-box       { background: var(--icon-bg-chat, var(--icon-quilt-bg)); color: var(--icon-color-chat, var(--color-primary-deep)); }
 .app-icon[data-id="moments"] .ai-box    { background: var(--icon-bg-moments, var(--icon-quilt-bg)); color: var(--icon-color-moments, var(--color-primary-deep)); }
 .app-icon[data-id="characters"] .ai-box { background: var(--icon-bg-characters, var(--icon-quilt-bg)); color: var(--icon-color-characters, var(--color-primary-deep)); }
@@ -392,25 +398,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-primary-deep);
+  color: var(--text-secondary);
   position: relative;
   overflow: hidden;
 }
-/* Dock 图标 Stitch 缝线边框 */
+/* Dock 图标 Stitch 奶白垫片 + 高光 + 缝线（与桌面图标一致） */
 .dock-item .di-box::before {
   content: "";
   position: absolute;
   inset: 4px;
   border-radius: calc(var(--icon-radius-base, var(--radius-lg)) - 4px);
-  border: 1.5px dashed var(--icon-stitch);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.52), rgba(255,255,255,0.22)),
+    linear-gradient(135deg, rgba(255,255,255,0.46), transparent 50%);
+  border: 1.6px dashed var(--icon-stitch);
   pointer-events: none;
   z-index: 1;
 }
 .dock-item .di-box svg {
-  width: 56%;
-  height: 56%;
+  width: 58%;
+  height: 58%;
   position: relative;
   z-index: 2;
+  stroke-width: 2.4;
   filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.5));
 }
 .dock-item .ai-badge {
