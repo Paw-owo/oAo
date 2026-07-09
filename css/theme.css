@@ -144,6 +144,7 @@
   --color-danger: #E8826B;
   --color-danger-deep: #C25A45;
   --color-danger-ultralight: #FCE4DC;
+  --icon-stitch: rgba(216, 151, 30, 0.26);
 
   --text-primary: #4A3C28;
   --text-secondary: #8A7656;
@@ -166,6 +167,18 @@
   --grad-accent: linear-gradient(135deg, #FFC4D2 0%, #F38BA0 100%);
   --grad-bg-soft: linear-gradient(180deg, #FFFDFA 0%, #FFF6E2 100%);
   --grad-danger: linear-gradient(135deg, #F5B7A8 0%, #E8826B 100%);
+
+  /* Stitch 布料图标底盘：conic 四色拼布 + 白色半透明渐变叠加。
+     引用现有变量，三套主题切换时拼布色调自动跟随。 */
+  --icon-quilt-bg:
+    linear-gradient(135deg, rgba(255,255,255,0.42), rgba(255,255,255,0.14)),
+    conic-gradient(
+      from 180deg at 50% 50%,
+      var(--bg-surface) 0deg 90deg,
+      var(--color-primary-ultralight) 90deg 180deg,
+      var(--color-accent-ultralight) 180deg 270deg,
+      var(--color-primary-soft) 270deg 360deg
+    );
 }
 
 /* ---------- 主题：pink 粉色 ---------- */
@@ -192,6 +205,7 @@
   --color-danger: #E8826B;
   --color-danger-deep: #C25A45;
   --color-danger-ultralight: #FCE4DC;
+  --icon-stitch: rgba(216, 95, 120, 0.26);
 
   --text-primary: #4A2830;
   --text-secondary: #8A5660;
@@ -240,6 +254,7 @@
   --color-danger: #E8826B;
   --color-danger-deep: #C25A45;
   --color-danger-ultralight: #FCE4DC;
+  --icon-stitch: rgba(59, 138, 214, 0.26);
 
   --text-primary: #283A4A;
   --text-secondary: #56708A;

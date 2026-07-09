@@ -87,6 +87,18 @@
   overflow: hidden;
   transition: transform var(--dur-fast) var(--ease-soft);
 }
+/* 小组件渐变光晕：白色斜向高光 + 主色/辅助色径向光斑，叠加在毛玻璃上增加层次 */
+.widget::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.46), transparent 46%),
+    radial-gradient(circle at 78% 24%, var(--color-primary-ultralight), transparent 28%),
+    radial-gradient(circle at 22% 82%, var(--color-accent-ultralight), transparent 24%);
+  opacity: 0.55;
+  pointer-events: none;
+}
 .widget:active { transform: scale(0.98); }
 .widget-tall { grid-row: span 1; }
 
@@ -197,24 +209,36 @@
   width: clamp(48px, 16vw, 60px);
   height: clamp(48px, 16vw, 60px);
   border-radius: var(--icon-radius-base, var(--radius-lg));
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-neu-out);
+  /* Stitch 布料底盘：conic 四色拼布 + 白色渐变叠加（来自 --icon-quilt-bg） */
+  background: var(--icon-quilt-bg);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255,255,255,0.76);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-primary);
+  color: var(--color-primary-deep);
   position: relative;
   overflow: hidden;
 }
+/* Stitch 缝线边框：dashed 虚线内缩，营造布料缝线感 */
 .app-icon .ai-box::before {
   content: "";
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, rgba(255,255,255,0.5), transparent);
+  inset: 5px;
+  border-radius: calc(var(--icon-radius-base, var(--radius-lg)) - 5px);
+  border: 1.5px dashed var(--icon-stitch);
   pointer-events: none;
+  z-index: 1;
 }
-.app-icon .ai-box svg { width: 50%; height: 50%; }
+.app-icon .ai-box svg {
+  width: 56%;
+  height: 56%;
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.5));
+}
 .app-icon .ai-name {
   font-size: var(--font-xs);
   color: var(--text-primary);
@@ -245,20 +269,20 @@
 }
 .app-icon .ai-badge:empty { width: 8px; min-width: 8px; height: 8px; }
 
-/* 不同 APP 图标色调（线条图标颜色跟随主色，盒子背景做差异） */
-.app-icon[data-id="chat"] .ai-box       { background: var(--icon-bg-chat, linear-gradient(135deg, #FFF3D6, #FFD66E)); color: var(--icon-color-chat, var(--color-primary-deep)); }
-.app-icon[data-id="moments"] .ai-box    { background: var(--icon-bg-moments, linear-gradient(135deg, #FFE7EC, #FFA8B9)); color: var(--icon-color-moments, var(--color-accent)); }
-.app-icon[data-id="characters"] .ai-box { background: var(--icon-bg-characters, linear-gradient(135deg, #FFF0C4, #FFD66E)); color: var(--icon-color-characters, var(--color-primary-deep)); }
-.app-icon[data-id="memory"] .ai-box     { background: var(--icon-bg-memory, linear-gradient(135deg, #F3E2FA, #C792EA)); color: var(--icon-color-memory, #7B4FA8); }
-.app-icon[data-id="gallery"] .ai-box    { background: var(--icon-bg-gallery, linear-gradient(135deg, #FFE0D8, #E8826B)); color: var(--icon-color-gallery, #B85A45); }
-.app-icon[data-id="wallet"] .ai-box     { background: var(--icon-bg-wallet, linear-gradient(135deg, #FFF3D6, #F5B945)); color: var(--icon-color-wallet, var(--color-primary-deep)); }
-.app-icon[data-id="shop"] .ai-box       { background: var(--icon-bg-shop, linear-gradient(135deg, #FFE7EC, #F38BA0)); color: var(--icon-color-shop, var(--color-accent)); }
-.app-icon[data-id="memo"] .ai-box       { background: var(--icon-bg-memo, linear-gradient(135deg, #E2EEFF, #94C8F5)); color: var(--icon-color-memo, #3B6FA0); }
-.app-icon[data-id="anniversary"] .ai-box{ background: var(--icon-bg-anniversary, linear-gradient(135deg, #FFF0C4, #F5B945)); color: var(--icon-color-anniversary, var(--color-primary-deep)); }
-.app-icon[data-id="games"] .ai-box      { background: var(--icon-bg-games, linear-gradient(135deg, #E0F0E8, #8AC9B4)); color: var(--icon-color-games, #4A8A75); }
-.app-icon[data-id="music"] .ai-box      { background: var(--icon-bg-music, linear-gradient(135deg, #FFE7EC, #F38BA0)); color: var(--icon-color-music, var(--color-accent)); }
-.app-icon[data-id="worldbook"] .ai-box  { background: var(--icon-bg-worldbook, linear-gradient(135deg, #FFF3D6, #FFD66E)); color: var(--icon-color-worldbook, var(--color-primary-deep)); }
-.app-icon[data-id="settings"] .ai-box   { background: var(--icon-bg-settings, linear-gradient(135deg, #F0F0F4, #D8D8E0)); color: var(--icon-color-settings, var(--text-secondary)); }
+/* 不同 APP 图标：统一 Stitch 拼布底盘，靠线条形状区分；保留 --icon-bg-*/--icon-color-* 自定义覆盖 */
+.app-icon[data-id="chat"] .ai-box       { background: var(--icon-bg-chat, var(--icon-quilt-bg)); color: var(--icon-color-chat, var(--color-primary-deep)); }
+.app-icon[data-id="moments"] .ai-box    { background: var(--icon-bg-moments, var(--icon-quilt-bg)); color: var(--icon-color-moments, var(--color-primary-deep)); }
+.app-icon[data-id="characters"] .ai-box { background: var(--icon-bg-characters, var(--icon-quilt-bg)); color: var(--icon-color-characters, var(--color-primary-deep)); }
+.app-icon[data-id="memory"] .ai-box     { background: var(--icon-bg-memory, var(--icon-quilt-bg)); color: var(--icon-color-memory, var(--color-primary-deep)); }
+.app-icon[data-id="gallery"] .ai-box    { background: var(--icon-bg-gallery, var(--icon-quilt-bg)); color: var(--icon-color-gallery, var(--color-primary-deep)); }
+.app-icon[data-id="wallet"] .ai-box     { background: var(--icon-bg-wallet, var(--icon-quilt-bg)); color: var(--icon-color-wallet, var(--color-primary-deep)); }
+.app-icon[data-id="shop"] .ai-box       { background: var(--icon-bg-shop, var(--icon-quilt-bg)); color: var(--icon-color-shop, var(--color-primary-deep)); }
+.app-icon[data-id="memo"] .ai-box       { background: var(--icon-bg-memo, var(--icon-quilt-bg)); color: var(--icon-color-memo, var(--color-primary-deep)); }
+.app-icon[data-id="anniversary"] .ai-box{ background: var(--icon-bg-anniversary, var(--icon-quilt-bg)); color: var(--icon-color-anniversary, var(--color-primary-deep)); }
+.app-icon[data-id="games"] .ai-box      { background: var(--icon-bg-games, var(--icon-quilt-bg)); color: var(--icon-color-games, var(--color-primary-deep)); }
+.app-icon[data-id="music"] .ai-box      { background: var(--icon-bg-music, var(--icon-quilt-bg)); color: var(--icon-color-music, var(--color-primary-deep)); }
+.app-icon[data-id="worldbook"] .ai-box  { background: var(--icon-bg-worldbook, var(--icon-quilt-bg)); color: var(--icon-color-worldbook, var(--color-primary-deep)); }
+.app-icon[data-id="settings"] .ai-box   { background: var(--icon-bg-settings, var(--icon-quilt-bg)); color: var(--icon-color-settings, var(--color-primary-deep)); }
 
 /* 自定义图标图片（覆盖在线条图标上面） */
 .app-icon .ai-box::after {
@@ -270,7 +294,7 @@
   background-position: center;
   border-radius: inherit;
   pointer-events: none;
-  z-index: 1;
+  z-index: 3;
 }
 .app-icon[data-id="chat"] .ai-box::after       { background: var(--icon-image-chat, none); background-size: cover; background-position: center; }
 .app-icon[data-id="moments"] .ai-box::after    { background: var(--icon-image-moments, none); background-size: cover; background-position: center; }
@@ -358,16 +382,37 @@
 .dock-item .di-box {
   width: clamp(44px, 14vw, 52px);
   height: clamp(44px, 14vw, 52px);
-  border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-neu-out);
+  border-radius: var(--icon-radius-base, var(--radius-lg));
+  /* Stitch 布料底盘：与桌面图标统一的 conic 四色拼布 */
+  background: var(--icon-quilt-bg);
+  box-shadow:
+    var(--shadow-card),
+    inset 0 1px 0 rgba(255,255,255,0.76);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-primary);
+  color: var(--color-primary-deep);
   position: relative;
+  overflow: hidden;
 }
-.dock-item .di-box svg { width: 50%; height: 50%; }
+/* Dock 图标 Stitch 缝线边框 */
+.dock-item .di-box::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: calc(var(--icon-radius-base, var(--radius-lg)) - 4px);
+  border: 1.5px dashed var(--icon-stitch);
+  pointer-events: none;
+  z-index: 1;
+}
+.dock-item .di-box svg {
+  width: 56%;
+  height: 56%;
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.5));
+}
 .dock-item .ai-badge {
   position: absolute;
   top: -2px;
@@ -388,31 +433,32 @@
 }
 .dock-item .ai-badge:empty { width: 8px; min-width: 8px; height: 8px; }
 
-/* 不同 Dock 图标色调同 .app-icon */
-.dock-item[data-id="chat"] .di-box       { background: var(--icon-bg-chat, linear-gradient(135deg, #FFF3D6, #FFD66E)); color: var(--icon-color-chat, var(--color-primary-deep)); }
-.dock-item[data-id="moments"] .di-box    { background: var(--icon-bg-moments, linear-gradient(135deg, #FFE7EC, #FFA8B9)); color: var(--icon-color-moments, var(--color-accent)); }
-.dock-item[data-id="characters"] .di-box { background: var(--icon-bg-characters, linear-gradient(135deg, #FFF0C4, #FFD66E)); color: var(--icon-color-characters, var(--color-primary-deep)); }
-.dock-item[data-id="memory"] .di-box     { background: var(--icon-bg-memory, linear-gradient(135deg, #F3E2FA, #C792EA)); color: var(--icon-color-memory, #7B4FA8); }
-.dock-item[data-id="gallery"] .di-box    { background: var(--icon-bg-gallery, linear-gradient(135deg, #FFE0D8, #E8826B)); color: var(--icon-color-gallery, #B85A45); }
-.dock-item[data-id="wallet"] .di-box     { background: var(--icon-bg-wallet, linear-gradient(135deg, #FFF3D6, #F5B945)); color: var(--icon-color-wallet, var(--color-primary-deep)); }
-.dock-item[data-id="shop"] .di-box       { background: var(--icon-bg-shop, linear-gradient(135deg, #FFE7EC, #F38BA0)); color: var(--icon-color-shop, var(--color-accent)); }
-.dock-item[data-id="memo"] .di-box       { background: var(--icon-bg-memo, linear-gradient(135deg, #E2EEFF, #94C8F5)); color: var(--icon-color-memo, #3B6FA0); }
-.dock-item[data-id="anniversary"] .di-box{ background: var(--icon-bg-anniversary, linear-gradient(135deg, #FFF0C4, #F5B945)); color: var(--icon-color-anniversary, var(--color-primary-deep)); }
-.dock-item[data-id="games"] .di-box      { background: var(--icon-bg-games, linear-gradient(135deg, #E0F0E8, #8AC9B4)); color: var(--icon-color-games, #4A8A75); }
-.dock-item[data-id="music"] .di-box      { background: var(--icon-bg-music, linear-gradient(135deg, #FFE7EC, #F38BA0)); color: var(--icon-color-music, var(--color-accent)); }
-.dock-item[data-id="worldbook"] .di-box  { background: var(--icon-bg-worldbook, linear-gradient(135deg, #FFF3D6, #FFD66E)); color: var(--icon-color-worldbook, var(--color-primary-deep)); }
-.dock-item[data-id="settings"] .di-box   { background: var(--icon-bg-settings, linear-gradient(135deg, #F0F0F4, #D8D8E0)); color: var(--icon-color-settings, var(--text-secondary)); }
+/* 不同 Dock 图标：统一 Stitch 拼布底盘，与桌面图标一致 */
+.dock-item[data-id="chat"] .di-box       { background: var(--icon-bg-chat, var(--icon-quilt-bg)); color: var(--icon-color-chat, var(--color-primary-deep)); }
+.dock-item[data-id="moments"] .di-box    { background: var(--icon-bg-moments, var(--icon-quilt-bg)); color: var(--icon-color-moments, var(--color-primary-deep)); }
+.dock-item[data-id="characters"] .di-box { background: var(--icon-bg-characters, var(--icon-quilt-bg)); color: var(--icon-color-characters, var(--color-primary-deep)); }
+.dock-item[data-id="memory"] .di-box     { background: var(--icon-bg-memory, var(--icon-quilt-bg)); color: var(--icon-color-memory, var(--color-primary-deep)); }
+.dock-item[data-id="gallery"] .di-box    { background: var(--icon-bg-gallery, var(--icon-quilt-bg)); color: var(--icon-color-gallery, var(--color-primary-deep)); }
+.dock-item[data-id="wallet"] .di-box     { background: var(--icon-bg-wallet, var(--icon-quilt-bg)); color: var(--icon-color-wallet, var(--color-primary-deep)); }
+.dock-item[data-id="shop"] .di-box       { background: var(--icon-bg-shop, var(--icon-quilt-bg)); color: var(--icon-color-shop, var(--color-primary-deep)); }
+.dock-item[data-id="memo"] .di-box       { background: var(--icon-bg-memo, var(--icon-quilt-bg)); color: var(--icon-color-memo, var(--color-primary-deep)); }
+.dock-item[data-id="anniversary"] .di-box{ background: var(--icon-bg-anniversary, var(--icon-quilt-bg)); color: var(--icon-color-anniversary, var(--color-primary-deep)); }
+.dock-item[data-id="games"] .di-box      { background: var(--icon-bg-games, var(--icon-quilt-bg)); color: var(--icon-color-games, var(--color-primary-deep)); }
+.dock-item[data-id="music"] .di-box      { background: var(--icon-bg-music, var(--icon-quilt-bg)); color: var(--icon-color-music, var(--color-primary-deep)); }
+.dock-item[data-id="worldbook"] .di-box  { background: var(--icon-bg-worldbook, var(--icon-quilt-bg)); color: var(--icon-color-worldbook, var(--color-primary-deep)); }
+.dock-item[data-id="settings"] .di-box   { background: var(--icon-bg-settings, var(--icon-quilt-bg)); color: var(--icon-color-settings, var(--color-primary-deep)); }
 
-/* Dock 图标也支持自定义图片覆盖 */
+/* Dock 图标也支持自定义图片覆盖（z-index 3 盖住缝线 1 和 svg 2，与桌面图标一致） */
 .dock-item .di-box::after {
   content: "";
   position: absolute;
   inset: 0;
+  background: var(--di-icon-image, none);
   background-size: cover;
   background-position: center;
   border-radius: inherit;
   pointer-events: none;
-  z-index: 1;
+  z-index: 3;
 }
 .dock-item[data-id="chat"] .di-box::after       { background: var(--icon-image-chat, none); }
 .dock-item[data-id="moments"] .di-box::after    { background: var(--icon-image-moments, none); }

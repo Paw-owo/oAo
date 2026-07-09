@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>小手机</title>
+<style>
+/* ============================================================
+   全局 CSS 变量 — 薰衣草系
+   ============================================================ */
+:root {
+  --bg-base:                #f3f0fa;
+  --bg-surface:             #ffffff;
+  --bg-hover:               #ebe5f5;
+
+  --color-primary:          #b8a4e0;
+  --color-primary-light:    #ddd3f0;
+  --color-primary-ultralight: #f0ecfa;
+  --color-primary-deep:     #9d85cc;
+
+  --color-accent:           #a5c4e0;
+  --color-accent-light:     #dceaf5;
+
+  --text-primary:           #4a4458;
+  --text-secondary:         #8a82a0;
+  --text-placeholder:       #b8b0c8;
+
+  --shadow-soft:  0 2px 8px rgba(184, 164, 224, 0.15);
+  --shadow-card:  0 4px 16px rgba(184, 164, 224, 0.18);
+  --shadow-float: 0 8px 32px rgba(184, 164, 224, 0.22);
+  --shadow-neu-out: 6px 6px 12px rgba(157, 133, 204, 0.15),
+                    -6px -6px 12px rgba(255, 255, 255, 0.80);
+  --shadow-neu-in:  inset 4px 4px 8px rgba(157, 133, 204, 0.12),
+                    inset -4px -4px 8px rgba(255, 255, 255, 0.70);
+
+  --radius-sm:   10px;
+  --radius-md:   16px;
+  --radius-lg:   20px;
+  --radius-xl:   28px;
+  --radius-full: 999px;
+
+  --font-stack: 'PingFang SC', 'HarmonyOS Sans SC', 'Noto Sans SC', system-ui, sans-serif;
+  --ease-soft: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================================================
+   Reset
+   ============================================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  overscroll-behavior: none;
+  font-family: var(--font-stack);
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ============================================================
+   页面容器
+   ============================================================ */
+#phone {
+  position: relative;
+  width: 100%;
+  max-width: clamp(320px, 100vw, 600px);
+  height: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+/* ============================================================
+   桌面壁纸
+   ============================================================ */
+.wallpaper {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 12%, var(--color-primary-ultralight) 0%, transparent 50%),
+    radial-gradient(circle at 82% 85%, var(--color-accent-light) 0%, transparent 55%),
+    linear-gradient(160deg, var(--bg-base) 0%, var(--color-primary-ultralight) 100%);
+}
+.wallpaper::before,
+.wallpaper::after {
+  content: '';
+  position: absolute;
+  border-radius: var(--radius-full);
+  filter: blur(48px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.wallpaper::before {
+  width: 50vw; height: 50vw;
+  max-width: 300px; max-height: 300px;
+  top: -10%; right: -12%;
+  background: var(--color-primary-light);
+}
+.wallpaper::after {
+  width: 42vw; height: 42vw;
+  max-width: 260px; max-height: 260px;
+  bottom: 8%; left: -14%;
+  background: var(--color-accent-light);
+}
+
+/* ============================================================
+   桌面主体
+   ============================================================ */
+.desktop {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  transition: opacity 0.28s var(--ease-soft), transform 0.28s var(--ease-soft);
+}
+.desktop.hidden {
+  opacity: 0;
+  transform: scale(0.96);
+  pointer-events: none;
+}
+
+/* ============================================================
+   顶部状态胶囊
+   ============================================================ */
+.status-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  height: calc(54px + var(--safe-top));
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--safe-top) 20px 7px;
+  pointer-events: none;
+}
+.status-pill {
+  width: min(74vw, 336px);
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 9px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.status-pill svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  stroke: var(--color-primary);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.86;
+}
+.status-pill svg:nth-child(even) {
+  stroke: var(--color-accent);
+}
+.status-pill .paw {
+  stroke: var(--color-primary-deep);
+}
+
+/* ============================================================
+   小组件区
+   ============================================================ */
+.widgets {
+  position: absolute;
+  top: calc(58px + var(--safe-top));
+  left: 0;
+  right: 0;
+  padding: 0 clamp(16px, 4vw, 24px);
+  z-index: 2;
+}
+.widget-row {
+  display: flex;
+  gap: clamp(8px, 2.5vw, 14px);
+  margin-bottom: clamp(8px, 2vw, 12px);
+}
+.widget {
+  background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.25s var(--ease-soft);
+}
+.widget:active {
+  transform: scale(0.97);
+}
+
+/* 时间小组件 */
+.widget-clock {
+  flex: 1;
+  padding: clamp(14px, 3.5vw, 18px) clamp(16px, 4vw, 22px);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: clamp(100px, 26vw, 132px);
+}
+.widget-clock .clock-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.widget-clock .clock-label {
+  font-size: clamp(11px, 3vw, 13px);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.widget-clock .clock-icon-box {
+  width: clamp(28px, 7.5vw, 36px);
+  height: clamp(28px, 7.5vw, 36px);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-ultralight);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.widget-clock .clock-icon-box svg {
+  width: clamp(16px, 4.5vw, 20px);
+  height: clamp(16px, 4.5vw, 20px);
+  stroke: var(--color-primary-deep);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.widget-clock .clock-time {
+  font-size: clamp(32px, 9vw, 44px);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.widget-clock .clock-date {
+  font-size: clamp(11px, 3vw, 13px);
+  color: var(--text-secondary);
+  margin-top: clamp(3px, 1vw, 5px);
+}
+
+/* 天气小组件 */
+.widget-weather {
+  width: clamp(96px, 27vw, 140px);
+  flex-shrink: 0;
+  padding: clamp(12px, 3vw, 16px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: clamp(100px, 26vw, 132px);
+}
+.widget-weather .weather-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.widget-weather .weather-label {
+  font-size: clamp(11px, 3vw, 13px);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.widget-weather .weather-icon-box {
+  width: clamp(28px, 7.5vw, 36px);
+  height: clamp(28px, 7.5vw, 36px);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.widget-weather .weather-icon-box svg {
+  width: clamp(16px, 4.5vw, 20px);
+  height: clamp(16px, 4.5vw, 20px);
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.widget-weather .weather-value {
+  font-size: clamp(13px, 3.5vw, 16px);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+/* 今日提示小组件 */
+.widget-tip {
+  padding: clamp(12px, 3vw, 16px) clamp(14px, 4vw, 20px);
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2.5vw, 14px);
+}
+.widget-tip .tip-icon-box {
+  width: clamp(30px, 8vw, 38px);
+  height: clamp(30px, 8vw, 38px);
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-ultralight);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.widget-tip .tip-icon-box svg {
+  width: clamp(16px, 4.5vw, 20px);
+  height: clamp(16px, 4.5vw, 20px);
+  stroke: var(--color-primary);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.widget-tip .tip-content {
+  flex: 1;
+  min-width: 0;
+}
+.widget-tip .tip-title {
+  font-size: clamp(13px, 3.5vw, 16px);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.widget-tip .tip-desc {
+  font-size: clamp(11px, 3vw, 13px);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* 黑胶唱片小组件 */
+.widget-vinyl {
+  margin-top: clamp(8px, 2vw, 12px);
+  padding: clamp(12px, 3vw, 16px);
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 3vw, 16px);
+}
+.vinyl-disc-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: clamp(64px, 17vw, 84px);
+  height: clamp(64px, 17vw, 84px);
+}
+.vinyl-disc {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-primary) 88%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  animation: vinyl-spin 4s linear infinite;
+  animation-play-state: paused;
+}
+.vinyl-disc.spinning {
+  animation-play-state: running;
+}
+.vinyl-groove {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
+  pointer-events: none;
+}
+.vinyl-groove-1 { width: 88%; height: 88%; top: 6%; left: 6%; }
+.vinyl-groove-2 { width: 72%; height: 72%; top: 14%; left: 14%; }
+.vinyl-groove-3 { width: 56%; height: 56%; top: 22%; left: 22%; }
+.vinyl-cover {
+  width: clamp(28px, 7vw, 36px);
+  height: clamp(28px, 7vw, 36px);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-primary) 30%, var(--bg-surface));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+.vinyl-cover svg {
+  width: clamp(14px, 3.5vw, 18px);
+  height: clamp(14px, 3.5vw, 18px);
+  stroke: var(--color-primary);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.vinyl-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 1vw, 5px);
+}
+.vinyl-title {
+  font-size: clamp(13px, 3.5vw, 15px);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vinyl-artist {
+  font-size: clamp(11px, 3vw, 13px);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vinyl-controls {
+  display: flex;
+  align-items: center;
+  gap: clamp(6px, 1.5vw, 8px);
+  margin-top: clamp(2px, 0.5vw, 4px);
+}
+.vinyl-btn {
+  width: clamp(28px, 7vw, 34px);
+  height: clamp(28px, 7vw, 34px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg-base) 40%, transparent);
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.2s var(--ease-soft);
+}
+.vinyl-btn:active {
+  transform: scale(0.88);
+}
+.vinyl-btn svg {
+  width: clamp(14px, 3.5vw, 16px);
+  height: clamp(14px, 3.5vw, 16px);
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.vinyl-btn.main {
+  width: clamp(34px, 8.5vw, 40px);
+  height: clamp(34px, 8.5vw, 40px);
+  background: var(--color-primary);
+}
+.vinyl-btn.main svg {
+  stroke: var(--bg-surface);
+  width: clamp(16px, 4vw, 18px);
+  height: clamp(16px, 4vw, 18px);
+}
+
+/* ============================================================
+   APP 图标网格
+   ============================================================ */
+.app-grid {
+  position: absolute;
+  top: clamp(330px, 72vw, 480px);
+  bottom: calc(108px + var(--safe-bottom));
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: min-content;
+  gap: clamp(14px, 4vw, 24px) clamp(8px, 2.5vw, 16px);
+  padding: 0 clamp(16px, 4vw, 24px);
+  align-content: start;
+  z-index: 2;
+}
+.app-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(5px, 1.3vw, 7px);
+  transition: transform 0.2s var(--ease-soft);
+}
+.app-icon:active {
+  transform: scale(0.93);
+}
+.app-icon .icon-box {
+  position: relative;
+  width: clamp(50px, 14vw, 60px);
+  height: clamp(50px, 14vw, 60px);
+  background: color-mix(in srgb, var(--bg-surface) 86%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.app-icon .icon-box svg {
+  width: clamp(24px, 6.5vw, 30px);
+  height: clamp(24px, 6.5vw, 30px);
+  stroke: var(--color-primary);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.app-icon .icon-label {
+  font-size: clamp(10px, 2.8vw, 12px);
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.2;
+  max-width: clamp(70px, 18vw, 84px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-icon .badge {
+  position: absolute;
+  top: -4px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-deep);
+  color: var(--bg-surface);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  box-shadow: var(--shadow-soft);
+}
+.app-icon .badge.hidden {
+  display: none;
+}
+
+/* ============================================================
+   页面指示器
+   ============================================================ */
+.page-dots {
+  position: absolute;
+  bottom: calc(100px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 7px;
+  z-index: 4;
+}
+.page-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--text-placeholder);
+  opacity: 0.5;
+  transition: all 0.25s var(--ease-soft);
+}
+.page-dot.active {
+  width: 20px;
+  background: var(--color-primary);
+  opacity: 0.9;
+}
+
+/* ============================================================
+   底部 Dock
+   ============================================================ */
+.dock {
+  position: absolute;
+  bottom: calc(18px + var(--safe-bottom));
+  left: clamp(16px, 4vw, 24px);
+  right: clamp(16px, 4vw, 24px);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+  padding: clamp(9px, 2.5vw, 12px) clamp(12px, 3vw, 16px);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--bg-surface) 76%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: var(--shadow-float);
+}
+.dock-item {
+  position: relative;
+  width: clamp(48px, 13vw, 58px);
+  height: clamp(48px, 13vw, 58px);
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s var(--ease-soft);
+}
+.dock-item:active {
+  transform: scale(0.90);
+}
+.dock-item svg {
+  width: clamp(22px, 6vw, 27px);
+  height: clamp(22px, 6vw, 27px);
+  stroke: var(--color-primary);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dock-item .badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-deep);
+  color: var(--bg-surface);
+  font-size: 10px;
+  font-weight: 600;
+  border: 2px solid var(--bg-surface);
+}
+.dock-item .badge.hidden {
+  display: none;
+}
+
+/* ============================================================
+   APP 预览页
+   ============================================================ */
+.app-page {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+  transition: opacity 0.28s var(--ease-soft), transform 0.28s var(--ease-soft);
+}
+.app-page.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.app-topbar {
+  min-height: calc(58px + var(--safe-top));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: var(--safe-top) 20px 12px;
+  background: color-mix(in srgb, var(--bg-base) 88%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.app-back {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s var(--ease-soft);
+}
+.app-back:active {
+  transform: scale(0.88);
+}
+.app-back svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--color-primary);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.app-title {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+}
+.app-topbar-spacer {
+  width: 38px;
+  flex: 0 0 38px;
+}
+.app-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px calc(42px + var(--safe-bottom));
+}
+.placeholder-card {
+  width: min(100%, 420px);
+  padding: clamp(24px, 6vw, 36px);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 3vw, 18px);
+  text-align: center;
+  animation: softPop 0.3s var(--ease-soft);
+}
+.placeholder-icon {
+  width: clamp(52px, 14vw, 64px);
+  height: clamp(52px, 14vw, 64px);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-ultralight);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.placeholder-icon svg {
+  width: clamp(26px, 7vw, 32px);
+  height: clamp(26px, 7vw, 32px);
+  stroke: var(--color-primary);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.placeholder-title {
+  font-size: clamp(18px, 5vw, 22px);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.placeholder-text {
+  font-size: clamp(13px, 3.5vw, 15px);
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+/* ============================================================
+   锁屏
+   ============================================================ */
+.lock-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: calc(68px + var(--safe-top)) 24px calc(36px + var(--safe-bottom));
+  background: var(--bg-base);
+  transition: all 0.25s var(--ease-soft);
+}
+.lock-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(1.02);
+}
+.lock-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 30% 20%, var(--color-primary-ultralight) 0%, transparent 50%),
+    radial-gradient(circle at 70% 80%, var(--color-accent-light) 0%, transparent 55%),
+    linear-gradient(160deg, var(--bg-base) 0%, var(--color-primary-ultralight) 100%);
+}
+.lock-top {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+.lock-avatar {
+  width: clamp(72px, 20vw, 88px);
+  height: clamp(72px, 20vw, 88px);
+  margin: 0 auto clamp(16px, 4vw, 22px);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.lock-avatar svg {
+  width: clamp(36px, 10vw, 44px);
+  height: clamp(36px, 10vw, 44px);
+  stroke: var(--color-primary);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lock-title {
+  font-size: clamp(20px, 5.5vw, 24px);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.lock-subtitle {
+  margin-top: 8px;
+  font-size: clamp(13px, 3.5vw, 15px);
+  color: var(--text-secondary);
+}
+.lock-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 26px;
+}
+.lock-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--text-placeholder) 48%, transparent);
+  transition: all 0.2s var(--ease-soft);
+}
+.lock-dot.filled {
+  background: var(--color-primary);
+  transform: scale(1.08);
+}
+.lock-error {
+  min-height: 22px;
+  margin-top: 18px;
+  font-size: clamp(12px, 3vw, 14px);
+  color: var(--color-primary-deep);
+  text-align: center;
+}
+.lock-pad {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 320px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.lock-key {
+  height: clamp(56px, 15vw, 66px);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--bg-surface) 86%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-soft);
+  font-size: clamp(20px, 5vw, 24px);
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s var(--ease-soft);
+}
+.lock-key:active {
+  transform: scale(0.94);
+  background: var(--color-primary-ultralight);
+}
+.lock-key.secondary {
+  font-size: clamp(12px, 3vw, 14px);
+  color: var(--text-secondary);
+}
+
+/* ============================================================
+   加载动画
+   ============================================================ */
+.loading {
+  position: absolute;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base);
+  transition: opacity 0.25s var(--ease-soft);
+}
+.loading.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+.loading-card {
+  min-width: 160px;
+  padding: 22px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+.loading-mark {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-ultralight);
+  animation: soft-pulse 1.4s ease-in-out infinite;
+}
+.loading-text {
+  font-size: clamp(12px, 3vw, 14px);
+  color: var(--text-secondary);
+}
+
+/* ============================================================
+   动效
+   ============================================================ */
+@keyframes softPop {
+  from { opacity: 0; transform: scale(0.94) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes vinyl-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes soft-pulse {
+  0%   { transform: scale(0.92); opacity: 0.55; }
+  50%  { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.92); opacity: 0.55; }
+}
+</style>
+</head>
+<body>
+
+<div id="phone">
+
+  <!-- 壁纸 -->
+  <div class="wallpaper"></div>
+
+  <!-- 桌面 -->
+  <div class="desktop" id="desktop">
+
+    <!-- 顶部状态胶囊 -->
+    <div class="status-bar">
+      <div class="status-pill">
+        <!-- 爱心 -->
+        <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.2-8.8-8.4C1.8 8.3 3.7 5 7 5c1.9 0 3.2 1 4 2.2C11.8 6 13.1 5 15 5c3.3 0 5.2 3.3 3.8 6.6C17 15.8 12 20 12 20Z"/></svg>
+        <!-- 猫脸 -->
+        <svg viewBox="0 0 24 24"><path d="M7.5 8.2C6.8 6.3 7.8 4.8 9.4 5.1c.8.1 1.5.7 2.1 1.5.6-.8 1.3-1.4 2.1-1.5 1.6-.3 2.6 1.2 1.9 3.1"/><path d="M5.8 11.4c0-3 2.8-5.1 6.2-5.1s6.2 2.1 6.2 5.1v2.5c0 3.2-2.6 5.6-6.2 5.6s-6.2-2.4-6.2-5.6v-2.5Z"/><path d="M9.4 13h.1M14.5 13h.1M10.4 16c.9.6 2.3.6 3.2 0"/></svg>
+        <!-- 熊 -->
+        <svg viewBox="0 0 24 24"><path d="M6.5 15.5c1.5-1 2.3-2.6 2.4-4.5.1-2.2 1.5-4.1 3.8-4.1 2.5 0 4.2 2.2 4.2 5.2 0 3.9-2.8 6.4-6.6 6.4-1.9 0-3.4-.6-4.5-1.6-.6-.6-.2-1.1.7-1.4Z"/><path d="M9 8.2c-1.1-.8-2.5-.8-3.4.1M16.8 9c1.1-.8 2.5-.8 3.4.1M12 13h.1M15.1 12.3h.1"/></svg>
+        <!-- 爪印 -->
+        <svg viewBox="0 0 24 24"><path d="M8 8v8M16 8v8M11 6.5v11M13 6.5v11"/><path d="M4.5 11.5v1M19.5 11.5v1"/></svg>
+        <!-- 笑脸 -->
+        <svg viewBox="0 0 24 24"><path d="M7 14c0-3.5 2.1-6 5-6s5 2.5 5 6"/><path d="M6.2 15.4c.8 2.1 2.9 3.4 5.8 3.4s5-1.3 5.8-3.4"/><path d="M8.5 8.5 7 6.5M15.5 8.5 17 6.5M9.2 13.2h.1M14.7 13.2h.1M10.3 16c.9.5 2.5.5 3.4 0"/></svg>
+        <!-- 音符 -->
+        <svg viewBox="0 0 24 24"><path d="M6 18h12"/><path d="M7 15c.9-1.4 1.6-2.7 2.1-4.7.4-1.5 1.4-2.8 2.9-2.8s2.5 1.3 2.9 2.8c.5 2 1.2 3.3 2.1 4.7"/><path d="M9.2 15.2c1.6.9 4 .9 5.6 0"/></svg>
+        <!-- 星星 -->
+        <svg viewBox="0 0 24 24"><path d="M5 16v2M9.5 13v5M14 10v8M18.5 7v11"/><path d="M4 20h16"/></svg>
+        <!-- 月亮 -->
+        <svg viewBox="0 0 24 24"><path d="M15.5 5.5C11.9 5.5 9 8.4 9 12s2.9 6.5 6.5 6.5c.6 0 1.2-.1 1.7-.2-1.2.8-2.7 1.2-4.2 1.2C8.5 19.5 5 16 5 11.5S8.5 3.5 13 3.5c1.5 0 3 .4 4.2 1.2-.5-.1-1.1-.2-1.7-.2Z"/></svg>
+        <!-- 爪印大 -->
+        <svg class="paw" viewBox="0 0 24 24"><path d="M8.2 10.2c.7 0 1.2-.8 1.2-1.8S8.9 6.6 8.2 6.6 7 7.4 7 8.4s.5 1.8 1.2 1.8ZM15.8 10.2c.7 0 1.2-.8 1.2-1.8s-.5-1.8-1.2-1.8-1.2.8-1.2 1.8.5 1.8 1.2 1.8ZM11 9.2c.7 0 1.2-.8 1.2-1.8S11.7 5.6 11 5.6s-1.2.8-1.2 1.8.5 1.8 1.2 1.8ZM13 9.2c.7 0 1.2-.8 1.2-1.8S13.7 5.6 13 5.6s-1.2.8-1.2 1.8.5 1.8 1.2 1.8Z"/><path d="M7.5 15.3c0-2.4 2.1-4.2 4.5-4.2s4.5 1.8 4.5 4.2c0 1.9-1.5 3.1-4.5 3.1s-4.5-1.2-4.5-3.1Z"/></svg>
+      </div>
+    </div>
+
+    <!-- 小组件区 -->
+    <div class="widgets">
+
+      <!-- 时间 + 天气 -->
+      <div class="widget-row">
+        <div class="widget widget-clock">
+          <div class="clock-top">
+            <div class="clock-label">当前时间</div>
+            <div class="clock-icon-box">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </div>
+          </div>
+          <div>
+            <div class="clock-time" id="clockTime">--:--</div>
+            <div class="clock-date" id="clockDate">正在准备桌面</div>
+          </div>
+        </div>
+        <div class="widget widget-weather">
+          <div class="weather-top">
+            <div class="weather-label">天气</div>
+            <div class="weather-icon-box">
+              <svg viewBox="0 0 24 24"><path d="M7 17a4 4 0 010-8 5 5 0 019.6-1.5A4 4 0 0117 17H7Z"/></svg>
+            </div>
+          </div>
+          <div class="weather-value" id="weatherValue">看看外面天气如何</div>
+        </div>
+      </div>
+
+      <!-- 今日提示 -->
+      <div class="widget widget-tip">
+        <div class="tip-icon-box">
+          <svg viewBox="0 0 24 24"><path d="M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3z"/></svg>
+        </div>
+        <div class="tip-content">
+          <div class="tip-title">今天也要好好休息</div>
+          <div class="tip-desc">打开聊天，看看谁在想你</div>
+        </div>
+      </div>
+
+      <!-- 黑胶唱片 -->
+      <div class="widget widget-vinyl" id="vinylWidget">
+        <div class="vinyl-disc-wrap">
+          <div class="vinyl-disc" id="vinylDisc">
+            <div class="vinyl-groove vinyl-groove-1"></div>
+            <div class="vinyl-groove vinyl-groove-2"></div>
+            <div class="vinyl-groove vinyl-groove-3"></div>
+            <div class="vinyl-cover">
+              <svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="vinyl-info">
+          <div class="vinyl-title" id="vinylTitle">还没有歌曲呢</div>
+          <div class="vinyl-artist" id="vinylArtist">去音乐里挑一首吧</div>
+          <div class="vinyl-controls">
+            <button class="vinyl-btn" type="button" onclick="toggleVinyl()">
+              <span id="vinylBtnIcon">
+                <svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8V4z"/></svg>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- APP 图标网格 -->
+    <div class="app-grid" id="appGrid"></div>
+
+    <!-- 页面指示器 -->
+    <div class="page-dots">
+      <div class="page-dot active"></div>
+      <div class="page-dot"></div>
+    </div>
+
+    <!-- Dock -->
+    <div class="dock" id="dock"></div>
+
+  </div><!-- /desktop -->
+
+  <!-- APP 预览页 -->
+  <div class="app-page" id="appPage">
+    <div class="app-topbar">
+      <button class="app-back" type="button" onclick="closeApp()">
+        <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <div class="app-title" id="appTitle">标题</div>
+      <div class="app-topbar-spacer"></div>
+    </div>
+    <div class="app-body">
+      <div class="placeholder-card" id="placeholderCard">
+        <div class="placeholder-icon" id="placeholderIcon"></div>
+        <div class="placeholder-title" id="placeholderName">APP</div>
+        <div class="placeholder-text">马上就好，先别急</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 锁屏 -->
+  <div class="lock-screen hidden" id="lockScreen">
+    <div class="lock-bg"></div>
+    <div class="lock-top">
+      <div class="lock-avatar">
+        <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.2-8.8-8.4C1.8 8.3 3.7 5 7 5c1.9 0 3.2 1 4 2.2C11.8 6 13.1 5 15 5c3.3 0 5.2 3.3 3.8 6.6C17 15.8 12 20 12 20Z"/></svg>
+      </div>
+      <div class="lock-title">嘘，输入密码</div>
+      <div class="lock-subtitle">解锁就能见到我啦</div>
+      <div class="lock-dots" id="lockDots">
+        <div class="lock-dot"></div>
+        <div class="lock-dot"></div>
+        <div class="lock-dot"></div>
+        <div class="lock-dot"></div>
+      </div>
+      <div class="lock-error" id="lockError"></div>
+    </div>
+    <div class="lock-pad" id="lockPad">
+      <button class="lock-key" type="button" data-key="1">1</button>
+      <button class="lock-key" type="button" data-key="2">2</button>
+      <button class="lock-key" type="button" data-key="3">3</button>
+      <button class="lock-key" type="button" data-key="4">4</button>
+      <button class="lock-key" type="button" data-key="5">5</button>
+      <button class="lock-key" type="button" data-key="6">6</button>
+      <button class="lock-key" type="button" data-key="7">7</button>
+      <button class="lock-key" type="button" data-key="8">8</button>
+      <button class="lock-key" type="button" data-key="9">9</button>
+      <button class="lock-key secondary" type="button" data-key="clear">清空</button>
+      <button class="lock-key" type="button" data-key="0">0</button>
+      <button class="lock-key secondary" type="button" data-key="delete">删除</button>
+    </div>
+  </div>
+
+  <!-- 加载动画 -->
+  <div class="loading" id="loading">
+    <div class="loading-card">
+      <div class="loading-mark"></div>
+      <div class="loading-text">小手机正在醒来</div>
+    </div>
+  </div>
+
+</div><!-- /phone -->
+
+<script>
+/* ============================================================
+   SVG 图标库
+   ============================================================ */
+var ICONS = {
+  heart:   '<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.2-8.8-8.4C1.8 8.3 3.7 5 7 5c1.9 0 3.2 1 4 2.2C11.8 6 13.1 5 15 5c3.3 0 5.2 3.3 3.8 6.6C17 15.8 12 20 12 20Z"/></svg>',
+  chat:    '<svg viewBox="0 0 24 24"><path d="M21 11.5c0 4.5-4 8-9 8-1.5 0-3-.3-4-.8L3 20l1.3-4C3.5 14.8 3 13.2 3 11.5 3 7 7 3.5 12 3.5s9 3.5 9 8z"/><path d="M8.5 11.5h7M8.5 14.5h4"/></svg>',
+  camera:  '<svg viewBox="0 0 24 24"><path d="M3 7h3l2-2h8l2 2h3v12H3V7z"/><circle cx="12" cy="13" r="4"/></svg>',
+  settings:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
+  grudge:  '<svg viewBox="0 0 24 24"><path d="M5 3h12a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V3z"/><path d="M9 3v18"/><path d="M13 8h4M13 12h4"/></svg>',
+  smile:   '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M8.5 14.5c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8"/></svg>',
+  memory:  '<svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 012-2h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5z"/><path d="M8 3v18M16 3v18"/><path d="M10 8h2M10 12h2"/></svg>',
+  transfer:'<svg viewBox="0 0 24 24"><path d="M3 7h14M14 4l3 3-3 3M21 17H7M10 14l-3 3 3 3"/></svg>',
+  star:    '<svg viewBox="0 0 24 24"><path d="M12 3l2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3z"/></svg>',
+  edit:    '<svg viewBox="0 0 24 24"><path d="M14 4l6 6L8 22H2v-6L14 4z"/><path d="M11 7l6 6"/></svg>',
+  check:   '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>',
+  play:    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.5l6 3.5-6 3.5v-7z"/></svg>',
+  music:   '<svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
+  dream:   '<svg viewBox="0 0 24 24"><path d="M15.5 5.5C11.9 5.5 9 8.4 9 12s2.9 6.5 6.5 6.5c.6 0 1.2-.1 1.7-.2-1.2.8-2.7 1.2-4.2 1.2C8.5 19.5 5 16 5 11.5S8.5 3.5 13 3.5c1.5 0 3 .4 4.2 1.2-.5-.1-1.1-.2-1.7-.2Z"/></svg>',
+  pause:   '<svg viewBox="0 0 24 24"><rect x="7" y="5" width="4" height="14" rx="1"/><rect x="13" y="5" width="4" height="14" rx="1"/></svg>'
+};
+
+/* ============================================================
+   APP 列表（预览用，正式版从注册表读取）
+   ============================================================ */
+var APPS = [
+  { id: 'chat',       name: '聊天',   icon: 'chat',     dock: true,  badge: 3 },
+  { id: 'moments',    name: '朋友圈', icon: 'camera',   dock: true,  badge: 0 },
+  { id: 'settings',   name: '设置',   icon: 'settings', dock: true,  badge: 0 },
+  { id: 'gallery',    name: '记仇本', icon: 'grudge',   dock: true,  badge: 0 },
+  { id: 'characters', name: '角色',   icon: 'smile',    dock: false, badge: 0 },
+  { id: 'worldbook',  name: '世界书', icon: 'memory',   dock: false, badge: 0 },
+  { id: 'wallet',     name: '钱包',   icon: 'transfer', dock: false, badge: 0 },
+  { id: 'shop',       name: '商店',   icon: 'star',     dock: false, badge: 0 },
+  { id: 'memo',       name: '备忘录', icon: 'edit',     dock: false, badge: 0 },
+  { id: 'anniversary',name: '纪念日', icon: 'check',    dock: false, badge: 0 },
+  { id: 'games',      name: '游戏',   icon: 'play',     dock: false, badge: 0 },
+  { id: 'music',      name: '音乐',   icon: 'music',    dock: false, badge: 0 }
+];
+
+/* ============================================================
+   渲染 APP 图标
+   ============================================================ */
+function renderApps() {
+  var grid = document.getElementById('appGrid');
+  var dock = document.getElementById('dock');
+  grid.innerHTML = '';
+  dock.innerHTML = '';
+
+  APPS.forEach(function(app) {
+    var el = createAppIcon(app);
+    if (app.dock) {
+      el.classList.add('dock-item');
+      el.classList.remove('app-icon');
+      dock.appendChild(el);
+    } else {
+      grid.appendChild(el);
+    }
+  });
+}
+
+function createAppIcon(app) {
+  var el = document.createElement('div');
+  el.className = 'app-icon';
+  el.setAttribute('data-app', app.id);
+
+  var box = document.createElement('div');
+  box.className = 'icon-box';
+  box.innerHTML = ICONS[app.icon] || ICONS.star;
+
+  if (app.badge && app.badge > 0) {
+    var badge = document.createElement('div');
+    badge.className = 'badge';
+    badge.textContent = app.badge > 99 ? '99+' : String(app.badge);
+    box.appendChild(badge);
+  }
+
+  var label = document.createElement('div');
+  label.className = 'icon-label';
+  label.textContent = app.name;
+
+  el.appendChild(box);
+  el.appendChild(label);
+
+  el.addEventListener('click', function() {
+    openApp(app);
+  });
+
+  return el;
+}
+
+/* ============================================================
+   时钟
+   ============================================================ */
+function updateClock() {
+  var now = new Date();
+  var h = String(now.getHours()).padStart(2, '0');
+  var m = String(now.getMinutes()).padStart(2, '0');
+  var clockEl = document.getElementById('clockTime');
+  var dateEl = document.getElementById('clockDate');
+  if (clockEl) clockEl.textContent = h + ':' + m;
+
+  var months = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  var weeks = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+  if (dateEl) dateEl.textContent = months[now.getMonth()] + now.getDate() + '日 ' + weeks[now.getDay()];
+}
+
+/* ============================================================
+   打开 / 关闭 APP
+   ============================================================ */
+function openApp(app) {
+  var desktop = document.getElementById('desktop');
+  var appPage = document.getElementById('appPage');
+
+  document.getElementById('appTitle').textContent = app.name;
+  document.getElementById('placeholderName').textContent = app.name;
+
+  var iconEl = document.getElementById('placeholderIcon');
+  iconEl.innerHTML = ICONS[app.icon] || ICONS.star;
+
+  desktop.classList.add('hidden');
+
+  var card = document.getElementById('placeholderCard');
+  card.style.animation = 'none';
+  void card.offsetHeight;
+  card.style.animation = '';
+
+  setTimeout(function() {
+    appPage.classList.add('visible');
+  }, 50);
+}
+
+function closeApp() {
+  var desktop = document.getElementById('desktop');
+  var appPage = document.getElementById('appPage');
+
+  appPage.classList.remove('visible');
+
+  setTimeout(function() {
+    desktop.classList.remove('hidden');
+  }, 50);
+}
+
+/* ============================================================
+   黑胶唱片
+   ============================================================ */
+var vinylPlaying = false;
+
+function toggleVinyl() {
+  vinylPlaying = !vinylPlaying;
+  var disc = document.getElementById('vinylDisc');
+  var btnIcon = document.getElementById('vinylBtnIcon');
+  var titleEl = document.getElementById('vinylTitle');
+  var artistEl = document.getElementById('vinylArtist');
+
+  if (vinylPlaying) {
+    disc.classList.add('spinning');
+    btnIcon.innerHTML = ICONS.pause;
+    titleEl.textContent = '假装在放歌';
+    artistEl.textContent = '预览模式';
+  } else {
+    disc.classList.remove('spinning');
+    btnIcon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8V4z"/></svg>';
+    titleEl.textContent = '还没有歌曲呢';
+    artistEl.textContent = '去音乐里挑一首吧';
+  }
+}
+
+/* ============================================================
+   锁屏
+   ============================================================ */
+var LOCK_PASSWORD = '0326';
+var lockInput = '';
+
+function setupLock() {
+  var pad = document.getElementById('lockPad');
+  pad.addEventListener('click', function(e) {
+    var key = e.target.closest('[data-key]');
+    if (!key) return;
+    var val = key.dataset.key;
+
+    if (val === 'clear') {
+      lockInput = '';
+      document.getElementById('lockError').textContent = '';
+      renderLockDots();
+      return;
+    }
+    if (val === 'delete') {
+      lockInput = lockInput.slice(0, -1);
+      document.getElementById('lockError').textContent = '';
+      renderLockDots();
+      return;
+    }
+    if (lockInput.length >= LOCK_PASSWORD.length) return;
+    lockInput += val;
+    document.getElementById('lockError').textContent = '';
+    renderLockDots();
+
+    if (lockInput.length === LOCK_PASSWORD.length) {
+      setTimeout(checkLock, 120);
+    }
+  });
+}
+
+function renderLockDots() {
+  var dots = document.querySelectorAll('#lockDots .lock-dot');
+  dots.forEach(function(dot, i) {
+    dot.classList.toggle('filled', i < lockInput.length);
+  });
+}
+
+function checkLock() {
+  if (lockInput === LOCK_PASSWORD) {
+    document.getElementById('lockScreen').classList.add('hidden');
+  } else {
+    lockInput = '';
+    document.getElementById('lockError').textContent = '嘿嘿，不对哦';
+    renderLockDots();
+  }
+}
+
+/* ============================================================
+   启动
+   ============================================================ */
+function boot() {
+  renderApps();
+  updateClock();
+  setInterval(updateClock, 1000);
+  setupLock();
+
+  setTimeout(function() {
+    var loading = document.getElementById('loading');
+    loading.classList.add('hide');
+    setTimeout(function() {
+      loading.style.display = 'none';
+    }, 260);
+  }, 800);
+}
+
+boot();
+</script>
+
+</body>
+</html>
