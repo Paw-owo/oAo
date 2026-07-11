@@ -1,0 +1,2391 @@
+<!-- index.html -->
+<!-- imports:
+  from './core/storage.js': initDB, getData, setData, removeData, getDB, setDB, deleteDB, getAllDB, generateId, getNow
+  from './core/theme.js': loadTheme
+  from './core/ui.js': createIcon, showToast
+  from './apps/chat/thread-ai-local.js': seedDefaultCharacter
+-->
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#FAF8F5">
+  <meta name="format-detection" content="telephone=no">
+  <title>小手机</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="https://i.postimg.cc/sDhhgcFL/IMG-6643.png">
+
+  <style>
+    :root {
+      --desktop-icon-scale: 1;
+      --desktop-widget-scale: 1;
+      --desktop-dock-scale: 1;
+      --desktop-wallpaper-soft: 0.10;
+      --desktop-card-blur: 20px;
+      --desktop-soft-shadow: var(--shadow-sm);
+    }
+
+    html,
+    body {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      -webkit-appearance: none;
+      appearance: none;
+      outline: 0;
+      font-family: inherit;
+      color: inherit;
+      border-color: transparent;
+    }
+
+    button,
+    button:hover,
+    button:focus,
+    button:focus-visible,
+    button:active,
+    input,
+    input:hover,
+    input:focus,
+    input:focus-visible,
+    textarea,
+    textarea:hover,
+    textarea:focus,
+    textarea:focus-visible,
+    select,
+    select:hover,
+    select:focus,
+    select:focus-visible {
+      border-color: transparent !important;
+    }
+
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+      line-height: 1.6;
+      background: transparent;
+      transform: translateZ(0);
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      font-size: 16px;
+    }
+
+    @supports (-webkit-touch-callout: none) {
+      input,
+      textarea,
+      select {
+        font-size: 16px !important;
+      }
+    }
+
+    button {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .phone-desktop {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+    }
+
+    .has-image {
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    .desktop-soft-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: var(--bg-primary);
+      opacity: var(--desktop-wallpaper-soft);
+      transition: all 200ms ease;
+    }
+
+    .status-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 8;
+      height: calc(54px + env(safe-area-inset-top));
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: env(safe-area-inset-top) 20px 7px;
+      pointer-events: none;
+    }
+
+    .status-cute-pill {
+      width: min(74vw, 336px);
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      gap: 9px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .status-cute-pill svg {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+      stroke: currentColor;
+      stroke-width: 1.5;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: .86;
+    }
+
+    .status-cute-pill .status-paw {
+      color: var(--accent-dark);
+    }
+
+    .dock,
+    .page-dots,
+    .desktop-icon,
+    .desktop-icon-art,
+    .widget-mark,
+    .lock-dots,
+    .lock-key,
+    .app-back,
+    .placeholder-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .desktop-pages {
+      position: fixed;
+      inset: calc(58px + env(safe-area-inset-top)) 0 calc(108px + env(safe-area-inset-bottom));
+      z-index: 1;
+      display: flex;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .desktop-pages::-webkit-scrollbar {
+      display: none;
+    }
+
+    .desktop-pages.dragging {
+      scroll-snap-type: none;
+      scroll-behavior: auto;
+      touch-action: none;
+    }
+
+    .desktop-page {
+      position: relative;
+      flex: 0 0 100%;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      scroll-snap-align: start;
+    }
+
+    .desktop-widget-area,
+    .desktop-free-layer {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .desktop-widget-area {
+      z-index: 0;
+      height: calc(424px * var(--desktop-widget-scale));
+      pointer-events: none;
+      border-radius: 0 0 30px 30px;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    .desktop-free-layer {
+      z-index: 1;
+    }
+
+    .desktop-item {
+      position: absolute;
+      z-index: 2;
+      touch-action: none;
+      transition: transform 200ms ease, opacity 200ms ease;
+    }
+
+    .desktop-item.dragging,
+    .dock .desktop-icon.dock-dragging {
+      z-index: 20;
+      opacity: .94;
+      transform: scale(1.035);
+      transition: none;
+    }
+
+    .desktop-icon {
+      width: calc(74px * var(--desktop-icon-scale));
+      flex-direction: column;
+      gap: calc(7px * var(--desktop-icon-scale));
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      box-shadow: none;
+      outline: 0;
+      color: var(--text-primary);
+      touch-action: none;
+      transition: all 200ms ease;
+    }
+
+    .desktop-icon:focus,
+    .desktop-icon:focus-visible,
+    .desktop-icon:active {
+      background: transparent;
+      box-shadow: none;
+      outline: 0;
+    }
+
+    .desktop-widget:active,
+    .app-back:active,
+    .lock-key:active {
+      transform: scale(.96);
+    }
+
+    .desktop-icon.editing,
+    .desktop-widget.editing {
+      animation: icon-wiggle 180ms ease-in-out infinite;
+    }
+
+    .phone-desktop.silent-edit .desktop-icon.editing,
+    .phone-desktop.silent-edit .desktop-widget.editing {
+      animation: none;
+    }
+
+    .desktop-icon-art {
+      width: calc(58px * var(--desktop-icon-scale));
+      height: calc(58px * var(--desktop-icon-scale));
+      overflow: hidden;
+      padding: 0;
+      margin: 0;
+      border-radius: calc(19px * var(--desktop-icon-scale));
+      background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+      color: var(--accent-dark);
+      box-shadow: var(--desktop-soft-shadow);
+      backdrop-filter: blur(var(--desktop-card-blur));
+      -webkit-backdrop-filter: blur(var(--desktop-card-blur));
+    }
+
+    .desktop-icon-art.has-custom-image {
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    .desktop-icon-art svg {
+      width: calc(27px * var(--desktop-icon-scale));
+      height: calc(27px * var(--desktop-icon-scale));
+      flex: 0 0 auto;
+    }
+
+    .desktop-icon-image,
+    .placeholder-icon img,
+    .lock-avatar img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      box-shadow: none;
+      outline: 0;
+    }
+
+    .desktop-icon-name {
+      width: calc(84px * var(--desktop-icon-scale));
+      color: var(--text-primary);
+      font-size: calc(12px * var(--desktop-icon-scale));
+      line-height: 1.25;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-shadow: 0 1px 12px color-mix(in srgb, var(--bg-primary) 80%, transparent);
+    }
+
+    .desktop-delete-dot {
+      position: absolute;
+      top: -5px;
+      right: 4px;
+      width: 18px;
+      height: 18px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: var(--accent);
+      color: var(--bubble-user-text);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .desktop-icon.editing .desktop-delete-dot {
+      display: flex;
+    }
+
+    .badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--color-primary, var(--accent-dark)), var(--color-accent, var(--accent)));
+      color: var(--bg-surface, var(--bg-card));
+      border: 2px solid var(--bg-surface, var(--bg-card));
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
+      box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 45%, transparent);
+      transition: transform 280ms var(--ease-soft, cubic-bezier(0.34, 1.56, 0.64, 1));
+    }
+
+    .badge.hidden {
+      display: none;
+    }
+
+    @keyframes badge-jelly {
+      0%, 100% { transform: scale(1, 1); }
+      25% { transform: scale(1.15, 0.85); }
+      50% { transform: scale(0.9, 1.1); }
+      75% { transform: scale(1.05, 0.95); }
+    }
+
+    .badge.badge-pop {
+      animation: badge-jelly 600ms cubic-bezier(0.34, 1.56, 0.64, 1);
+      animation-iteration-count: 1;
+      animation-fill-mode: forwards;
+    }
+
+    .desktop-widget {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: calc(15px * var(--desktop-widget-scale));
+      overflow: hidden;
+      border-radius: calc(26px * var(--desktop-widget-scale));
+      background-color: color-mix(in srgb, var(--bg-card) 82%, transparent);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      color: var(--text-primary);
+      box-shadow: var(--desktop-soft-shadow);
+      backdrop-filter: blur(var(--desktop-card-blur));
+      -webkit-backdrop-filter: blur(var(--desktop-card-blur));
+      touch-action: none;
+      transition: all 200ms ease;
+    }
+
+    .desktop-widget.has-image {
+      background-color: color-mix(in srgb, var(--bg-card) 18%, transparent);
+    }
+
+    .desktop-widget.has-image::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      border-radius: inherit;
+      background: color-mix(in srgb, var(--bg-card) 18%, transparent);
+    }
+
+    .desktop-widget.square,
+    .desktop-widget.circle {
+      width: calc(132px * var(--desktop-widget-scale));
+      height: calc(132px * var(--desktop-widget-scale));
+    }
+
+    .desktop-widget.rectangle {
+      width: calc(216px * var(--desktop-widget-scale));
+      height: calc(114px * var(--desktop-widget-scale));
+    }
+
+    .desktop-widget.wide {
+      width: min(calc(306px * var(--desktop-widget-scale)), calc(100vw - 40px));
+      height: calc(106px * var(--desktop-widget-scale));
+    }
+
+    .desktop-widget.circle {
+      border-radius: 999px;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .desktop-widget > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .widget-label,
+    .time-widget-sub,
+    .focus-text {
+      color: var(--text-secondary);
+      font-size: calc(var(--font-size-small) * var(--desktop-widget-scale));
+      line-height: 1.45;
+    }
+
+    .widget-label {
+      font-size: calc(12px * var(--desktop-widget-scale));
+      line-height: 1.3;
+      font-weight: 500;
+    }
+
+    .widget-value {
+      color: var(--text-primary);
+      font-size: calc(16px * var(--desktop-widget-scale));
+      font-weight: 600;
+      line-height: 1.35;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      text-shadow: 0 1px 12px color-mix(in srgb, var(--bg-primary) 72%, transparent);
+    }
+
+    .time-widget-main {
+      color: var(--text-primary);
+      font-size: calc(42px * var(--desktop-widget-scale));
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -.05em;
+      text-shadow: 0 1px 12px color-mix(in srgb, var(--bg-primary) 72%, transparent);
+    }
+
+    .focus-title {
+      color: var(--text-primary);
+      font-size: calc(var(--font-size-title) * var(--desktop-widget-scale));
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .focus-text {
+      margin-top: calc(4px * var(--desktop-widget-scale));
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .widget-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: calc(10px * var(--desktop-widget-scale));
+    }
+
+    .widget-mark {
+      width: calc(34px * var(--desktop-widget-scale));
+      height: calc(34px * var(--desktop-widget-scale));
+      flex: 0 0 calc(34px * var(--desktop-widget-scale));
+      border-radius: calc(14px * var(--desktop-widget-scale));
+      background: var(--accent-light);
+      color: var(--accent-dark);
+    }
+
+    .custom-widget-content {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: calc(10px * var(--desktop-widget-scale));
+      color: var(--text-primary);
+      font-size: calc(14px * var(--desktop-widget-scale));
+      font-weight: 600;
+      line-height: 1.35;
+      text-align: center;
+      word-break: break-word;
+      text-shadow: 0 1px 12px color-mix(in srgb, var(--bg-primary) 74%, transparent);
+    }
+
+    .page-dots {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: calc(100px + env(safe-area-inset-bottom));
+      z-index: 4;
+      gap: 7px;
+      pointer-events: none;
+    }
+
+    .page-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--text-hint);
+      opacity: .62;
+      transition: all 200ms ease;
+    }
+
+    .page-dot.active {
+      width: 20px;
+      background: var(--accent);
+      opacity: .92;
+    }
+
+    .dock {
+      position: fixed;
+      left: 22px;
+      right: 22px;
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      z-index: 8;
+      min-height: 76px;
+      justify-content: space-around;
+      gap: 8px;
+      padding: 9px 13px;
+      border-radius: 30px;
+      background: color-mix(in srgb, var(--bg-card) 76%, transparent);
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      transform: scale(var(--desktop-dock-scale));
+      transform-origin: center bottom;
+    }
+
+    .dock .desktop-icon {
+      position: relative;
+      left: auto !important;
+      top: auto !important;
+      width: 64px;
+      animation: none;
+      touch-action: none;
+    }
+
+    .dock .desktop-icon-art {
+      width: 58px;
+      height: 58px;
+      padding: 0;
+      margin: 0;
+      border-radius: 20px;
+      background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+    }
+
+    .dock .desktop-icon-art.has-custom-image {
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    .dock .desktop-icon-name,
+    .dock .desktop-delete-dot {
+      display: none !important;
+    }
+
+    .hidden-hint {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 20px;
+      background: color-mix(in srgb, var(--bg-card) 84%, transparent);
+      color: var(--text-secondary);
+      box-shadow: var(--shadow-sm);
+      font-size: var(--font-size-small);
+      line-height: 1.5;
+      text-align: center;
+      pointer-events: none;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    #app-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      pointer-events: none;
+    }
+
+    #app-layer.has-app {
+      pointer-events: auto;
+    }
+
+    .placeholder-app {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .app-topbar {
+      min-height: calc(58px + env(safe-area-inset-top));
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      padding: env(safe-area-inset-top) 20px 12px;
+      background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .app-back {
+      width: 38px;
+      height: 38px;
+      border-radius: 16px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+      transition: all 200ms ease;
+    }
+
+    .app-title {
+      flex: 1;
+      color: var(--text-primary);
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.3;
+      text-align: center;
+    }
+
+    .app-topbar-spacer {
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
+    }
+
+    .placeholder-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 24px calc(42px + env(safe-area-inset-bottom));
+    }
+
+    .placeholder-card {
+      width: min(100%, 420px);
+      padding: 26px;
+      border-radius: 28px;
+      background: var(--bg-card);
+      box-shadow: var(--shadow-md);
+    }
+
+    .placeholder-icon {
+      width: 58px;
+      height: 58px;
+      overflow: hidden;
+      margin-bottom: 18px;
+      padding: 0;
+      border-radius: 22px;
+      background: var(--accent-light);
+      color: var(--accent-dark);
+    }
+
+    .placeholder-title {
+      margin: 0;
+      color: var(--text-primary);
+      font-size: 22px;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .placeholder-text {
+      margin: 10px 0 0;
+      color: var(--text-secondary);
+      font-size: var(--font-size-base);
+      line-height: 1.7;
+    }
+
+    .lock-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      padding: calc(68px + env(safe-area-inset-top)) 24px calc(36px + env(safe-area-inset-bottom));
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      transition: all 200ms ease;
+    }
+
+    .lock-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(1.02);
+    }
+
+    .lock-soft-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: var(--bg-primary);
+      opacity: .22;
+    }
+
+    .lock-top,
+    .lock-pad {
+      position: relative;
+      z-index: 1;
+    }
+
+    .lock-top {
+      text-align: center;
+    }
+
+    .lock-avatar {
+      width: 84px;
+      height: 84px;
+      margin: 0 auto 20px;
+      overflow: hidden;
+      padding: 0;
+      border-radius: 28px;
+      box-shadow: var(--shadow-md);
+      background: var(--bg-card);
+    }
+
+    .lock-title {
+      margin: 0;
+      color: var(--text-primary);
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 1.3;
+      letter-spacing: -.02em;
+      text-shadow: 0 1px 12px color-mix(in srgb, var(--bg-primary) 72%, transparent);
+    }
+
+    .lock-subtitle {
+      margin-top: 8px;
+      color: var(--text-secondary);
+      font-size: var(--font-size-base);
+      line-height: 1.6;
+    }
+
+    .lock-dots {
+      gap: 12px;
+      margin-top: 26px;
+    }
+
+    .lock-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--text-hint) 48%, transparent);
+      transition: all 200ms ease;
+    }
+
+    .lock-dot.filled {
+      background: var(--accent);
+      transform: scale(1.08);
+    }
+
+    .lock-error {
+      min-height: 22px;
+      margin-top: 18px;
+      color: var(--accent-dark);
+      font-size: var(--font-size-small);
+      line-height: 1.5;
+      text-align: center;
+    }
+
+    .lock-pad {
+      width: min(100%, 320px);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .lock-key {
+      height: 64px;
+      border-radius: 24px;
+      background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+      font-size: 22px;
+      font-weight: 500;
+      transition: all 200ms ease;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .lock-key.secondary {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .desktop-loading {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      transition: all 200ms ease;
+    }
+
+    .desktop-loading.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-card {
+      min-width: 166px;
+      padding: 22px;
+      border-radius: 28px;
+      background: var(--bg-card);
+      box-shadow: var(--shadow-md);
+      text-align: center;
+    }
+
+    .loading-mark {
+      width: 38px;
+      height: 38px;
+      margin: 0 auto 12px;
+      border-radius: 15px;
+      background: var(--accent-light);
+      animation: soft-pulse 1400ms ease-in-out infinite;
+    }
+
+    .loading-text {
+      color: var(--text-secondary);
+      font-size: var(--font-size-small);
+    }
+
+    @keyframes icon-wiggle {
+      0% { transform: rotate(-1deg); }
+      50% { transform: rotate(1deg); }
+      100% { transform: rotate(-1deg); }
+    }
+
+    @keyframes soft-pulse {
+      0% { transform: scale(.92); opacity: .55; }
+      50% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(.92); opacity: .55; }
+    }
+
+    /* ═══════════════════════════════════════
+       【黑胶唱片小组件】桌面音乐播放器
+    ═══════════════════════════════════════ */
+
+    .vinyl-widget {
+      width: min(calc(306px * var(--desktop-widget-scale)), calc(100vw - 40px));
+      height: calc(114px * var(--desktop-widget-scale));
+      display: flex;
+      align-items: center;
+      gap: calc(12px * var(--desktop-widget-scale));
+      padding: calc(12px * var(--desktop-widget-scale));
+      overflow: hidden;
+    }
+
+    .vinyl-record-wrap {
+      position: relative;
+      flex-shrink: 0;
+      width: calc(80px * var(--desktop-widget-scale));
+      height: calc(80px * var(--desktop-widget-scale));
+    }
+
+    .vinyl-record {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--text-primary) 90%, transparent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: vinyl-spin 4s linear infinite;
+      animation-play-state: paused;
+      box-shadow: 0 0 0 calc(2px * var(--desktop-widget-scale)) color-mix(in srgb, var(--text-primary) 20%, transparent);
+    }
+
+    .vinyl-record.spinning {
+      animation-play-state: running;
+    }
+
+    .vinyl-groove {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid color-mix(in srgb, var(--text-primary) 15%, transparent);
+      pointer-events: none;
+    }
+
+    .vinyl-groove-1 {
+      width: 88%;
+      height: 88%;
+      top: 6%;
+      left: 6%;
+    }
+
+    .vinyl-groove-2 {
+      width: 72%;
+      height: 72%;
+      top: 14%;
+      left: 14%;
+    }
+
+    .vinyl-groove-3 {
+      width: 56%;
+      height: 56%;
+      top: 22%;
+      left: 22%;
+    }
+
+    .vinyl-cover {
+      width: calc(32px * var(--desktop-widget-scale));
+      height: calc(32px * var(--desktop-widget-scale));
+      border-radius: 50%;
+      overflow: hidden;
+      z-index: 2;
+      background: color-mix(in srgb, var(--accent) 30%, var(--bg-card));
+    }
+
+    .vinyl-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .vinyl-cover-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+
+    .vinyl-cover-placeholder svg {
+      width: calc(14px * var(--desktop-widget-scale));
+      height: calc(14px * var(--desktop-widget-scale));
+    }
+
+    .vinyl-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: calc(4px * var(--desktop-widget-scale));
+    }
+
+    .vinyl-title {
+      font-size: calc(14px * var(--desktop-widget-scale));
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-shadow: 0 1px 12px color-mix(in srgb, var(--bg-primary) 72%, transparent);
+    }
+
+    .vinyl-artist {
+      font-size: calc(12px * var(--desktop-widget-scale));
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .vinyl-controls {
+      display: flex;
+      align-items: center;
+      gap: calc(6px * var(--desktop-widget-scale));
+      margin-top: calc(2px * var(--desktop-widget-scale));
+    }
+
+    .vinyl-ctrl-btn {
+      width: calc(32px * var(--desktop-widget-scale));
+      height: calc(32px * var(--desktop-widget-scale));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: color-mix(in srgb, var(--bg-primary) 40%, transparent);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-sm);
+      transition: all 200ms ease;
+    }
+
+    .vinyl-ctrl-btn:active {
+      transform: scale(0.9);
+    }
+
+    .vinyl-ctrl-btn.main-play {
+      width: calc(38px * var(--desktop-widget-scale));
+      height: calc(38px * var(--desktop-widget-scale));
+      background: var(--accent);
+      color: var(--bubble-user-text);
+    }
+
+    .vinyl-ctrl-btn svg {
+      width: calc(16px * var(--desktop-widget-scale));
+      height: calc(16px * var(--desktop-widget-scale));
+    }
+
+    .vinyl-ctrl-btn.main-play svg {
+      width: calc(18px * var(--desktop-widget-scale));
+      height: calc(18px * var(--desktop-widget-scale));
+    }
+
+    .vinyl-empty-text {
+      font-size: calc(12px * var(--desktop-widget-scale));
+      color: var(--text-hint);
+    }
+
+    @keyframes vinyl-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body>
+  <main id="desktop" class="phone-desktop" data-image-key="app_wallpaper">
+    <div class="desktop-soft-layer"></div>
+
+    <div class="status-bar" aria-hidden="true">
+      <div class="status-cute-pill">
+        <svg viewBox="0 0 24 24"><path d="M12 20s-7-4.2-8.8-8.4C1.8 8.3 3.7 5 7 5c1.9 0 3.2 1 4 2.2C11.8 6 13.1 5 15 5c3.3 0 5.2 3.3 3.8 6.6C17 15.8 12 20 12 20Z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M7.5 8.2C6.8 6.3 7.8 4.8 9.4 5.1c.8.1 1.5.7 2.1 1.5.6-.8 1.3-1.4 2.1-1.5 1.6-.3 2.6 1.2 1.9 3.1"/><path d="M5.8 11.4c0-3 2.8-5.1 6.2-5.1s6.2 2.1 6.2 5.1v2.5c0 3.2-2.6 5.6-6.2 5.6s-6.2-2.4-6.2-5.6v-2.5Z"/><path d="M9.4 13h.1M14.5 13h.1M10.4 16c.9.6 2.3.6 3.2 0"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M6.5 15.5c1.5-1 2.3-2.6 2.4-4.5.1-2.2 1.5-4.1 3.8-4.1 2.5 0 4.2 2.2 4.2 5.2 0 3.9-2.8 6.4-6.6 6.4-1.9 0-3.4-.6-4.5-1.6-.6-.6-.2-1.1.7-1.4Z"/><path d="M9 8.2c-1.1-.8-2.5-.8-3.4.1M16.8 9c1.1-.8 2.5-.8 3.4.1M12 13h.1M15.1 12.3h.1"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M8 8v8M16 8v8M11 6.5v11M13 6.5v11"/><path d="M4.5 11.5v1M19.5 11.5v1"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M7 14c0-3.5 2.1-6 5-6s5 2.5 5 6"/><path d="M6.2 15.4c.8 2.1 2.9 3.4 5.8 3.4s5-1.3 5.8-3.4"/><path d="M8.5 8.5 7 6.5M15.5 8.5 17 6.5M9.2 13.2h.1M14.7 13.2h.1M10.3 16c.9.5 2.5.5 3.4 0"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M6 18h12"/><path d="M7 15c.9-1.4 1.6-2.7 2.1-4.7.4-1.5 1.4-2.8 2.9-2.8s2.5 1.3 2.9 2.8c.5 2 1.2 3.3 2.1 4.7"/><path d="M9.2 15.2c1.6.9 4 .9 5.6 0"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M5 16v2M9.5 13v5M14 10v8M18.5 7v11"/><path d="M4 20h16"/></svg>
+        <svg class="status-paw" viewBox="0 0 24 24"><path d="M8.2 10.2c.7 0 1.2-.8 1.2-1.8S8.9 6.6 8.2 6.6 7 7.4 7 8.4s.5 1.8 1.2 1.8ZM15.8 10.2c.7 0 1.2-.8 1.2-1.8s-.5-1.8-1.2-1.8-1.2.8-1.2 1.8.5 1.8 1.2 1.8ZM11 9.2c.7 0 1.2-.8 1.2-1.8S11.7 5.6 11 5.6s-1.2.8-1.2 1.8.5 1.8 1.2 1.8ZM13 9.2c.7 0 1.2-.8 1.2-1.8S13.7 5.6 13 5.6s-1.2.8-1.2 1.8.5 1.8 1.2 1.8Z"/><path d="M7.5 15.3c0-2.4 2.1-4.2 4.5-4.2s4.5 1.8 4.5 4.2c0 1.9-1.5 3.1-4.5 3.1s-4.5-1.2-4.5-3.1Z"/></svg>
+      </div>
+    </div>
+
+    <section id="desktop-pages" class="desktop-pages" aria-label="桌面页面">
+      <div class="desktop-page" data-page="0">
+        <div class="desktop-widget-area" data-widget-area="0" data-image-key="app_widget_area_bg"></div>
+        <div class="desktop-free-layer" data-layer="0"></div>
+      </div>
+      <div class="desktop-page" data-page="1">
+        <div class="desktop-widget-area" data-widget-area="1" data-image-key="app_widget_area_bg"></div>
+        <div class="desktop-free-layer" data-layer="1"></div>
+      </div>
+    </section>
+
+    <div class="page-dots" aria-hidden="true">
+      <span class="page-dot active" data-dot="0"></span>
+      <span class="page-dot" data-dot="1"></span>
+    </div>
+
+    <nav id="dock" class="dock" aria-label="固定栏"></nav>
+  </main>
+
+  <section id="app-layer" aria-live="polite"></section>
+
+  <section id="lock-screen" class="lock-screen hidden" aria-label="密码锁屏" data-image-key="app_lock_background">
+    <div class="lock-soft-layer"></div>
+
+    <div class="lock-top">
+      <div class="lock-avatar" data-image-key="app_lock_avatar">
+        <img id="lock-avatar-img" src="https://i.postimg.cc/sDhhgcFL/IMG-6643.png" alt="">
+      </div>
+      <h1 class="lock-title">嘘，输入密码</h1>
+      <div class="lock-subtitle">解锁就能见到我啦</div>
+      <div id="lock-dots" class="lock-dots" aria-hidden="true">
+        <span class="lock-dot"></span>
+        <span class="lock-dot"></span>
+        <span class="lock-dot"></span>
+        <span class="lock-dot"></span>
+      </div>
+      <div id="lock-error" class="lock-error"></div>
+    </div>
+
+    <div id="lock-pad" class="lock-pad">
+      <button class="lock-key" type="button" data-key="1">1</button>
+      <button class="lock-key" type="button" data-key="2">2</button>
+      <button class="lock-key" type="button" data-key="3">3</button>
+      <button class="lock-key" type="button" data-key="4">4</button>
+      <button class="lock-key" type="button" data-key="5">5</button>
+      <button class="lock-key" type="button" data-key="6">6</button>
+      <button class="lock-key" type="button" data-key="7">7</button>
+      <button class="lock-key" type="button" data-key="8">8</button>
+      <button class="lock-key" type="button" data-key="9">9</button>
+      <button class="lock-key secondary" type="button" data-key="clear">清空</button>
+      <button class="lock-key" type="button" data-key="0">0</button>
+      <button class="lock-key secondary" type="button" data-key="delete">删除</button>
+    </div>
+  </section>
+
+  <div id="desktop-loading" class="desktop-loading">
+    <div class="loading-card">
+      <div class="loading-mark"></div>
+      <div class="loading-text">小手机正在醒来</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initDB, getData, setData, removeData, getDB, setDB, deleteDB, getAllDB, generateId, getNow } from './core/storage.js';
+    import { loadTheme } from './core/theme.js';
+    import { createIcon, showToast } from './core/ui.js';
+    import { seedDefaultCharacter } from './apps/chat/thread-ai-local.js';
+    import { registerAPI, getAPI, emit as busEmit, on as busOn, openApp as busOpenApp, recordExternalInteraction as busRecordExternalInteraction, subscribe as busSubscribe } from './core/app-bus.js';
+    import { initChatEventBridge } from './core/chat-event-bridge.js';
+    import { initAnniversaryBridge } from './core/anniversary-bridge.js';
+
+    const LOCK_PASSWORD = '0326';
+    const CUSTOM_FONT_KEY = 'app_custom_font';
+    const CUSTOM_FONT_STYLE_ID = 'app-custom-font-style';
+    const CUSTOM_FONT_FAMILY = '"AppCustomFont", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    const WIDGET_BACKGROUNDS_KEY = 'app_widget_backgrounds';
+    const DOCK_ORDER_KEY = 'app_dock_order';
+    const RESIZE_RENDER_DELAY = 260;
+
+    const APPS = [
+      { id: 'chat', name: '聊天', module: './apps/chat.js', icon: 'heart', dock: true, page: 0, ready: true },
+      { id: 'moments', name: '朋友圈', module: './apps/moments.js', icon: 'camera', dock: true, page: 0, ready: true },
+      { id: 'settings', name: '设置', module: './apps/settings.js', icon: 'settings', dock: true, page: 0, ready: true },
+      { id: 'gallery', name: '记仇本', module: './apps/gallery.js', icon: 'grudge', dock: true, page: 0, ready: true },
+      { id: 'characters', name: '角色', module: './apps/characters.js', icon: 'smile', dock: false, page: 0, ready: true },
+      { id: 'worldbook', name: '世界书', module: './apps/worldbook.js', icon: 'memory', dock: false, page: 0, ready: true },
+      { id: 'wallet', name: '钱包', module: './apps/wallet.js', icon: 'transfer', dock: false, page: 0, ready: true },
+      { id: 'shop', name: '商店', module: './apps/shop.js', icon: 'star', dock: false, page: 0, ready: true },
+      { id: 'memo', name: '备忘录', module: './apps/memo.js', icon: 'edit', dock: false, page: 0, ready: true },
+      { id: 'anniversary', name: '纪念日', module: './apps/anniversary.js', icon: 'check', dock: false, page: 0, ready: true },
+      { id: 'games', name: '游戏', module: './apps/games.js', icon: 'play', dock: false, page: 0, ready: true },
+      { id: 'music', name: '音乐', module: './apps/music.js', icon: 'music', dock: false, page: 0, ready: true },
+      { id: 'dream', name: '梦境', module: './apps/dream.js', icon: 'dream', dock: false, page: 0, ready: true }
+    ];
+
+    const WIDGETS = [
+      { id: 'time', label: '时间', shape: 'rectangle', defaultPage: 0, defaultX: 20, defaultY: 24 },
+      { id: 'weather', label: '天气', shape: 'square', defaultPage: 0, defaultX: 20, defaultY: 154 },
+      { id: 'anniversary', label: '纪念日', shape: 'square', defaultPage: 0, defaultX: 168, defaultY: 154 },
+      { id: 'focus', label: '今日提示', shape: 'wide', defaultPage: 0, defaultX: 20, defaultY: 304 },
+      { id: 'vinyl', label: '音乐', shape: 'wide', defaultPage: 1, defaultX: 20, defaultY: 24 }
+    ];
+
+    const DEFAULT_SETTINGS = {
+      defaultApiEndpointId: '', defaultModel: '',
+      ttsGlobal: { provider: 'openai', apiKey: '', endpoint: '', voice: 'alloy', model: 'tts-1', modelList: [] },
+      mcpServers: [], bubbleMode: 'bubble', fontSize: 15,
+      user: { name: '', avatar: '', avatarSource: '', avatarOpacity: 100 },
+      widgets: { time: true, weather: true, anniversary: true, focus: true, vinyl: true },
+      apiEndpoints: [],
+      dreamEnabled: false
+    };
+
+    const IMAGE_VALUE_FIELDS = ['value','data','image','iconImage','backgroundImage','imageBase64','avatar','avatarUrl','imageUrl','url','src','base64','file','source'];
+
+    const IMAGE_ALIAS_KEYS = {
+      app_wallpaper: ['wallpaper', 'desktop_wallpaper'],
+      app_lock_avatar: ['lock_avatar', 'avatar', 'user_avatar'],
+      app_lock_background: ['lock_background', 'lock_wallpaper'],
+      app_widget_area_bg: ['widget_area_bg', 'desktop_widget_area_bg'],
+      app_widget_bg_time: ['widget_bg_time', 'time_widget_bg'],
+      app_widget_bg_weather: ['widget_bg_weather', 'weather_widget_bg'],
+      app_widget_bg_anniversary: ['widget_bg_anniversary', 'anniversary_widget_bg'],
+      app_widget_bg_focus: ['widget_bg_focus', 'focus_widget_bg']
+    };
+
+    const desktopEl = document.getElementById('desktop');
+    const pagesEl = document.getElementById('desktop-pages');
+    const appLayerEl = document.getElementById('app-layer');
+    const dockEl = document.getElementById('dock');
+    const loadingEl = document.getElementById('desktop-loading');
+    const lockScreenEl = document.getElementById('lock-screen');
+    const lockPadEl = document.getElementById('lock-pad');
+    const lockErrorEl = document.getElementById('lock-error');
+    const lockDotsEl = document.getElementById('lock-dots');
+    const lockAvatarImgEl = document.getElementById('lock-avatar-img');
+
+    let currentAppModule = null;
+    let currentAppId = '';
+    let currentPage = 0;
+    let editing = false;
+    let silentEdit = false;
+    let dragState = null;
+    let dockDragState = null;
+    let clockTimer = null;
+    let weatherTimer = null;
+    let vinylTimer = null;
+    let lockInput = '';
+    let renderTimer = null;
+    let resizeTimer = null;
+    let applyingImages = false;
+    let lastViewportWidth = window.innerWidth;
+    let lastViewportHeight = window.innerHeight;
+
+    window.showToast = showToast;
+
+    window.AppEvents = {
+      emit(event, data) { window.dispatchEvent(new CustomEvent(event, { detail: data })); },
+      on(event, fn) {
+        const handler = (e) => fn(e.detail);
+        window.addEventListener(event, handler);
+        return () => window.removeEventListener(event, handler);
+      }
+    };
+
+    window.AppBus = {
+      registerAPI,
+      getAPI,
+      hasAPI: (id) => getAPI(id) !== null,
+      emit: busEmit,
+      on: busOn,
+      once: (event, fn) => {
+        let off = busOn(event, (data) => { off(); fn(data); });
+        return off;
+      },
+      openApp: busOpenApp,
+      recordExternalInteraction: busRecordExternalInteraction,
+      subscribe: busSubscribe,
+      getEventLog: () => { try { return JSON.parse(JSON.stringify(getData('app_bus_event_log') || [])); } catch (_) { return []; } }
+    };
+
+    window.AppImages = { getImageKeys, buildImageKey, readImageRecord, readImageValue, writeImageRecord, removeImageRecord, applyImageToElement, applyAllImages, getImageFromRecord, getOpacityFromRecord, normalizeImageRecord };
+
+    window.closeCurrentApp = closeCurrentApp;
+    window.openApp = openApp;
+    window.refreshDesktopBadges = refreshBadges;
+    window.refreshDesktopImages = applyAllImages;
+    window.refreshDesktop = refreshDesktop;
+
+    boot();
+
+    async function boot() {
+      try {
+        await initDB();
+        loadTheme();
+        await applyCustomFontFromStorage();
+        applyDesktopScale();
+        ensureDefaultSettings();
+        ensureFirstOpenSeed();
+        await seedDefaultCharacter();
+        await renderDesktop();
+        bindDesktopEvents();
+        bindLockScreen();
+        setupAppEvents();
+        initChatEventBridge();
+        initAnniversaryBridge();
+        initWidgets();
+        await applyAllImages();
+        refreshBadges();
+        updateLockState();
+      } catch (error) {
+        console.error(error);
+        showToast('哎呀，启动出了点问题');
+      } finally {
+        window.setTimeout(() => {
+          loadingEl.classList.add('hide');
+          window.setTimeout(() => loadingEl.remove(), 240);
+        }, 260);
+      }
+    }
+
+    async function refreshDesktop() {
+      await renderDesktop();
+      await applyAllImages();
+      refreshBadges();
+    }
+
+    function getImageKeys(key) {
+      const cleanKey = String(key || '').trim();
+      if (!cleanKey) return [];
+      const keys = new Set([cleanKey, ...(IMAGE_ALIAS_KEYS[cleanKey] || [])]);
+      if (!cleanKey.startsWith('app_')) keys.add(`app_${cleanKey}`);
+      if (cleanKey.startsWith('app_icon_')) keys.add(cleanKey.replace('app_icon_', 'icon_'));
+      if (cleanKey.startsWith('app_bg_')) keys.add(cleanKey.replace('app_bg_', 'bg_'));
+      return [...keys].filter(Boolean);
+    }
+
+    function buildImageKey(type, id = '') {
+      const cleanType = String(type || '').trim();
+      const cleanId = String(id || '').trim();
+      if (!cleanType) return '';
+      return cleanId ? `app_${cleanType}_${cleanId}` : `app_${cleanType}`;
+    }
+
+    async function readImageRecord(key) {
+      for (const itemKey of getImageKeys(key)) {
+        const blobRecord = await getDB('blobs', itemKey);
+        if (blobRecord) return normalizeImageRecord(blobRecord, itemKey);
+        const widgetBackground = getWidgetBackgroundRecord(itemKey);
+        if (widgetBackground) return normalizeImageRecord(widgetBackground, itemKey);
+        const localRecord = getData(itemKey);
+        if (localRecord) return normalizeImageRecord(localRecord, itemKey);
+      }
+      return null;
+    }
+
+    function getWidgetBackgroundRecord(key) {
+      const backgrounds = getData(WIDGET_BACKGROUNDS_KEY);
+      if (!backgrounds || typeof backgrounds !== 'object') return null;
+      for (const itemKey of getImageKeys(key)) {
+        if (backgrounds[itemKey]) return { ...backgrounds[itemKey], key: itemKey };
+      }
+      return null;
+    }
+
+    async function readImageValue(key) { return getImageFromRecord(await readImageRecord(key)); }
+
+    async function writeImageRecord(key, value) {
+      const record = normalizeImageRecord(value, key);
+      const opacity = normalizeImageOpacity(record.opacity ?? value?.opacity ?? 100);
+      const saved = await setDB('blobs', key, { ...record, key, opacity, updatedAt: getNow() });
+      setData(`${key}_meta`, { key, name: record.name || '', type: record.type || '', opacity, updatedAt: getNow() });
+      window.AppEvents.emit('app-images-updated', { key });
+      return saved || { ...record, opacity };
+    }
+
+    async function removeImageRecord(key) {
+      for (const itemKey of getImageKeys(key)) {
+        await deleteDB('blobs', itemKey);
+        removeData(itemKey);
+        removeData(`${itemKey}_meta`);
+        const backgrounds = getData(WIDGET_BACKGROUNDS_KEY);
+        if (backgrounds && typeof backgrounds === 'object' && backgrounds[itemKey]) {
+          delete backgrounds[itemKey];
+          setData(WIDGET_BACKGROUNDS_KEY, backgrounds);
+        }
+      }
+      window.AppEvents.emit('app-images-updated', { key });
+      return true;
+    }
+
+    function normalizeImageRecord(value, key = '') {
+      if (!value) return { key, value: '', source: '', data: '', opacity: 100, name: '', type: '', updatedAt: '' };
+      if (typeof value === 'string') { const image = value.trim(); return { key, value: image, source: image, data: image, opacity: 100, name: '', type: '', updatedAt: getNow() }; }
+      if (typeof value !== 'object') return normalizeImageRecord('', key);
+      const image = getImageFromRecord(value);
+      const opacity = normalizeImageOpacity(value.opacity ?? value.alpha ?? value.transparency ?? value.imageOpacity ?? 100);
+      return { ...value, key: value.key || key, value: value.value || image, source: value.source || image, data: value.data || '', opacity, name: value.name || '', type: value.type || '', updatedAt: value.updatedAt || getNow() };
+    }
+
+    function getImageFromRecord(record) {
+      if (!record) return '';
+      if (typeof record === 'string') return isUsableImage(record) ? record.trim() : '';
+      if (typeof record !== 'object') return '';
+      for (const field of IMAGE_VALUE_FIELDS) {
+        const value = record[field];
+        if (typeof value === 'string' && isUsableImage(value)) return value.trim();
+        if (value && typeof value === 'object') { const nested = getImageFromRecord(value); if (nested) return nested; }
+      }
+      return '';
+    }
+
+    function isUsableImage(value) {
+      const text = String(value || '').trim();
+      return Boolean(text.startsWith('data:image/') || text.startsWith('blob:') || text.startsWith('http://') || text.startsWith('https://') || text.startsWith('./') || text.startsWith('../') || text.startsWith('/'));
+    }
+
+    function normalizeImageOpacity(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return 100;
+      if (number >= 0 && number <= 1) return Math.round(number * 100);
+      return Math.max(0, Math.min(100, Math.round(number)));
+    }
+
+    function getOpacityFromRecord(record) {
+      if (!record || typeof record !== 'object') return 1;
+      const opacity = normalizeImageOpacity(record.opacity ?? record.alpha ?? record.transparency ?? record.imageOpacity ?? 100);
+      return Math.max(0, Math.min(1, opacity / 100));
+    }
+    injectDesktopFixStyle();
+
+    function injectDesktopFixStyle() {
+      const old = document.getElementById('desktop-drag-fix-style');
+      if (old) old.remove();
+      const style = document.createElement('style');
+      style.id = 'desktop-drag-fix-style';
+      style.textContent = `
+        .desktop-icon,.desktop-icon:hover,.desktop-icon:focus,.desktop-icon:focus-visible,.desktop-icon:active{-webkit-appearance:none!important;appearance:none!important;background:transparent!important;box-shadow:none!important;outline:0!important;border-color:transparent!important;-webkit-tap-highlight-color:transparent!important}
+        .desktop-icon::before,.desktop-icon::after,.desktop-icon-art::before,.desktop-icon-art::after{content:none!important;display:none!important}
+        .desktop-icon-art,.desktop-icon-art:hover,.desktop-icon-art:focus,.desktop-icon-art:focus-visible,.desktop-icon-art:active,.dock .desktop-icon-art,.dock .desktop-icon-art:hover,.dock .desktop-icon-art:focus,.dock .desktop-icon-art:focus-visible,.dock .desktop-icon-art:active{outline:0!important;border-color:transparent!important}
+        .desktop-icon-art.has-custom-image,.desktop-icon-art.has-custom-image:hover,.desktop-icon-art.has-custom-image:focus,.desktop-icon-art.has-custom-image:focus-visible,.desktop-icon-art.has-custom-image:active{background:transparent!important;box-shadow:none!important;outline:0!important;border-color:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+        .desktop-icon-image{display:block!important;width:100%!important;height:100%!important;object-fit:cover!important;margin:0!important;padding:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;border-color:transparent!important}
+        .desktop-item,.desktop-widget,.desktop-icon{touch-action:none!important;user-select:none!important;-webkit-user-select:none!important}
+        #app-layer *,#app-layer *::before,#app-layer *::after,.placeholder-app *,.placeholder-app *::before,.placeholder-app *::after{border-color:transparent!important}
+        #app-layer button,#app-layer input,#app-layer textarea,#app-layer select,#app-layer [role="button"],#app-layer .app-back,#app-layer .placeholder-icon,#app-layer .placeholder-card,#app-layer .desktop-icon,#app-layer .desktop-icon-art,#app-layer .desktop-widget,.placeholder-app button,.placeholder-app input,.placeholder-app textarea,.placeholder-app select{-webkit-appearance:none!important;appearance:none!important;outline:0!important;border-color:transparent!important}
+        #app-layer button:focus,#app-layer button:focus-visible,#app-layer button:active,#app-layer input:focus,#app-layer input:focus-visible,#app-layer textarea:focus,#app-layer textarea:focus-visible,#app-layer select:focus,#app-layer select:focus-visible,#app-layer [role="button"]:focus,#app-layer [role="button"]:focus-visible,#app-layer [role="button"]:active,.placeholder-app button:focus,.placeholder-app button:focus-visible,.placeholder-app button:active{outline:0!important;border-color:transparent!important}
+      `;
+      document.head.appendChild(style);
+    }
+
+    async function applyImageToElement(element, key, options = {}) {
+      if (!element || !key) return '';
+      const record = await readImageRecord(key);
+      const value = getImageFromRecord(record);
+      const opacity = getOpacityFromRecord(record);
+      element.dataset.imageKey = key;
+      if (!value) {
+        if (options.clear !== false) { element.classList.remove('has-image'); element.style.backgroundImage = ''; element.style.backgroundSize = ''; element.style.backgroundPosition = ''; element.style.backgroundRepeat = ''; if (options.opacity !== false) element.style.opacity = ''; }
+        return '';
+      }
+      if (options.mode === 'img') { element.src = value; if (options.opacity !== false) element.style.opacity = String(opacity); }
+      else { element.classList.add('has-image'); element.style.backgroundImage = `url("${cssUrl(value)}")`; element.style.backgroundSize = 'cover'; element.style.backgroundPosition = 'center'; element.style.backgroundRepeat = 'no-repeat'; if (options.opacity !== false) element.style.opacity = String(opacity); }
+      return value;
+    }
+
+    function cssUrl(value) { return String(value || '').replace(/"/g, '\\"'); }
+
+    async function applyAllImages() {
+      if (applyingImages) return;
+      applyingImages = true;
+      try {
+        await applyWallpaperImage();
+        await applyLockImages();
+        await applyWidgetImages();
+        await applyAppIconImages();
+        await applyCurrentAppImage();
+      } finally { applyingImages = false; }
+    }
+
+    async function applyWallpaperImage() {
+      const record = await readImageRecord('app_wallpaper');
+      const value = getImageFromRecord(record);
+      document.documentElement.style.setProperty('--desktop-wallpaper-soft', value ? '0' : '0.10');
+      if (value) { desktopEl.classList.add('has-image'); desktopEl.style.backgroundImage = `url("${cssUrl(value)}")`; desktopEl.style.backgroundSize = 'cover'; desktopEl.style.backgroundPosition = 'center'; desktopEl.style.backgroundRepeat = 'no-repeat'; desktopEl.style.opacity = ''; }
+      else { desktopEl.classList.remove('has-image'); desktopEl.style.backgroundImage = ''; desktopEl.style.opacity = ''; }
+    }
+
+    async function applyLockImages() {
+      await applyImageToElement(lockScreenEl, 'app_lock_background', { opacity: false });
+      await applyImageToElement(lockAvatarImgEl, 'app_lock_avatar', { mode: 'img', clear: false });
+    }
+
+    async function applyWidgetImages() {
+      await Promise.all([...document.querySelectorAll('.desktop-widget-area')].map(async (areaEl) => {
+        const value = await applyImageToElement(areaEl, 'app_widget_area_bg', { opacity: false });
+        if (!value) { areaEl.classList.remove('has-image'); areaEl.style.backgroundImage = ''; }
+      }));
+      await Promise.all([ applyImageToSelector('#time-widget', 'app_widget_bg_time'), applyImageToSelector('#weather-widget', 'app_widget_bg_weather'), applyImageToSelector('#anniversary-widget', 'app_widget_bg_anniversary'), applyImageToSelector('#focus-widget', 'app_widget_bg_focus') ]);
+      await Promise.all([...document.querySelectorAll('.desktop-custom-widget')].map(async (element) => {
+        const customWidgetId = element.dataset.customWidgetId;
+        const keys = [element.dataset.imageKey, `custom_widget_${customWidgetId}`, `app_custom_widget_${customWidgetId}`].filter(Boolean);
+        for (const key of keys) { const value = await applyImageToElement(element, key); if (value) return; }
+      }));
+    }
+
+    async function applyImageToSelector(selector, key) { await Promise.all([...document.querySelectorAll(selector)].map((element) => applyImageToElement(element, key))); }
+
+    async function applyAppIconImages() {
+      await Promise.all([...document.querySelectorAll('.desktop-icon[data-app-id]')].map(async (iconEl) => {
+        const appId = iconEl.dataset.appId;
+        const app = APPS.find((item) => item.id === appId);
+        const artEl = iconEl.querySelector('.desktop-icon-art');
+        if (!app || !artEl) return;
+        const custom = await readIconRecord(app);
+        const customImage = getImageFromRecord(custom);
+        const customName = custom?.name || app.name;
+        iconEl.setAttribute('aria-label', customName);
+        const nameEl = iconEl.querySelector('.desktop-icon-name');
+        if (nameEl) nameEl.textContent = customName;
+        artEl.innerHTML = '';
+        artEl.classList.toggle('has-custom-image', Boolean(customImage));
+        if (customImage) {
+          const image = document.createElement('img');
+          image.className = 'desktop-icon-image'; image.alt = ''; image.src = customImage;
+          image.style.opacity = String(getOpacityFromRecord(custom));
+          image.addEventListener('error', () => { artEl.innerHTML = ''; artEl.classList.remove('has-custom-image'); artEl.appendChild(createIcon(app.icon, 28)); });
+          artEl.appendChild(image);
+        } else { artEl.appendChild(createIcon(app.icon, 28)); }
+      }));
+    }
+
+    async function applyCurrentAppImage() { if (!currentAppId) return; const appRoot = appLayerEl.querySelector('[data-image-key]'); if (!appRoot) return; await applyImageToElement(appRoot, `app_bg_${currentAppId}`, { opacity: false }); }
+
+    async function readIconRecord(app) {
+      const icons = getCustomIcons();
+      const localCustom = icons[app.id] || icons[app.name] || null;
+      const candidateKeys = [`app_icon_${app.id}`, `app_${app.id}_icon`, `icon_${app.id}`, `${app.id}_icon`, app.id, app.name];
+      const aliasMap = { chat: ['聊天','消息','message','messages'], moments: ['朋友圈','moments'], settings: ['设置','settings'], gallery: ['记仇本','相册','gallery','grudge','grudges','photo','photos'], characters: ['角色','character','characters'], worldbook: ['世界书','worldbook','world_book'], wallet: ['钱包','wallet'], shop: ['商店','shop'], memo: ['备忘录','memo','memos','note','notes'], anniversary: ['纪念日','anniversary','anniversaries','calendar','date'], games: ['游戏','games','game','play'], music: ['音乐','music','player','播放器'], dream: ['梦境','dream','dreams','做梦'] };
+      candidateKeys.push(...(aliasMap[app.id] || []));
+      let blobRecord = null;
+      for (const key of candidateKeys) { const record = await readImageRecord(key); if (getImageFromRecord(record) || record?.name) { blobRecord = record; break; } }
+      let matchedLocal = localCustom;
+      if (!matchedLocal) { for (const key of candidateKeys) { if (icons[key]) { matchedLocal = icons[key]; break; } } }
+      if (!matchedLocal) { matchedLocal = Object.values(icons).find((item) => { if (!item || typeof item !== 'object') return false; const itemName = String(item.name || '').trim(); const itemAppId = String(item.appId || item.id || '').trim(); return itemAppId === app.id || itemName === app.name || itemName === app.id || (aliasMap[app.id] || []).includes(itemName); }) || null; }
+      if (blobRecord || matchedLocal) {
+        const blobImage = getImageFromRecord(blobRecord);
+        const localImage = getImageFromRecord(matchedLocal);
+        const image = localImage || blobImage;
+        const opacitySource = matchedLocal?.opacity ?? blobRecord?.opacity ?? 100;
+        return normalizeImageRecord({ ...(blobRecord || {}), ...(matchedLocal || {}), value: image, image, iconImage: image, backgroundImage: image, imageBase64: image, name: matchedLocal?.name || blobRecord?.name || app.name, opacity: opacitySource }, `app_icon_${app.id}`);
+      }
+      return null;
+    }
+
+    function getCustomIcons() { const icons = getData('app_icons'); return icons && typeof icons === 'object' ? icons : {}; }
+
+    function getCustomWidgets() { const widgets = getData('app_custom_widgets'); return Array.isArray(widgets) ? widgets.map(normalizeCustomWidget).filter((item) => item.id) : []; }
+
+    function normalizeCustomWidget(widget) {
+      const raw = widget && typeof widget === 'object' ? widget : {};
+      return { id: String(raw.id || '').trim(), name: String(raw.name || '').trim(), shape: ['circle','square','rectangle','wide'].includes(raw.shape) ? raw.shape : 'square', image: getImageFromRecord(raw), text: typeof raw.text === 'string' ? raw.text : '', opacity: normalizeImageOpacity(raw.opacity ?? 100), createdAt: raw.createdAt || '', updatedAt: raw.updatedAt || '' };
+    }
+
+    function getHiddenIcons() { const hidden = getData('app_hidden_icons'); return Array.isArray(hidden) ? hidden : []; }
+    function saveHiddenIcons(hiddenIcons) { setData('app_hidden_icons', [...new Set(hiddenIcons)]); }
+    function getIconPositions() { const positions = getData('app_icon_positions'); return positions && typeof positions === 'object' ? positions : {}; }
+    function saveIconPositions(positions) { setData('app_icon_positions', positions); }
+    function getWidgetPositions() { const positions = getData('app_widget_positions'); return positions && typeof positions === 'object' ? positions : {}; }
+    function saveWidgetPositions(positions) { setData('app_widget_positions', positions); }
+
+    function getDockOrder() { const saved = getData(DOCK_ORDER_KEY); const dockIds = APPS.filter((app) => app.dock).map((app) => app.id); const ordered = Array.isArray(saved) ? saved.filter((id) => dockIds.includes(id)) : []; const missing = dockIds.filter((id) => !ordered.includes(id)); return [...new Set([...ordered, ...missing])]; }
+    function saveDockOrder(order) { const dockIds = APPS.filter((app) => app.dock).map((app) => app.id); setData(DOCK_ORDER_KEY, [...new Set(order.filter((id) => dockIds.includes(id)))]); }
+
+    function getDesktopScale() { const saved = getData('desktop_layout_scale') || {}; return { iconScale: normalizeScale(saved.iconScale, 1), widgetScale: normalizeScale(saved.widgetScale, 1), dockScale: normalizeScale(saved.dockScale, 1) }; }
+    function normalizeScale(value, fallback = 1) { const number = Number(value); if (!Number.isFinite(number)) return fallback; return Math.max(.62, Math.min(1.28, number)); }
+    function applyDesktopScale() { const scale = getDesktopScale(); document.documentElement.style.setProperty('--desktop-icon-scale', String(scale.iconScale)); document.documentElement.style.setProperty('--desktop-widget-scale', String(scale.widgetScale)); document.documentElement.style.setProperty('--desktop-dock-scale', String(scale.dockScale)); }
+
+    async function applyCustomFontFromStorage() {
+      try { const record = await getDB('blobs', CUSTOM_FONT_KEY); const dataUrl = record?.value || record?.source || record?.data || '';
+        if (!dataUrl) { document.getElementById(CUSTOM_FONT_STYLE_ID)?.remove(); document.documentElement.style.removeProperty('--font-main'); return false; }
+        injectCustomFont(dataUrl, record?.type || '', record?.name || ''); document.documentElement.style.setProperty('--font-main', CUSTOM_FONT_FAMILY); return true;
+      } catch (_) { document.getElementById(CUSTOM_FONT_STYLE_ID)?.remove(); return false; }
+    }
+
+    function injectCustomFont(dataUrl, type = '', name = '') {
+      document.getElementById(CUSTOM_FONT_STYLE_ID)?.remove();
+      const style = document.createElement('style');
+      style.id = CUSTOM_FONT_STYLE_ID;
+      style.textContent = `@font-face{font-family:"AppCustomFont";src:url("${dataUrl}") format("${getFontFormat(type, name)}");font-display:swap}`;
+      document.head.appendChild(style);
+    }
+
+    function getFontFormat(type, name = '') {
+      const nt = String(type || '').toLowerCase(); const nn = String(name || '').toLowerCase();
+      if (nt.includes('woff2') || nn.endsWith('.woff2')) return 'woff2';
+      if (nt.includes('woff') || nn.endsWith('.woff')) return 'woff';
+      if (nt.includes('otf') || nn.endsWith('.otf')) return 'opentype';
+      return 'truetype';
+    }
+
+    function ensureDefaultSettings() {
+      const saved = getData('app_settings') || {};
+      const next = { ...DEFAULT_SETTINGS, ...saved, ttsGlobal: { ...DEFAULT_SETTINGS.ttsGlobal, ...(saved.ttsGlobal || {}) }, user: { ...DEFAULT_SETTINGS.user, ...(saved.user || {}) }, widgets: { ...DEFAULT_SETTINGS.widgets, ...(saved.widgets || {}) }, mcpServers: Array.isArray(saved.mcpServers) ? saved.mcpServers : [], apiEndpoints: Array.isArray(saved.apiEndpoints) ? saved.apiEndpoints : [], dreamEnabled: saved.dreamEnabled === true };
+      setData('app_settings', next); return next;
+    }
+    function ensureFirstOpenSeed() { if (getData('app_first_open_seed')) return; setData('app_first_open_seed', { id: generateId(), createdAt: getNow() }); }
+
+    async function renderDesktop() {
+      document.querySelectorAll('.desktop-free-layer').forEach((layer) => { layer.innerHTML = ''; });
+      dockEl.innerHTML = '';
+
+      const hiddenIcons = getHiddenIcons();
+
+      getDockOrder().forEach((appId) => {
+        const app = APPS.find((item) => item.id === appId && item.dock);
+        if (app) dockEl.appendChild(createDesktopIcon(app));
+      });
+
+      await renderWidgets();
+
+      APPS.filter((app) => !app.dock && !hiddenIcons.includes(app.id)).forEach((app, index) => {
+        const iconEl = createDesktopIcon(app);
+        const position = getResolvedIconPosition(app, index);
+        getLayer(position.page).appendChild(iconEl);
+        placeDesktopItem(iconEl, position.x, position.y);
+      });
+
+      if (hiddenIcons.length) {
+        const hint = document.createElement('div');
+        hint.className = 'hidden-hint';
+        hint.textContent = '有些图标藏起来了，去设置里找找';
+        getLayer(1).appendChild(hint);
+      }
+
+      updateEditingClass();
+      updatePageDots();
+
+      window.clearTimeout(renderTimer);
+      renderTimer = window.setTimeout(() => applyAllImages(), 60);
+    }
+
+    async function renderWidgets() {
+      const settings = ensureDefaultSettings();
+      const enabled = settings.widgets || DEFAULT_SETTINGS.widgets;
+
+      WIDGETS.forEach((widget) => {
+        if (widget.id === 'time' && enabled.time === false) return;
+        if (widget.id === 'weather' && enabled.weather === false) return;
+        if (widget.id === 'anniversary' && enabled.anniversary === false) return;
+        if (widget.id === 'focus' && enabled.focus === false) return;
+        if (widget.id === 'vinyl' && enabled.vinyl === false) return;
+        const widgetEl = createWidget(widget);
+        const position = getResolvedWidgetPosition(widget);
+        getLayer(position.page).appendChild(widgetEl);
+        placeDesktopItem(widgetEl, position.x, position.y);
+      });
+
+      await renderCustomWidgets();
+    }
+
+    async function renderCustomWidgets() {
+      const widgets = getCustomWidgets();
+      for (let index = 0; index < widgets.length; index++) {
+        const widget = widgets[index];
+        const widgetEl = await createCustomWidget(widget);
+        const position = getResolvedCustomWidgetPosition(widget, index);
+        getLayer(position.page).appendChild(widgetEl);
+        placeDesktopItem(widgetEl, position.x, position.y);
+      }
+    }
+
+    function createWidget(widget) {
+      const widgetEl = document.createElement('section');
+      widgetEl.className = `desktop-item desktop-widget ${widget.shape}`;
+      widgetEl.dataset.kind = 'widget';
+      widgetEl.dataset.widgetId = widget.id;
+      widgetEl.dataset.imageKey = `app_widget_bg_${widget.id}`;
+      widgetEl.setAttribute('aria-label', widget.label);
+
+      if (widget.id === 'time') {
+        widgetEl.id = 'time-widget';
+        widgetEl.innerHTML = `<div><div id="clock-large" class="time-widget-main">--:--</div><div id="date-line" class="time-widget-sub">正在准备桌面</div></div><div class="widget-label">当前时间</div>`;
+      }
+      if (widget.id === 'weather') {
+        widgetEl.id = 'weather-widget';
+        widgetEl.innerHTML = `<div class="widget-top"><div class="widget-label">天气</div><div class="widget-mark" data-widget-icon="weather"></div></div><div id="weather-value" class="widget-value">看看外面天气如何</div>`;
+      }
+      if (widget.id === 'anniversary') {
+        widgetEl.id = 'anniversary-widget';
+        widgetEl.innerHTML = `<div class="widget-top"><div class="widget-label">纪念日</div><div class="widget-mark" data-widget-icon="anniversary"></div></div><div id="anniversary-value" class="widget-value">还没有纪念日呢</div>`;
+      }
+      if (widget.id === 'focus') {
+        widgetEl.id = 'focus-widget';
+        widgetEl.innerHTML = `<div class="widget-top"><div><div id="focus-title" class="focus-title">今天也要好好休息</div><div id="focus-text" class="focus-text">打开聊天，看看谁在想你</div></div><div class="widget-mark" data-widget-icon="focus"></div></div>`;
+      }
+
+      if (widget.id === 'vinyl') {
+        widgetEl.id = 'vinyl-widget';
+        widgetEl.classList.add('vinyl-widget');
+        widgetEl.style.justifyContent = 'flex-start';
+
+        const recordWrap = document.createElement('div');
+        recordWrap.className = 'vinyl-record-wrap';
+
+        const record = document.createElement('div');
+        record.className = 'vinyl-record';
+        record.id = 'vinyl-disc';
+
+        for (let g = 1; g <= 3; g++) {
+          const groove = document.createElement('div');
+          groove.className = `vinyl-groove vinyl-groove-${g}`;
+          record.appendChild(groove);
+        }
+
+        const cover = document.createElement('div');
+        cover.className = 'vinyl-cover';
+        cover.id = 'vinyl-cover';
+        const placeholderSvg = document.createElement('div');
+        placeholderSvg.className = 'vinyl-cover-placeholder';
+        placeholderSvg.appendChild(createIcon('music', 14));
+        cover.appendChild(placeholderSvg);
+
+        record.appendChild(cover);
+        recordWrap.appendChild(record);
+
+        const info = document.createElement('div');
+        info.className = 'vinyl-info';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'vinyl-title';
+        titleEl.id = 'vinyl-title';
+        titleEl.textContent = '还没有歌曲呢';
+
+        const artistEl = document.createElement('div');
+        artistEl.className = 'vinyl-artist';
+        artistEl.id = 'vinyl-artist';
+        artistEl.textContent = '去音乐里挑一首吧';
+
+        const controls = document.createElement('div');
+        controls.className = 'vinyl-controls';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'vinyl-ctrl-btn';
+        prevBtn.appendChild(createIcon('back', 16));
+        prevBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.musicPlayer?.playPrevious?.();
+        });
+
+        const playBtn = document.createElement('button');
+        playBtn.className = 'vinyl-ctrl-btn main-play';
+        playBtn.id = 'vinyl-play-btn';
+        playBtn.appendChild(createIcon('play', 18));
+        playBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.musicPlayer?.togglePlay?.();
+        });
+
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'vinyl-ctrl-btn';
+        nextBtn.appendChild(createIcon('forward', 16));
+        nextBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.musicPlayer?.playNext?.();
+        });
+
+        controls.append(prevBtn, playBtn, nextBtn);
+        info.append(titleEl, artistEl, controls);
+        widgetEl.append(recordWrap, info);
+      }
+
+      widgetEl.querySelectorAll('[data-widget-icon]').forEach((iconEl) => {
+        const type = iconEl.dataset.widgetIcon;
+        iconEl.appendChild(createIcon(type === 'weather' ? 'refresh' : type === 'anniversary' ? 'check' : 'star', 18));
+      });
+
+      widgetEl.addEventListener('pointerdown', (event) => handleDesktopItemPointerDown(event, widgetEl));
+      return widgetEl;
+    }
+
+    async function createCustomWidget(widget) {
+      const widgetEl = document.createElement('section');
+      widgetEl.className = `desktop-item desktop-widget desktop-custom-widget ${widget.shape}`;
+      widgetEl.dataset.kind = 'widget';
+      widgetEl.dataset.widgetId = `custom_${widget.id}`;
+      widgetEl.dataset.customWidgetId = widget.id;
+      widgetEl.dataset.imageKey = `custom_widget_${widget.id}`;
+      widgetEl.setAttribute('aria-label', widget.name || '自定义小组件');
+
+      let image = widget.image || '';
+      if (!image) {
+        try {
+          const dbRecord = await getDB('blobs', `custom_widget_${widget.id}`);
+          if (dbRecord) image = dbRecord.value || dbRecord.image || dbRecord.data || '';
+        } catch {}
+      }
+
+      if (image) {
+        widgetEl.classList.add('has-image');
+        widgetEl.style.backgroundImage = `url("${cssUrl(image)}")`;
+      }
+
+      widgetEl.style.opacity = String(normalizeImageOpacity(widget.opacity) / 100);
+
+      const content = document.createElement('div');
+      content.className = 'custom-widget-content';
+      if (widget.text) { content.textContent = widget.text; }
+      else if (!image) { content.appendChild(createIcon('star', 28)); }
+
+      widgetEl.appendChild(content);
+      widgetEl.addEventListener('pointerdown', (event) => handleDesktopItemPointerDown(event, widgetEl));
+      return widgetEl;
+    }
+
+    function createDesktopIcon(app) {
+      const iconEl = document.createElement('button');
+      const artEl = document.createElement('span');
+      const nameEl = document.createElement('span');
+      const deleteEl = document.createElement('span');
+      const badgeEl = document.createElement('span');
+
+      iconEl.type = 'button';
+      iconEl.className = app.dock ? 'desktop-icon' : 'desktop-item desktop-icon';
+      iconEl.dataset.kind = app.dock ? 'dock' : 'icon';
+      iconEl.dataset.appId = app.id;
+      iconEl.dataset.imageKey = `app_icon_${app.id}`;
+      iconEl.setAttribute('aria-label', app.name);
+
+      artEl.className = 'desktop-icon-art';
+      artEl.appendChild(createIcon(app.icon, 28));
+
+      nameEl.className = 'desktop-icon-name';
+      nameEl.textContent = app.name;
+
+      deleteEl.className = 'desktop-delete-dot';
+      deleteEl.setAttribute('aria-hidden', 'true');
+      deleteEl.appendChild(createIcon('close', 12));
+
+      badgeEl.className = 'badge hidden';
+      badgeEl.dataset.badge = app.id;
+
+      iconEl.append(artEl, nameEl, deleteEl, badgeEl);
+
+      deleteEl.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!editing || app.dock) return;
+        const hiddenIcons = getHiddenIcons();
+        hiddenIcons.push(app.id);
+        saveHiddenIcons(hiddenIcons);
+        renderDesktop();
+        showToast('已隐藏，可在设置中恢复');
+      });
+
+      iconEl.addEventListener('click', (event) => {
+        if (dragState || dockDragState) { event.preventDefault(); event.stopPropagation(); return; }
+        openApp(app.id);
+      });
+
+      if (app.dock) { iconEl.addEventListener('pointerdown', (event) => handleDockIconPointerDown(event, iconEl)); }
+      else { iconEl.addEventListener('pointerdown', (event) => handleDesktopItemPointerDown(event, iconEl)); }
+
+      return iconEl;
+    }
+
+    function getLayer(page) { return document.querySelector(`.desktop-free-layer[data-layer="${Number(page) === 1 ? 1 : 0}"]`); }
+
+    function getResolvedIconPosition(app, index) {
+      const saved = getIconPositions()[app.id];
+      if (saved && Number.isFinite(Number(saved.x)) && Number.isFinite(Number(saved.y))) return { page: Number(saved.page) === 1 ? 1 : 0, x: Number(saved.x), y: Number(saved.y) };
+      return { page: Number(app.page) === 1 ? 1 : 0, x: 20 + (index % 4) * 86, y: 430 + Math.floor(index / 4) * 96 };
+    }
+
+    function getResolvedWidgetPosition(widget) {
+      const saved = getWidgetPositions()[widget.id];
+      if (saved && Number.isFinite(Number(saved.x)) && Number.isFinite(Number(saved.y))) return { page: Number(saved.page) === 1 ? 1 : 0, x: Number(saved.x), y: Number(saved.y) };
+      return { page: Number(widget.defaultPage) === 1 ? 1 : 0, x: Number(widget.defaultX) || 20, y: Number(widget.defaultY) || 20 };
+    }
+
+    function getResolvedCustomWidgetPosition(widget, index) {
+      const saved = getWidgetPositions()[`custom_${widget.id}`];
+      if (saved && Number.isFinite(Number(saved.x)) && Number.isFinite(Number(saved.y))) return { page: Number(saved.page) === 1 ? 1 : 0, x: Number(saved.x), y: Number(saved.y) };
+      return { page: 1, x: 20 + (index % 2) * 148, y: 24 + Math.floor(index / 2) * 148 };
+    }
+
+    function placeDesktopItem(element, x, y) { const safe = clampPosition(element, x, y); element.style.left = `${safe.x}px`; element.style.top = `${safe.y}px`; }
+
+    function clampPosition(element, x, y) {
+      const page = element.closest('.desktop-page');
+      const rect = page ? page.getBoundingClientRect() : pagesEl.getBoundingClientRect();
+      const w = element.offsetWidth || 72;
+      const h = element.offsetHeight || 72;
+      return { x: Math.max(0, Math.min(Math.max(0, rect.width - w), Number(x) || 0)), y: Math.max(0, Math.min(Math.max(0, rect.height - h), Number(y) || 0)) };
+    }
+
+    function handleDesktopItemPointerDown(event, element) {
+      if (event.button !== undefined && event.button !== 0) return;
+      if (element.dataset.kind === 'dock') return;
+      if (event.target.closest('.desktop-delete-dot')) return;
+
+      const startPage = Number(element.closest('.desktop-page')?.dataset.page || currentPage) || 0;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const itemW = element.offsetWidth || 72;
+      const itemH = element.offsetHeight || 72;
+      let moved = false;
+      let holdTimer = null;
+      let holdFired = false;
+
+      try { element.setPointerCapture?.(event.pointerId); } catch (_) {}
+
+      // 长按延时期间允许横向翻页，进入拖拽后改为禁用滚动
+      const prevTouchAction = element.style.touchAction || '';
+      element.style.touchAction = 'pan-x';
+
+      const cleanup = () => {
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        element.style.touchAction = prevTouchAction;
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+      };
+
+      const onMove = (moveEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+
+        // 长按未触发前：横向轻滑优先翻页，不进入拖拽
+        if (!holdFired) {
+          if (Math.abs(deltaX) > 12 && Math.abs(deltaY) < Math.abs(deltaX)) {
+            cleanup();
+            return;
+          }
+          return;
+        }
+
+        moveEvent.preventDefault();
+        if (!moved) {
+          moved = true;
+          editing = true;
+          dragState = { element, startPage, kind: element.dataset.kind, id: element.dataset.kind === 'icon' ? element.dataset.appId : element.dataset.widgetId };
+          element.classList.add('dragging');
+          pagesEl.classList.add('dragging');
+          updateEditingClass();
+          // 进入拖拽后用 fixed 定位脱离页面容器，避免 scrollLeft 偏移和 overflow 裁切
+          element.style.position = 'fixed';
+          element.style.touchAction = 'none';
+        }
+
+        // 始终用视口坐标定位，跟随手指/鼠标
+        const vx = moveEvent.clientX - itemW / 2;
+        const vy = moveEvent.clientY - itemH / 2;
+        element.style.left = `${Math.max(0, Math.min(window.innerWidth - itemW, vx))}px`;
+        element.style.top = `${Math.max(0, Math.min(window.innerHeight - itemH, vy))}px`;
+      };
+
+      const onUp = () => {
+        cleanup();
+        if (!moved) return;
+
+        // 滞回判断目标页：startPage 为 pointerdown 时记录的起始页
+        // 从第一页拖出需 > 0.6 才落第二页；从第二页拖回需 < 0.4 才落第一页；否则回原页
+        const lastCenterX = parseFloat(element.style.left || '0') + itemW / 2;
+        const pageWidth = pagesEl.clientWidth || window.innerWidth;
+        let targetPage = startPage;
+        if (startPage === 0 && lastCenterX > pageWidth * 0.6) targetPage = 1;
+        else if (startPage === 1 && lastCenterX < pageWidth * 0.4) targetPage = 0;
+
+        const targetLayer = getLayer(targetPage);
+        // 恢复 absolute 定位
+        element.style.position = '';
+        if (element.parentElement !== targetLayer) { targetLayer.appendChild(element); }
+
+        // 将视口坐标转换为目标页 layer 的局部坐标
+        const layerRect = targetLayer.getBoundingClientRect();
+        const localX = lastCenterX - layerRect.left - itemW / 2;
+        const localY = parseFloat(element.style.top || '0') - layerRect.top;
+        const position = clampPosition(element, Math.max(0, localX), Math.max(0, localY));
+
+        placeDesktopItem(element, position.x, position.y);
+        saveDesktopItemPosition(element, targetPage, position.x, position.y);
+
+        element.classList.remove('dragging');
+        pagesEl.classList.remove('dragging');
+
+        // 跨页落位后滚动到目标页，让图标可见
+        if (targetPage !== startPage) {
+          pagesEl.scrollTo({ left: targetPage * (pagesEl.clientWidth || window.innerWidth), behavior: 'instant' });
+          currentPage = targetPage;
+          updatePageDots();
+        }
+
+        // 保留编辑态可见删除圆点，但进入静默态停止抖动
+        silentEdit = true;
+        updateEditingClass();
+
+        window.setTimeout(() => { dragState = null; }, 120);
+      };
+
+      // 350ms 长按后才允许进入拖拽，避免横向轻滑误触发编辑态
+      holdTimer = window.setTimeout(() => { holdFired = true; }, 350);
+
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onUp, { passive: true });
+      window.addEventListener('pointercancel', onUp, { passive: true });
+    }
+
+    function handleDockIconPointerDown(event, element) {
+      if (event.button !== undefined && event.button !== 0) return;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const appId = element.dataset.appId;
+      let moved = false;
+      let holdTimer = null;
+      let holdFired = false;
+      try { element.setPointerCapture?.(event.pointerId); } catch (_) {}
+
+      const cleanup = () => {
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+      };
+
+      const onMove = (moveEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+
+        // 长按未触发前：横向轻滑不进入拖拽
+        if (!holdFired) {
+          if (Math.hypot(deltaX, deltaY) > 12) {
+            if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+            cleanup();
+            return;
+          }
+          return;
+        }
+
+        moveEvent.preventDefault();
+        if (!moved) { moved = true; editing = true; dockDragState = { appId }; element.classList.add('dock-dragging'); updateEditingClass(); }
+        element.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.035)`;
+        const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest('.dock .desktop-icon[data-app-id]');
+        if (!target || target === element) return;
+        const box = target.getBoundingClientRect();
+        const before = moveEvent.clientX < box.left + box.width / 2;
+        dockEl.insertBefore(element, before ? target : target.nextSibling);
+      };
+
+      const onUp = () => {
+        cleanup();
+        if (!moved) return;
+        element.classList.remove('dock-dragging');
+        element.style.transform = '';
+        saveDockOrder([...dockEl.querySelectorAll('.desktop-icon[data-app-id]')].map((item) => item.dataset.appId));
+
+        // 保留编辑态但停止抖动，与桌面拖拽一致
+        silentEdit = true;
+        updateEditingClass();
+
+        window.setTimeout(() => { dockDragState = null; }, 120);
+      };
+
+      // 350ms 长按后才允许进入拖拽
+      holdTimer = window.setTimeout(() => { holdFired = true; }, 350);
+
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onUp, { passive: true });
+      window.addEventListener('pointercancel', onUp, { passive: true });
+    }
+
+    function saveDesktopItemPosition(element, page, x, y) {
+      if (element.dataset.kind === 'icon') { const positions = getIconPositions(); positions[element.dataset.appId] = { page, x, y, updatedAt: getNow() }; saveIconPositions(positions); return; }
+      if (element.dataset.kind === 'widget') { const positions = getWidgetPositions(); positions[element.dataset.widgetId] = { page, x, y, updatedAt: getNow() }; saveWidgetPositions(positions); }
+    }
+
+    function updateEditingClass() {
+      document.querySelectorAll('.desktop-icon').forEach((iconEl) => { iconEl.classList.toggle('editing', editing && iconEl.dataset.kind !== 'dock'); });
+      document.querySelectorAll('.dock .desktop-icon').forEach((iconEl) => { iconEl.classList.toggle('editing', editing); });
+      document.querySelectorAll('.desktop-widget').forEach((widgetEl) => { widgetEl.classList.toggle('editing', editing); });
+      desktopEl.classList.toggle('silent-edit', silentEdit);
+    }
+
+    function bindDesktopEvents() {
+      pagesEl.addEventListener('scroll', () => { currentPage = Math.round(pagesEl.scrollLeft / (pagesEl.clientWidth || 1)); updatePageDots(); }, { passive: true });
+      desktopEl.addEventListener('click', (event) => { if (!editing) return; if (event.target.closest('.desktop-icon, .desktop-widget, .dock')) return; editing = false; silentEdit = false; updateEditingClass(); });
+      window.addEventListener('resize', handleWindowResize);
+      window.addEventListener('storage', async () => { await applyAllImages(); refreshBadges(); });
+      window.addEventListener('desktop:refresh', async () => { loadTheme(); applyDesktopScale(); await applyCustomFontFromStorage(); await refreshDesktop(); });
+      window.addEventListener('app-settings-updated', async () => { loadTheme(); applyDesktopScale(); await applyCustomFontFromStorage(); await refreshDesktop(); });
+      window.addEventListener('app-images-updated', applyAllImages);
+    }
+
+    function handleWindowResize() {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const widthChanged = Math.abs(width - lastViewportWidth) > 8;
+      const heightChanged = Math.abs(height - lastViewportHeight) > 120;
+      const activeInput = document.activeElement?.matches?.('input, textarea, select');
+      if (!widthChanged && heightChanged && activeInput) { lastViewportHeight = height; return; }
+      lastViewportWidth = width;
+      lastViewportHeight = height;
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => { renderDesktop(); }, RESIZE_RENDER_DELAY);
+    }
+
+    function updatePageDots() { document.querySelectorAll('.page-dot').forEach((dot) => { dot.classList.toggle('active', Number(dot.dataset.dot) === currentPage); }); }
+
+    function bindLockScreen() {
+      lockPadEl.addEventListener('click', (event) => {
+        const key = event.target.closest('[data-key]')?.dataset.key;
+        if (!key) return;
+        if (key === 'clear') { lockInput = ''; lockErrorEl.textContent = ''; renderLockDots(); return; }
+        if (key === 'delete') { lockInput = lockInput.slice(0, -1); lockErrorEl.textContent = ''; renderLockDots(); return; }
+        if (lockInput.length >= LOCK_PASSWORD.length) return;
+        lockInput += key;
+        lockErrorEl.textContent = '';
+        renderLockDots();
+        if (lockInput.length === LOCK_PASSWORD.length) { window.setTimeout(checkLockPassword, 120); }
+      });
+    }
+
+    function updateLockState() { const unlocked = getData('app_lock_unlocked') === true; lockScreenEl.classList.toggle('hidden', unlocked); if (!unlocked) { lockInput = ''; lockErrorEl.textContent = ''; renderLockDots(); } }
+    function renderLockDots() { [...lockDotsEl.querySelectorAll('.lock-dot')].forEach((dot, index) => { dot.classList.toggle('filled', index < lockInput.length); }); }
+    function checkLockPassword() { if (lockInput === LOCK_PASSWORD) { setData('app_lock_unlocked', true); lockScreenEl.classList.add('hidden'); showToast('解锁啦'); return; } lockInput = ''; lockErrorEl.textContent = '嘿嘿，不对哦'; renderLockDots(); }
+
+    function initWidgets() { updateClock(); clearInterval(clockTimer); clockTimer = window.setInterval(updateClock, 1000); updateWeather(); clearInterval(weatherTimer); weatherTimer = window.setInterval(updateWeather, 1000 * 60 * 30); updateAnniversaryWidget(); updateFocusWidget(); clearInterval(vinylTimer); vinylTimer = window.setInterval(updateVinylWidget, 800); }
+
+    function updateClock() {
+      const now = new Date();
+      const time = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const date = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
+      const clockLarge = document.getElementById('clock-large');
+      const dateLine = document.getElementById('date-line');
+      if (clockLarge) clockLarge.textContent = time;
+      if (dateLine) dateLine.textContent = date;
+    }
+
+    async function updateWeather() {
+      const weatherValueEl = document.getElementById('weather-value');
+      if (!weatherValueEl) return;
+      const cached = getData('app_weather_cache') || getData('weather_cache');
+      const now = Date.now();
+      if (cached && cached.text && now - Number(cached.updatedAt || 0) < 1000 * 60 * 30) { weatherValueEl.textContent = cached.text; return; }
+      try {
+        const response = await fetch('https://wttr.in/?format=j1', { cache: 'no-store' });
+        const data = await response.json();
+        const current = data?.current_condition?.[0] || {};
+        const area = data?.nearest_area?.[0]?.areaName?.[0]?.value || '';
+        const temp = current.temp_C ? `${current.temp_C}℃` : '';
+        const desc = current.lang_zh?.[0]?.value || current.weatherDesc?.[0]?.value || '';
+        const text = [area, temp, desc].filter(Boolean).join(' · ') || '天气躲起来了';
+        weatherValueEl.textContent = text;
+        setData('app_weather_cache', { text, updatedAt: now });
+        setData('weather_cache', { text, updatedAt: now });
+      } catch (_) { weatherValueEl.textContent = cached?.text || '天气躲起来了'; }
+    }
+
+    function updateAnniversaryWidget() {
+      const valueEl = document.getElementById('anniversary-value');
+      if (!valueEl) return;
+      const anniversaries = getAnniversaries();
+      if (!anniversaries.length) { valueEl.textContent = '还没有纪念日呢'; return; }
+      const today = startOfDay(new Date());
+      const next = anniversaries.map((item) => { const date = parseAnniversaryDate(item.date || item.day || item.targetDate); if (!date) return null; let target = new Date(today.getFullYear(), date.getMonth(), date.getDate()); if (target < today) target = new Date(today.getFullYear() + 1, date.getMonth(), date.getDate()); return { ...item, days: Math.round((target - today) / 86400000) }; }).filter(Boolean).sort((a, b) => a.days - b.days)[0];
+      valueEl.textContent = next ? next.days === 0 ? `${next.title || next.name || '纪念日'} 就是今天` : `${next.title || next.name || '纪念日'} 还有 ${next.days} 天` : '还没有纪念日呢';
+    }
+
+    function getAnniversaries() { for (const key of ['anniversaries', 'app_anniversaries', 'anniversary_list']) { const value = getData(key); if (Array.isArray(value)) return value; } return []; }
+    function parseAnniversaryDate(value) { if (!value) return null; const date = new Date(value); return Number.isNaN(date.getTime()) ? null : date; }
+    function startOfDay(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
+
+    function updateFocusWidget() {
+      const titleEl = document.getElementById('focus-title');
+      const textEl = document.getElementById('focus-text');
+      if (!titleEl || !textEl) return;
+      const focus = getData('app_focus_widget');
+      if (focus && typeof focus === 'object') { titleEl.textContent = focus.title || '今天也要好好休息'; textEl.textContent = focus.text || '打开聊天，看看谁在想你'; }
+    }
+
+    function updateVinylWidget() {
+      const disc = document.getElementById('vinyl-disc');
+      const coverEl = document.getElementById('vinyl-cover');
+      const titleEl = document.getElementById('vinyl-title');
+      const artistEl = document.getElementById('vinyl-artist');
+      const playBtnEl = document.getElementById('vinyl-play-btn');
+
+      if (!disc) return;
+
+      const player = window.musicPlayer;
+      const isPlaying = player?.isPlaying?.() || false;
+      const song = player?.getCurrentSong?.() || null;
+
+      disc.classList.toggle('spinning', isPlaying);
+
+      if (coverEl) {
+        if (song?.cover) {
+          coverEl.innerHTML = '';
+          const img = document.createElement('img');
+          img.src = song.cover;
+          img.alt = '';
+          coverEl.appendChild(img);
+        } else if (!coverEl.querySelector('.vinyl-cover-placeholder')) {
+          coverEl.innerHTML = '';
+          const ph = document.createElement('div');
+          ph.className = 'vinyl-cover-placeholder';
+          ph.appendChild(createIcon('music', 14));
+          coverEl.appendChild(ph);
+        }
+      }
+
+      if (titleEl) titleEl.textContent = song?.title || '还没有歌曲呢';
+      if (artistEl) artistEl.textContent = song ? (song.artist || '未知艺术家') : '去音乐里挑一首吧';
+
+      if (playBtnEl) {
+        const svg = playBtnEl.querySelector('svg');
+        if (svg) {
+          const newIcon = createIcon(isPlaying ? 'pause' : 'play', 18);
+          svg.replaceWith(newIcon);
+        }
+      }
+    }
+
+    async function openApp(appId, options = {}) {
+      const app = APPS.find((item) => item.id === appId);
+      if (!app) return;
+      editing = false;
+      silentEdit = false;
+      updateEditingClass();
+      if (!app.ready || !app.module) { openPlaceholderApp(app); return; }
+      try {
+        closeCurrentApp({ silent: true });
+        appLayerEl.classList.add('has-app');
+        appLayerEl.innerHTML = '';
+        const module = await import(app.module);
+        currentAppModule = module;
+        currentAppId = app.id;
+        const context = createAppContext(app, options);
+        const mountOptions = { ...context, ...options };
+        if (typeof module.mount === 'function') { await module.mount(appLayerEl, mountOptions); }
+        else if (typeof module.render === 'function') { await module.render(appLayerEl, mountOptions); }
+        else if (typeof module.open === 'function') { await module.open(appLayerEl, mountOptions); }
+        else if (typeof module.default === 'function') { await module.default(appLayerEl, mountOptions); }
+        else { openPlaceholderApp(app); }
+        await applyAllImages();
+      } catch (error) { console.error(error); openPlaceholderApp(app, '哎呀，出了点小问题'); }
+    }
+
+    function createAppContext(app, options = {}) {
+      return {
+        app, appId: app.id, appLayer: appLayerEl,
+        closeApp: closeCurrentApp, closeCurrentApp,
+        showToast, createIcon,
+        getData, setData, removeData, getDB, setDB, deleteDB, getAllDB, generateId, getNow,
+        images: window.AppImages,
+        refreshDesktop, refreshBadges, refreshDesktopImages: applyAllImages,
+        emit: window.AppEvents.emit, on: window.AppEvents.on,
+        appBus: window.AppBus,
+        openApp: window.AppBus.openApp,
+        options
+      };
+    }
+
+    function openPlaceholderApp(app, message = '马上就好，先别急') {
+      closeCurrentApp({ silent: true });
+      appLayerEl.classList.add('has-app');
+      currentAppId = app.id;
+      currentAppModule = null;
+
+      const root = document.createElement('section');
+      root.className = 'placeholder-app';
+      root.dataset.imageKey = `app_bg_${app.id}`;
+
+      const topbar = document.createElement('div');
+      topbar.className = 'app-topbar';
+      const backButton = document.createElement('button');
+      backButton.className = 'app-back'; backButton.type = 'button'; backButton.setAttribute('aria-label', '返回桌面'); backButton.appendChild(createIcon('back', 20));
+      backButton.addEventListener('click', () => closeCurrentApp());
+      const title = document.createElement('div');
+      title.className = 'app-title'; title.textContent = app.name;
+      const spacer = document.createElement('div');
+      spacer.className = 'app-topbar-spacer';
+
+      const body = document.createElement('div');
+      body.className = 'placeholder-body';
+      const card = document.createElement('div');
+      card.className = 'placeholder-card';
+      const icon = document.createElement('div');
+      icon.className = 'placeholder-icon'; icon.appendChild(createIcon(app.icon, 28));
+      const heading = document.createElement('h2');
+      heading.className = 'placeholder-title'; heading.textContent = app.name;
+      const text = document.createElement('p');
+      text.className = 'placeholder-text'; text.textContent = message;
+
+      topbar.append(backButton, title, spacer);
+      card.append(icon, heading, text);
+      body.appendChild(card);
+      root.append(topbar, body);
+
+      appLayerEl.innerHTML = '';
+      appLayerEl.appendChild(root);
+      applyPlaceholderImages(app, root, icon);
+    }
+
+    async function applyPlaceholderImages(app, root, icon) {
+      await applyImageToElement(root, `app_bg_${app.id}`, { opacity: false });
+      const record = await readIconRecord(app);
+      const image = getImageFromRecord(record);
+      if (image) {
+        icon.innerHTML = '';
+        const img = document.createElement('img');
+        img.alt = ''; img.src = image;
+        img.style.opacity = String(getOpacityFromRecord(record));
+        img.addEventListener('error', () => { icon.innerHTML = ''; icon.appendChild(createIcon(app.icon, 28)); });
+        icon.appendChild(img);
+      }
+    }
+
+    function closeCurrentApp(options = {}) {
+      if (currentAppModule && typeof currentAppModule.unmount === 'function') { try { currentAppModule.unmount(); } catch (error) { console.error(error); } }
+      currentAppModule = null;
+      currentAppId = '';
+      appLayerEl.innerHTML = '';
+      appLayerEl.classList.remove('has-app');
+      if (!options.silent) { refreshBadges(); applyAllImages(); }
+    }
+
+    function setupAppEvents() {
+      window.addEventListener('app-close', () => closeCurrentApp());
+      window.addEventListener('app-lock', () => { setData('app_lock_unlocked', false); updateLockState(); });
+    }
+
+    function refreshBadges() {
+      const unreadMap = getUnreadMap();
+      document.querySelectorAll('[data-badge]').forEach((badgeEl) => {
+        const count = Number(unreadMap[badgeEl.dataset.badge] || 0);
+        const wasHidden = badgeEl.classList.contains('hidden');
+        if (count > 0) {
+          badgeEl.textContent = count > 99 ? '99+' : String(count);
+          badgeEl.classList.remove('hidden');
+          if (wasHidden) {
+            badgeEl.classList.add('badge-pop');
+            badgeEl.addEventListener('animationend', function onEnd() {
+              badgeEl.classList.remove('badge-pop');
+            }, { once: true });
+          }
+        } else {
+          badgeEl.textContent = '';
+          badgeEl.classList.add('hidden');
+          badgeEl.classList.remove('badge-pop');
+        }
+      });
+    }
+
+    function getUnreadMap() {
+      const map = {};
+      let chatTotal = 0;
+      const chatUnreadCounts = getData('chat_unread_counts');
+      if (chatUnreadCounts && typeof chatUnreadCounts === 'object') { chatTotal += Object.values(chatUnreadCounts).reduce((sum, value) => sum + Number(value || 0), 0); }
+      const chatGroupUnreadCounts = getData('chat_group_unread_counts');
+      if (chatGroupUnreadCounts && typeof chatGroupUnreadCounts === 'object') { chatTotal += Object.values(chatGroupUnreadCounts).reduce((sum, value) => sum + Number(value || 0), 0); }
+      if (chatTotal > 0) map.chat = chatTotal;
+      const momentsUnread = getData('moments_unread_count');
+      if (Number(momentsUnread) > 0) map.moments = Number(momentsUnread);
+      const gamesUnread = getData('games_unread_count');
+      if (Number(gamesUnread) > 0) map.games = Number(gamesUnread);
+      return map;
+    }
+  </script>
+</body>
+</html>
+<!-- depends: ./core/storage.js:initDB,getData,setData,removeData,getDB,setDB,deleteDB,getAllDB,generateId,getNow; ./core/theme.js:loadTheme; ./core/ui.js:createIcon,showToast; ./apps/chat/thread-ai-local.js:seedDefaultCharacter; app modules optional exports: mount/render/open/default/unmount -->
